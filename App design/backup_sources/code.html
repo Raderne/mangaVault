@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Library Archive - Backup &amp; Sources</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        body {
+            background-color: #111415;
+            color: #e1e2e4;
+            font-family: 'Inter', sans-serif;
+        }
+        .bento-cell {
+            background-color: #1d2022;
+            border: 1px solid rgba(70, 70, 76, 0.3);
+            border-radius: 24px;
+            padding: 24px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .bento-cell:hover {
+            background-color: #282a2c;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            transform: translateY(-2px);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #46464c;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary": "#1800a7",
+                        "inverse-primary": "#5a5d70",
+                        "background": "#111415",
+                        "surface-dim": "#111415",
+                        "on-tertiary": "#272475",
+                        "tertiary": "#c2c1ff",
+                        "error-container": "#93000a",
+                        "surface-container-low": "#191c1e",
+                        "on-secondary-fixed": "#0c006b",
+                        "on-primary": "#2c3040",
+                        "inverse-surface": "#e1e2e4",
+                        "on-background": "#e1e2e4",
+                        "primary-fixed": "#dee1f8",
+                        "surface-container-highest": "#323537",
+                        "primary-container": "#1a1e2e",
+                        "on-error": "#690005",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#424658",
+                        "on-secondary-fixed-variant": "#332dbc",
+                        "on-surface": "#e1e2e4",
+                        "on-primary-fixed": "#171b2b",
+                        "outline-variant": "#46464c",
+                        "secondary-fixed-dim": "#c2c1ff",
+                        "on-error-container": "#ffdad6",
+                        "secondary-container": "#3630bf",
+                        "surface": "#111415",
+                        "outline": "#909097",
+                        "tertiary-fixed": "#e2dfff",
+                        "inverse-on-surface": "#2e3132",
+                        "surface-container": "#1d2022",
+                        "on-primary-container": "#828599",
+                        "on-tertiary-container": "#7f7ed2",
+                        "tertiary-fixed-dim": "#c2c1ff",
+                        "surface-variant": "#323537",
+                        "surface-container-high": "#282a2c",
+                        "primary-fixed-dim": "#c2c5db",
+                        "on-tertiary-fixed-variant": "#3e3d8c",
+                        "tertiary-container": "#140d64",
+                        "primary": "#c2c5db",
+                        "surface-tint": "#c2c5db",
+                        "on-tertiary-fixed": "#100761",
+                        "surface-bright": "#37393b",
+                        "on-secondary-container": "#b1b1ff",
+                        "on-surface-variant": "#c7c6cd",
+                        "secondary": "#c2c1ff",
+                        "surface-container-lowest": "#0c0f10",
+                        "secondary-fixed": "#e2dfff"
+                    },
+                    "spacing": {
+                        "module-padding": "20px",
+                        "container-padding": "24px",
+                        "radius-xl": "32px",
+                        "gutter": "16px",
+                        "unit": "8px",
+                        "radius-lg": "24px"
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface antialiased pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background/80 dark:bg-background/80 backdrop-blur-xl border-b border-outline-variant/30 flex justify-between items-center px-container-padding h-16">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-2xl">grid_view</span>
+<h1 class="text-title-md font-title-md font-bold tracking-tight text-primary">Library Archive</h1>
+</div>
+<div class="flex items-center gap-6">
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high transition-colors p-2 rounded-full">search</button>
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional close-up portrait of a digital archive curator, featuring soft lighting and a minimalist, cool-toned background. The subject is wearing a dark, textured sweater, conveying a sense of intellectual precision and professional reliability. The overall aesthetic is clean, high-end, and perfectly aligned with a premium digital library theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrQ7Myv4t08D49HMXPdOyyMzxRzhNfIRSIFIHPHi_5mhcfWfshum5H-nO-SvKsYXQgvYwxuHIFrfBwLDGtChVjmgDrMOlaWTuKgXWlgQVEQ4tp2sumfvudFJa1blt1BO318gMbJ-fV40PINlUPHUE4WZTqW8PbWmzPhWX_qHMFv4vXKx9elDsmcW7KlRBAnPyyQmkUCb4sfqntCHqqkL3EQEFFTxIWcZlgDrZnPnm43xpbIPQE6zDkAXk3PxNEJffDPPJMUgTD8Uw"/>
+</div>
+</div>
+</header>
+<main class="pt-24 px-container-padding max-w-7xl mx-auto min-h-screen">
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter mb-24">
+<!-- Import Backup (Large CTA) -->
+<section class="md:col-span-8 bento-cell flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute -right-16 -top-16 w-64 h-64 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors"></div>
+<div class="relative z-10">
+<span class="text-label-caps font-label-caps text-on-primary-container block mb-2 uppercase tracking-widest">Initialization</span>
+<h2 class="text-headline-lg font-headline-lg text-primary mb-4">Import Backup</h2>
+<p class="text-body-lg font-body-lg text-on-surface-variant max-w-md">Restore your entire library, reading progress, and curated collections from a .json or .tachibk file.</p>
+</div>
+<div class="relative z-10 mt-8 flex flex-wrap gap-4">
+<button class="bg-secondary-container text-on-secondary-container px-8 py-4 rounded-full font-semibold flex items-center gap-2 hover:scale-95 transition-all duration-150">
+<span class="material-symbols-outlined">upload_file</span>
+                        Select Local File
+                    </button>
+<button class="border border-outline-variant text-on-surface-variant px-8 py-4 rounded-full font-semibold hover:bg-surface-container-high transition-colors">
+                        Documentation
+                    </button>
+</div>
+</section>
+<!-- Storage Used -->
+<section class="md:col-span-4 bento-cell flex flex-col">
+<div class="flex justify-between items-start mb-6">
+<div>
+<span class="text-label-caps font-label-caps text-on-primary-container block mb-1 uppercase tracking-widest">Metadata Capacity</span>
+<h3 class="text-title-md font-title-md">Storage Used</h3>
+</div>
+<span class="material-symbols-outlined text-primary">analytics</span>
+</div>
+<div class="flex-grow flex flex-col justify-end">
+<div class="flex items-end gap-2 h-32 mb-4">
+<div class="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary/40 h-[40%]"></div>
+<div class="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary/40 h-[65%]"></div>
+<div class="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary/40 h-[30%]"></div>
+<div class="flex-1 bg-primary rounded-t-lg transition-all hover:bg-primary/80 h-[85%]"></div>
+<div class="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary/40 h-[50%]"></div>
+<div class="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary/40 h-[45%]"></div>
+</div>
+<div class="flex justify-between text-label-caps font-label-caps text-on-surface-variant">
+<span>1.2 GB / 5.0 GB</span>
+<span class="text-primary">24%</span>
+</div>
+</div>
+</section>
+<!-- Active Sources (List) -->
+<section class="md:col-span-7 bento-cell">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h3 class="text-title-md font-title-md">Active Sources</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Manage external app integrations</p>
+</div>
+<button class="text-primary text-label-caps font-label-caps hover:underline">REFRESH ALL</button>
+</div>
+<div class="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+<!-- Source Item: Mihon -->
+<div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-high/40 border border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-indigo-400">auto_stories</span>
+</div>
+<div>
+<p class="font-semibold text-on-surface">Mihon</p>
+<p class="text-xs text-on-surface-variant">Last synced: 12m ago</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+</label>
+</div>
+<!-- Source Item: Tachiyomi -->
+<div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-high/40 border border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-orange-400">menu_book</span>
+</div>
+<div>
+<p class="font-semibold text-on-surface">Tachiyomi</p>
+<p class="text-xs text-on-surface-variant">Last synced: 2h ago</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+</label>
+</div>
+<!-- Source Item: Aniyomi -->
+<div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-high/40 border border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-400">play_circle</span>
+</div>
+<div>
+<p class="font-semibold text-on-surface">Aniyomi</p>
+<p class="text-xs text-on-surface-variant">Sync pending</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Cloud Sync Status -->
+<section class="md:col-span-5 bento-cell flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-title-md font-title-md">Cloud Sync</h3>
+<span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold">ACTIVE</span>
+</div>
+<div class="space-y-6">
+<div class="flex items-center gap-4">
+<div class="p-3 rounded-full bg-surface-container-high">
+<span class="material-symbols-outlined text-primary fill-icon">cloud_done</span>
+</div>
+<div>
+<p class="font-semibold text-on-surface">Google Drive</p>
+<p class="text-xs text-on-surface-variant">archive_backup_2024_05.json</p>
+</div>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1 overflow-hidden">
+<div class="bg-primary h-full w-[72%] shadow-[0_0_8px_rgba(194,197,219,0.5)]"></div>
+</div>
+</div>
+</div>
+<div class="mt-8 grid grid-cols-2 gap-4">
+<div class="p-4 rounded-xl bg-surface-container-high/20 border border-outline-variant/10">
+<p class="text-xs text-on-surface-variant mb-1">Last Sync</p>
+<p class="font-bold text-on-surface">2m ago</p>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-high/20 border border-outline-variant/10">
+<p class="text-xs text-on-surface-variant mb-1">Status</p>
+<p class="font-bold text-on-surface text-emerald-400">Success</p>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 bg-surface-container/80 backdrop-blur-xl border-t border-outline-variant/20 shadow-[0_-4px_20px_rgba(0,0,0,0.3)] flex justify-around items-center h-20 px-4 pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 transition-all hover:text-primary" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-label-caps font-label-caps mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 transition-all hover:text-primary" href="#">
+<span class="material-symbols-outlined">auto_stories</span>
+<span class="text-label-caps font-label-caps mt-1">Library</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl px-4 py-1.5 transition-all scale-90" href="#">
+<span class="material-symbols-outlined fill-icon">backup</span>
+<span class="text-label-caps font-label-caps mt-1">Backups</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 transition-all hover:text-primary" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="text-label-caps font-label-caps mt-1">Sources</span>
+</a>
+</nav>
+<!-- Side Navigation (Desktop Only) -->
+<aside class="hidden md:flex fixed left-0 top-16 h-[calc(100vh-64px)] w-20 flex-col items-center py-8 gap-8 border-r border-outline-variant/30 bg-surface-container-low">
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container-highest transition-transform hover:translate-x-1 duration-200">
+<span class="material-symbols-outlined">home</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container-highest transition-transform hover:translate-x-1 duration-200">
+<span class="material-symbols-outlined">library_books</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-xl bg-secondary-container text-on-secondary-container shadow-xl transition-all opacity-80">
+<span class="material-symbols-outlined fill-icon">backup</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container-highest transition-transform hover:translate-x-1 duration-200">
+<span class="material-symbols-outlined">cloud_done</span>
+</button>
+<div class="mt-auto flex flex-col gap-6">
+<button class="w-12 h-12 flex items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container-highest transition-transform hover:translate-x-1 duration-200">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</aside>
+<script>
+        // Micro-interactions for toggles and buttons
+        document.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
+            toggle.addEventListener('change', (e) => {
+                const parent = e.target.closest('.flex-center');
+                if (e.target.checked) {
+                    console.log('Source enabled');
+                } else {
+                    console.log('Source disabled');
+                }
+            });
+        });
+
+        // Hover effect for bento cells
+        document.querySelectorAll('.bento-cell').forEach(cell => {
+            cell.addEventListener('mouseenter', () => {
+                // Potential for adding shader noise or light follow effect
+            });
+        });
+    </script>
+</body></html>
