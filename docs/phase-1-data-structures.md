@@ -2,9 +2,12 @@
 
 Three layers, in data-flow order:
 
-1. **Wire layer** — mirrors Mihon's protobuf exactly (never edit field numbers).
-2. **Domain layer** — normalized MangaVault model the app works with.
-3. **Persistence layer** — SQLite schema + vault folder layout.
+1. **Wire layer** — mirrors Mihon's protobuf exactly (never edit field numbers). Lives in
+   `server/` (parsing is server-side).
+2. **Domain layer** — normalized MangaVault model. Defined in TypeScript for the NestJS
+   backend; the Flutter app mirrors the API-facing subset as Dart models
+   (`json_serializable`).
+3. **Persistence layer** — PostgreSQL schema + server storage layout.
 
 ---
 
@@ -300,95 +303,104 @@ export interface BackupHealth {
 
 ## 3. Persistence layer
 
-### 3.1 Vault folder layout
+### 3.1 Server storage layout
+
+Postgres holds all structured data; binary artifacts live on server disk with paths in the DB:
 
 ```
-<vault-root>/
-  vault.db              # SQLite
-  covers/<vaultId>.<ext>
-  imports/<sha256>.tachibk   # original files kept verbatim (fail-safe of the fail-safe)
+server/storage/            # configurable via STORAGE_DIR env
+  covers/<vaultId>.<ext>          # archived cover images (served via API)
+  covers/<vaultId>.custom.<ext>   # user-uploaded custom covers
+  imports/<sha256>.tachibk        # original files kept verbatim (fail-safe of the fail-safe)
   exports/
 ```
 
-### 3.2 SQLite schema
+### 3.2 PostgreSQL schema
+
+(Reference DDL — realized as TypeORM entities + generated migrations in `server/`.)
 
 ```sql
 CREATE TABLE manga (
-  id            TEXT PRIMARY KEY,
-  source_id     TEXT NOT NULL,
+  id            UUID PRIMARY KEY,
+  source_id     TEXT NOT NULL,          -- int64 as decimal string
   manga_url     TEXT NOT NULL,
   source_name   TEXT NOT NULL DEFAULT '',
   title         TEXT NOT NULL,
   author        TEXT, artist TEXT, description TEXT,
-  genres        TEXT NOT NULL DEFAULT '[]',   -- JSON array
+  genres        JSONB NOT NULL DEFAULT '[]',
   status        TEXT NOT NULL DEFAULT 'unknown',
   thumbnail_url TEXT,
   cover_path    TEXT,
   cover_state   TEXT NOT NULL DEFAULT 'none',
   notes         TEXT NOT NULL DEFAULT '',
-  favorite      INTEGER NOT NULL DEFAULT 1,
-  date_added    INTEGER NOT NULL DEFAULT 0,
-  updated_at    INTEGER NOT NULL,
+  favorite      BOOLEAN NOT NULL DEFAULT TRUE,
+  date_added    BIGINT NOT NULL DEFAULT 0,     -- epoch millis
+  updated_at    BIGINT NOT NULL,
+  search_tsv    TSVECTOR GENERATED ALWAYS AS (
+                  to_tsvector('simple',
+                    coalesce(title,'') || ' ' || coalesce(author,'') || ' ' ||
+                    coalesce(artist,''))
+                ) STORED,
   UNIQUE (source_id, manga_url)
 );
 
 CREATE TABLE chapter (
-  id             TEXT PRIMARY KEY,
-  manga_id       TEXT NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
+  id             UUID PRIMARY KEY,
+  manga_id       UUID NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
   url            TEXT NOT NULL,
   name           TEXT NOT NULL,
-  chapter_number REAL NOT NULL DEFAULT -1,
+  chapter_number DOUBLE PRECISION NOT NULL DEFAULT -1,
   scanlator      TEXT,
-  read           INTEGER NOT NULL DEFAULT 0,
-  bookmark       INTEGER NOT NULL DEFAULT 0,
-  last_page_read INTEGER NOT NULL DEFAULT 0,
-  date_upload    INTEGER NOT NULL DEFAULT 0,
-  date_fetch     INTEGER NOT NULL DEFAULT 0,
-  source_order   INTEGER NOT NULL DEFAULT 0,
-  last_read_at   INTEGER,
-  read_duration  INTEGER NOT NULL DEFAULT 0,
+  read           BOOLEAN NOT NULL DEFAULT FALSE,
+  bookmark       BOOLEAN NOT NULL DEFAULT FALSE,
+  last_page_read BIGINT NOT NULL DEFAULT 0,
+  date_upload    BIGINT NOT NULL DEFAULT 0,
+  date_fetch     BIGINT NOT NULL DEFAULT 0,
+  source_order   BIGINT NOT NULL DEFAULT 0,
+  last_read_at   BIGINT,
+  read_duration  BIGINT NOT NULL DEFAULT 0,
   UNIQUE (manga_id, url)
 );
 
 CREATE TABLE category (
-  id    TEXT PRIMARY KEY,
+  id    UUID PRIMARY KEY,
   name  TEXT NOT NULL UNIQUE,
   sort  INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE manga_category (
-  manga_id    TEXT NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
-  category_id TEXT NOT NULL REFERENCES category(id) ON DELETE CASCADE,
+  manga_id    UUID NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
+  category_id UUID NOT NULL REFERENCES category(id) ON DELETE CASCADE,
   PRIMARY KEY (manga_id, category_id)
 );
 
 CREATE TABLE tracking (
-  id        TEXT PRIMARY KEY,
-  manga_id  TEXT NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
+  id        UUID PRIMARY KEY,
+  manga_id  UUID NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
   tracker   TEXT NOT NULL,
-  remote_id TEXT NOT NULL,
+  remote_id TEXT NOT NULL,                -- int64 as decimal string
   tracking_url TEXT NOT NULL DEFAULT '',
   title     TEXT NOT NULL DEFAULT '',
-  last_chapter_read REAL NOT NULL DEFAULT 0,
+  last_chapter_read DOUBLE PRECISION NOT NULL DEFAULT 0,
   total_chapters    INTEGER NOT NULL DEFAULT 0,
-  score     REAL NOT NULL DEFAULT 0,
+  score     DOUBLE PRECISION NOT NULL DEFAULT 0,
   status    INTEGER NOT NULL DEFAULT 0,
-  started_at INTEGER, finished_at INTEGER,
+  started_at BIGINT, finished_at BIGINT,
   UNIQUE (manga_id, tracker)
 );
 
 CREATE TABLE import_record (
-  id         TEXT PRIMARY KEY,
+  id         UUID PRIMARY KEY,
   file_name  TEXT NOT NULL,
-  file_size  INTEGER NOT NULL,
+  file_size  BIGINT NOT NULL,
   sha256     TEXT NOT NULL UNIQUE,
   source_app TEXT NOT NULL DEFAULT '',
   container  TEXT NOT NULL,
-  imported_at INTEGER NOT NULL,
-  stats      TEXT NOT NULL DEFAULT '{}'      -- JSON ImportStats
+  imported_at BIGINT NOT NULL,
+  stats      JSONB NOT NULL DEFAULT '{}'
 );
 CREATE TABLE manga_import (
-  manga_id  TEXT NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
-  import_id TEXT NOT NULL REFERENCES import_record(id) ON DELETE CASCADE,
+  manga_id  UUID NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
+  import_id UUID NOT NULL REFERENCES import_record(id) ON DELETE CASCADE,
   PRIMARY KEY (manga_id, import_id)
 );
 
@@ -396,13 +408,14 @@ CREATE TABLE known_source (
   source_id TEXT PRIMARY KEY,
   name      TEXT NOT NULL,
   base_url  TEXT,
-  fetch_hint TEXT                              -- JSON coverFetchHint
+  fetch_hint JSONB
 );
 
-CREATE INDEX idx_manga_title   ON manga(title);
+CREATE INDEX idx_manga_search  ON manga USING GIN (search_tsv);
+CREATE INDEX idx_manga_trgm    ON manga USING GIN (title gin_trgm_ops); -- pg_trgm, substring search
 CREATE INDEX idx_manga_status  ON manga(status);
 CREATE INDEX idx_chapter_manga ON chapter(manga_id);
 ```
 
-Full-text search over `title || author || genres` via FTS5 shadow table `manga_fts`
-(kept in sync by triggers) — needed for instant search at 1,000+ titles.
+Search strategy at 1,000+ titles: `tsvector` GIN index for word search + `pg_trgm` for
+substring/typo-tolerant title matching (genres filtered via the JSONB column).

@@ -31,11 +31,11 @@ Verified against the Mihon source in `MihonApp/mihon/` (Apache 2.0):
 - Source IDs: `HttpSource.generateId` = first 64 bits of `MD5("name/lang/versionId")`, sign bit
   cleared. `backupSources` in each backup maps id → human-readable name, which is all MangaVault
   needs for source attribution.
-- **Implication for MangaVault:** we cannot run Android extension code, so we fetch covers with a
-  desktop-browser User-Agent and set `Referer` to the thumbnail URL's origin. That works for the
-  majority of sources; failures are recorded per-title so the user can retry or upload a custom
-  cover. Covers are downloaded **at import time** into permanent storage — archival means not
-  depending on URLs that rot.
+- **Implication for MangaVault:** we cannot run Android extension code, so the NestJS server
+  fetches covers with a browser-like User-Agent and sets `Referer` to the thumbnail URL's origin.
+  That works for the majority of sources; failures are recorded per-title so the user can retry
+  or upload a custom cover. Covers are downloaded **at import time** into permanent server
+  storage — archival means not depending on URLs that rot.
 - Chapter page images require per-site parsing logic that lives in extensions → **out of scope
   for v1**. The architecture leaves a seam (`SourceAdapter`) so full-content archiving can be
   added later.
@@ -47,20 +47,18 @@ Verified against the Mihon source in `MihonApp/mihon/` (Apache 2.0):
 - Design system: "Minimalist Slate" (`App design/minimalist_slate/DESIGN.md`) — dark bento-grid
   UI, exact tokens provided. Mockups exist as Tailwind HTML for all four screens.
 
-## 2. Recommended stack (pending your confirmation)
+## 2. Chosen stack (user decision)
 
-The mockups are desktop-oriented Tailwind HTML, and the job is "safe local archive", so:
-
-- **App shell: Tauri 2 desktop app** (data lives in real files on disk you can back up — the
-  whole point of the app) with a **React 18 + TypeScript + Vite + Tailwind** frontend.
-  - Fallback option: pure web app (PWA) with IndexedDB — zero install, but storage is
-    browser-evictable, which undermines the "fail-safe archive" goal.
-- **Storage: SQLite** (via `tauri-plugin-sql`) for the library DB + a `covers/` directory of
-  image files; both inside a user-chosen vault folder.
-- **Parsing: TypeScript in the frontend** — gunzip via `DecompressionStream('gzip')`, protobuf
-  via `protobufjs` with a hand-written `.proto` mirroring Mihon's field numbers (schema in
-  Phase 1). No Rust needed for v1 beyond Tauri's built-ins (fs, sql, http).
-- **Cover fetching through the Tauri HTTP plugin** (no CORS restrictions, custom headers allowed).
+- **Mobile app:** Flutter (Dart), Android-first, in `app/`. Pure client: uploads backups,
+  browses the library, renders the four designed screens with the Minimalist Slate theme
+  (its tokens are Material 3 color roles — map straight onto `ColorScheme`).
+- **Backend:** NestJS (TypeScript) in `server/`. Owns everything archival: `.tachibk` parsing
+  (Node `zlib.gunzipSync` + `protobufjs` with a hand-written `.proto` mirroring Mihon's field
+  numbers), merge/dedup, cover fetching + permanent cover storage, stats, export.
+- **Database:** PostgreSQL. Migrations managed in `server/` (TypeORM or Prisma). Original
+  backup files and cover images stored on server disk (`storage/` dir), paths in Postgres.
+- **API:** REST + multipart upload for backup files; JSON responses; pagination everywhere the
+  library is listed.
 
 ## 3. Execution plan for the phases
 
@@ -74,21 +72,25 @@ The mockups are desktop-oriented Tailwind HTML, and the job is "safe local archi
 
 Implementation milestones (the order Phase 3's to-dos follow):
 
-1. **M1 – Skeleton:** scaffold Tauri+React+Vite+Tailwind, design tokens, app shell + navigation.
-2. **M2 – Import pipeline:** `.tachibk` decode (gzip+proto) → normalized domain model → SQLite,
-   with dedup across multiple backups and an import-review UI.
-3. **M3 – Library & details:** Library Archive grid (virtualized, filter/sort/search) and Title
-   Details screen fed from the DB.
-4. **M4 – Covers:** background cover downloader with header spoofing, permanent cover store,
-   per-title failure states + custom cover upload.
-5. **M5 – Dashboard & health:** stats bento cells, backup health (staleness per source app),
-   resume-reading list.
-6. **M6 – Vault safety:** export (own JSON format + re-export as `.tachibk`), vault folder
-   backup/integrity check, legacy JSON import.
+1. **M1 – Skeletons:** scaffold NestJS (`server/`) with Postgres + migrations, scaffold Flutter
+   (`app/`) with theme from design tokens, app shell + navigation, docker-compose for local dev.
+2. **M2 – Import pipeline (server):** `.tachibk` decode (gzip+proto) → normalized domain model
+   → Postgres, dedup across multiple backups; upload + import-review endpoints; import UI in app.
+3. **M3 – Library & details:** paginated library API + Library Archive grid
+   (filter/sort/search) and Title Details screen in Flutter.
+4. **M4 – Covers (server):** background cover downloader with header spoofing, permanent cover
+   store served over the API, per-title failure states + custom cover upload from the app.
+5. **M5 – Dashboard & health:** stats endpoints + bento dashboard, backup health (staleness per
+   source app), resume-reading list.
+6. **M6 – Vault safety:** export (own JSON format + re-export as `.tachibk`), server storage
+   integrity check, legacy JSON import, deployment setup.
 
 ## 4. Open decisions (defaults chosen, flag if you disagree)
 
-1. **Tauri desktop vs. web app** — defaulting to Tauri (§2).
-2. **Chapter-image archiving** — deferred past v1 (needs per-site parsers).
-3. **Cloud sync** — the Backup & Sources mockup shows cloud settings; deferred past v1, vault
-   folder is syncable by Dropbox/Drive/etc. externally in the meantime.
+1. **ORM** — TypeORM vs. Prisma for the NestJS/Postgres layer; Phase 3 assumes TypeORM
+   (tighter NestJS integration), trivial to swap before M1.
+2. **Auth** — single-user personal server; v1 uses a simple static API token. Real auth only if
+   the server is ever exposed publicly.
+3. **Chapter-image archiving** — deferred past v1 (needs per-site parsers).
+4. **Cloud sync** — the Backup & Sources mockup shows cloud settings; deferred past v1 — the
+   server's Postgres + storage dir can be backed up externally in the meantime.

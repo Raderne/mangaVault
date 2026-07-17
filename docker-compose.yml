@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mangavault-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mangavault}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mangavault}
+      POSTGRES_DB: ${POSTGRES_DB:-mangavault}
+    ports:
+      # Host port 5433 by default: 5432 is often taken by other local projects.
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mangavault}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Production server container (local dev runs `npm run start:dev` on the host instead).
+  # Start with: docker compose --profile prod up -d
+  server:
+    profiles: ["prod"]
+    build: ./server
+    container_name: mangavault-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-mangavault}:${POSTGRES_PASSWORD:-mangavault}@postgres:5432/${POSTGRES_DB:-mangavault}
+      STORAGE_DIR: /data/storage
+      # Required in prod: the guard rejects every request if unset (fail-closed).
+      API_TOKEN: ${API_TOKEN:-}
+      PORT: 3000
+    ports:
+      - "${SERVER_PORT:-3000}:3000"
+    volumes:
+      - serverstorage:/data/storage
+
+volumes:
+  pgdata:
+  serverstorage:

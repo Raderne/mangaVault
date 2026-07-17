@@ -1,9 +1,11 @@
 # Phase 2 — Interfaces & API Stubs
 
-All types referenced here are defined in `docs/phase-1-data-structures.md`. These interfaces are
-the seams of the app: UI components depend only on these, implementations live behind them.
-Planned source layout: `src/services/*` (implementations), `src/services/contracts.ts` (these
-interfaces), `src/lib/tachibk/*` (parsing).
+All types referenced here are defined in `docs/phase-1-data-structures.md`. These are **NestJS
+backend contracts** — controllers depend only on these interfaces, implementations live behind
+them as injectable providers. Planned layout: `server/src/tachibk/*` (pure parsing lib, no Nest
+deps), `server/src/modules/<import|library|covers|stats|storage|export>/*` (Nest modules
+implementing one contract each). The Flutter app never sees these — it consumes the REST API in
+§8, mirrored as Dart models + a repository layer (`app/lib/data/`).
 
 ```ts
 // ============================================================
@@ -50,10 +52,10 @@ export interface NormalizedBackup {
 
 export interface ImportService {
   /** Hash file, reject exact duplicates, parse, normalize, preview merge. */
-  stage(file: File): Promise<StagedImport>;
+  stage(file: Buffer, fileName: string): Promise<StagedImport>;
   /** Apply a staged import inside one DB transaction; archives the original file. */
-  commit(staged: StagedImport): Promise<ImportRecord>;
-  discard(staged: StagedImport): void;
+  commit(stagedId: string): Promise<ImportRecord>;
+  discard(stagedId: string): void;
   history(): Promise<ImportRecord[]>;
 }
 
@@ -114,14 +116,11 @@ export interface MangaListItem {
 // ============================================================
 
 export interface CoverService {
-  /** Enqueue all 'none'/'failed' covers; emits progress events. */
-  archiveMissing(): Promise<CoverRunSummary>;
+  /** Enqueue all 'none'/'failed' covers; runs as a background job. */
+  archiveMissing(): Promise<{ jobId: string }>;
+  jobStatus(jobId: string): Promise<{ done: number; total: number; finished: boolean }>;
   archiveOne(mangaId: VaultId): Promise<CoverResult>;
-  setCustomCover(mangaId: VaultId, image: Blob): Promise<void>;
-  events: TypedEventTarget<{
-    progress: { done: number; total: number; current?: string };
-    result: CoverResult;
-  }>;
+  setCustomCover(mangaId: VaultId, image: Buffer, mime: string): Promise<void>;
 }
 
 export interface CoverResult {
@@ -132,12 +131,12 @@ export interface CoverResult {
 export interface CoverRunSummary { archived: number; failed: number; skipped: number }
 
 /**
- * Low-level fetch with Mihon-style header strategy:
+ * Low-level fetch with Mihon-style header strategy (Node http via undici/axios):
  * try (browser UA + Referer=origin(thumbnailUrl)), then per-source coverFetchHint,
  * exponential backoff, per-host concurrency limit of 2.
  */
 export interface CoverFetcher {
-  fetch(url: string, hint?: KnownSource['coverFetchHint']): Promise<{ bytes: Uint8Array; mime: string }>;
+  fetch(url: string, hint?: KnownSource['coverFetchHint']): Promise<{ bytes: Buffer; mime: string }>;
 }
 
 // ============================================================
@@ -152,14 +151,11 @@ export interface StatsService {
 }
 
 // ============================================================
-// 6. Vault management & export
+// 6. Storage management & export
 // ============================================================
 
-export interface VaultService {
-  currentPath(): Promise<string | null>;
-  open(path: string): Promise<void>;       // runs migrations
-  create(path: string): Promise<void>;
-  /** Verifies DB integrity, cover files present, archived imports hash-match. */
+export interface StorageService {
+  /** Verifies FK integrity, cover files present, archived imports hash-match. */
   checkIntegrity(): Promise<IntegrityReport>;
   sizeOnDisk(): Promise<{ db: number; covers: number; imports: number }>;
 }
@@ -171,10 +167,10 @@ export interface IntegrityReport {
 }
 
 export interface ExportService {
-  /** MangaVault's own lossless format: zip(vault.json + covers/). */
-  exportVault(destination: string): Promise<void>;
+  /** MangaVault's own lossless format: zip(vault.json + covers/). Returns file for download. */
+  exportVault(): Promise<{ path: string; fileName: string }>;
   /** Round-trip back to a Mihon-compatible .tachibk (gzip+proto, Mihon field numbers). */
-  exportTachibk(destination: string, filter?: LibraryQuery): Promise<void>;
+  exportTachibk(filter?: LibraryQuery): Promise<{ path: string; fileName: string }>;
 }
 
 // ============================================================
@@ -188,11 +184,45 @@ export interface SourceAdapter {
 }
 ```
 
-## UI ↔ service wiring (which screen uses what)
+## 8. REST API surface (NestJS controllers → Flutter client)
 
-| Screen (mockup) | Services |
+All endpoints under `/api/v1`, JSON, `Authorization: Bearer <static token>`.
+
+| Endpoint | Method | Backs | Contract |
+|---|---|---|---|
+| `/imports/stage` | POST (multipart) | upload `.tachibk`/`.json`, returns `StagedImport` | `ImportService.stage` |
+| `/imports/stage/:id/commit` | POST | apply staged import | `ImportService.commit` |
+| `/imports/stage/:id` | DELETE | discard staged import | `ImportService.discard` |
+| `/imports` | GET | import history | `ImportService.history` |
+| `/library` | GET (query params) | paginated `MangaListItem[]` + total | `LibraryService.query` |
+| `/library/:id` | GET | full `VaultManga` | `LibraryService.get` |
+| `/library/:id/notes` | PUT | update notes | `LibraryService.updateNotes` |
+| `/library/:id/categories` | PUT | assign categories | `LibraryService.setCategories` |
+| `/library/:id` | DELETE | soft-remove | `LibraryService.remove` |
+| `/categories` | GET | list categories | `LibraryService.listCategories` |
+| `/covers/archive-missing` | POST | start background job | `CoverService.archiveMissing` |
+| `/covers/jobs/:jobId` | GET | poll job progress | `CoverService.jobStatus` |
+| `/covers/:mangaId/retry` | POST | retry one cover | `CoverService.archiveOne` |
+| `/covers/:mangaId/custom` | PUT (multipart) | upload custom cover | `CoverService.setCustomCover` |
+| `/covers/:mangaId` | GET | serve cover image (static, cacheable) | file from `storage/covers/` |
+| `/stats/library` | GET | dashboard stats | `StatsService.libraryStats` |
+| `/stats/backup-health` | GET | staleness per source app | `StatsService.backupHealth` |
+| `/stats/recently-added` | GET | dashboard shelf | `StatsService.recentlyAdded` |
+| `/stats/resume-reading` | GET | dashboard shelf | `StatsService.resumeReading` |
+| `/storage/integrity` | POST | run integrity check | `StorageService.checkIntegrity` |
+| `/storage/size` | GET | disk usage | `StorageService.sizeOnDisk` |
+| `/exports/vault` | POST → GET download | lossless zip export | `ExportService.exportVault` |
+| `/exports/tachibk` | POST → GET download | Mihon-compatible re-export | `ExportService.exportTachibk` |
+
+## Screen ↔ API wiring (Flutter)
+
+| Screen (mockup) | Endpoints |
 |---|---|
-| Archive Dashboard | `StatsService`, `VaultService.sizeOnDisk` |
-| Library Archive | `LibraryService.query` (virtualized), `CoverService.events` |
-| Title Details | `LibraryService.get/updateNotes/setCategories`, `CoverService.archiveOne/setCustomCover` |
-| Backup & Sources | `ImportService`, `VaultService`, `ExportService`, `StatsService.backupHealth` |
+| Archive Dashboard | `/stats/*`, `/storage/size` |
+| Library Archive | `/library` (paged), `/covers/:id` (images), `/covers/jobs/:jobId` (progress) |
+| Title Details | `/library/:id` (+notes/categories), `/covers/:mangaId/retry`, `/covers/:mangaId/custom` |
+| Backup & Sources | `/imports/*`, `/storage/*`, `/exports/*`, `/stats/backup-health` |
+
+Flutter data layer: Dart models mirroring the response DTOs (`json_serializable`), one
+repository per module (`ImportRepository`, `LibraryRepository`, `CoverRepository`,
+`StatsRepository`), HTTP via `dio` with the base-url + token injected from app settings.
