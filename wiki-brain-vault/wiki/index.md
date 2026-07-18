@@ -12,12 +12,13 @@ the first time substantial work happens on a topic.
 ## Concepts
 
 - [[migration]] — DB migration workflow, rules (never `synchronize`, never edit applied migrations).
+- [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage.
 - [[database]] — _(to be created)_ Postgres schema decisions, indexes, `pg_trgm`/tsvector/GIN.
 - [[deployment]] — _(to be created)_ how/where the server is deployed (Docker on a VM).
 
 ## Domain
 
-- [[tachibk-format]] — _(to be created)_ `.tachibk` parsing notes beyond `docs/phase-1-data-structures.md`.
+- [[tachibk-format]] — `.tachibk`/legacy-JSON parsing lib: pipeline, protobuf/int64/favorite gotchas.
 - [[cover-fetching]] — _(to be created)_ per-source cover-download quirks discovered in practice.
 
 ## Meta

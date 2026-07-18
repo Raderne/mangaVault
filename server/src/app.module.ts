@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiTokenGuard } from './auth/api-token.guard';
 import { buildDataSourceOptions } from './database/data-source';
 import { HealthController } from './health/health.controller';
+import { ImportModule } from './modules/import/import.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { HealthController } from './health/health.controller';
       useFactory: (config: ConfigService) =>
         buildDataSourceOptions(config.getOrThrow<string>('DATABASE_URL')),
     }),
+    ImportModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ApiTokenGuard }],

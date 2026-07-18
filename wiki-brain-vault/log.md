@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-18 01:00] session | M2 import pipeline (server) — parse, merge, endpoints
+Touched: tachibk-format (created), import-pipeline (created), index
+
 ## [2026-07-18 00:00] session | Bake server config, remove Settings tab
 Touched: flutter-app (created), index
 
