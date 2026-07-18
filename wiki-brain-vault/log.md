@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-18 00:00] session | Bake server config, remove Settings tab
+Touched: flutter-app (created), index
+
 ## [2026-07-17 00:00] session | Conform vault to Wiki-Brain guide
 Touched: index (created), backend, migration; CLAUDE.md rule block rewritten to "READ FIRST, KEEP UPDATED"
 

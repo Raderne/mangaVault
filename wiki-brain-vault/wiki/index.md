@@ -7,7 +7,7 @@ the first time substantial work happens on a topic.
 ## Components
 
 - [[backend]] — NestJS 11 API: layout, auth guard, migration-owned schema, int64 discipline, ports.
-- [[flutter-app]] — _(to be created)_ app structure, Riverpod + go_router, Minimalist Slate theming.
+- [[flutter-app]] — app structure, Riverpod + go_router, Minimalist Slate theming, compile-time server config.
 
 ## Concepts
 
