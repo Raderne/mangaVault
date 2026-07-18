@@ -12,6 +12,8 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 
+import { ImportJobRegistry } from './import-job.registry';
+
 import {
   CategoryEntity,
   ChapterEntity,
@@ -29,6 +31,7 @@ import {
   type NormalizedTracking,
 } from '../../tachibk';
 import type {
+  CommitStartedDto,
   ImportFileMetaDto,
   ImportRecordDto,
   ImportSummaryDto,
@@ -39,6 +42,9 @@ import { MergeableManga, MergeEngine } from './merge.engine';
 
 /** How long a staged import lives in memory before it is evicted. */
 const STAGED_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+/** Default titles committed per transaction (override via IMPORT_BATCH_SIZE env). */
+const DEFAULT_IMPORT_BATCH_SIZE = 100;
 
 interface StagedEntry {
   id: string;
@@ -59,12 +65,20 @@ export class ImportService {
   private readonly merge = new MergeEngine();
   private readonly staged = new Map<string, StagedEntry>();
   private readonly storageDir: string;
+  private readonly batchSize: number;
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly jobs: ImportJobRegistry,
     config: ConfigService,
   ) {
     this.storageDir = config.get<string>('STORAGE_DIR') ?? './storage';
+    // env values arrive as strings — coerce, and ignore junk/<=0.
+    const configured = Number(config.get('IMPORT_BATCH_SIZE'));
+    this.batchSize =
+      Number.isInteger(configured) && configured > 0
+        ? configured
+        : DEFAULT_IMPORT_BATCH_SIZE;
   }
 
   /** Hash, parse, normalize, and preview a merge — without touching the DB. */
@@ -137,8 +151,12 @@ export class ImportService {
     return rows.map(toRecordDto);
   }
 
-  /** Apply a staged import in one transaction; archive the original file. */
-  async commit(stagedId: string): Promise<ImportRecordDto> {
+  /**
+   * Start a streaming commit. Validates the staged entry, registers a job, and
+   * runs the commit in the background — progress is streamed as {@link ImportEvent}s
+   * over SSE (see the registry / controller). Returns the job id immediately.
+   */
+  startCommit(stagedId: string): CommitStartedDto {
     this.evictExpired();
     const entry = this.staged.get(stagedId);
     if (!entry) {
@@ -150,59 +168,126 @@ export class ImportService {
       throw new ConflictException('this exact file was already imported');
     }
 
+    const jobId = this.jobs.create();
+    // Kick off after returning the jobId so the client can open the SSE stream.
+    // (The ReplaySubject buffers events regardless, so no event is missed.)
+    setImmediate(() => {
+      void this.runCommit(jobId, stagedId, entry);
+    });
+    return { jobId };
+  }
+
+  /**
+   * Execute the commit in batches of {@link IMPORT_BATCH_SIZE}, each its own
+   * transaction, emitting progress events. On failure, already-committed batches
+   * remain (the import_record keeps running stats) and an `error` event is sent.
+   */
+  private async runCommit(
+    jobId: string,
+    stagedId: string,
+    entry: StagedEntry,
+  ): Promise<void> {
+    const manga = entry.normalized.manga;
+    const total = manga.length;
     const stats: ImportSummaryDto = {
-      titlesTotal: entry.normalized.manga.length,
+      titlesTotal: total,
       titlesNew: 0,
       titlesMerged: 0,
       chaptersTotal: 0,
       categoriesTotal: entry.normalized.categories.length,
       warnings: entry.summary.warnings,
     };
+    let processed = 0;
+    let importRecord: ImportRecordEntity | undefined;
 
-    const record = await this.dataSource.transaction(async (mgr) => {
-      const categoryIdByName = await this.upsertCategories(
-        mgr,
-        entry.normalized,
-      );
-      await this.upsertSources(mgr, entry.normalized);
-
-      const importRecord = mgr.create(ImportRecordEntity, {
+    try {
+      // File is safe regardless of DB outcome — archive it first.
+      await this.archiveFile(entry.fileBytes, entry.fileMeta.sha256);
+      this.jobs.emit(jobId, {
+        type: 'start',
         fileName: entry.fileMeta.fileName,
-        fileSize: entry.fileMeta.fileSize,
-        sha256: entry.fileMeta.sha256,
-        sourceApp: entry.fileMeta.sourceApp,
-        container: entry.fileMeta.container,
-        importedAt: Date.now(),
-        stats: {},
+        total,
       });
-      await mgr.save(importRecord);
 
-      for (const m of entry.normalized.manga) {
-        const { mangaId, created } = await this.upsertManga(mgr, m);
-        if (created) stats.titlesNew++;
-        else stats.titlesMerged++;
-        stats.chaptersTotal += m.chapters.length;
+      // Categories + sources + the import_record header, in one small transaction.
+      let categoryIdByName = new Map<string, string>();
+      await this.dataSource.transaction(async (mgr) => {
+        this.jobs.emit(jobId, {
+          type: 'phase',
+          phase: 'categories',
+          detail: `Applying ${entry.normalized.categories.length} categories`,
+        });
+        categoryIdByName = await this.upsertCategories(mgr, entry.normalized);
 
-        await this.linkCategories(
-          mgr,
-          mangaId,
-          m.categoryNames,
-          categoryIdByName,
-        );
-        await this.linkImport(mgr, mangaId, importRecord.id);
+        this.jobs.emit(jobId, {
+          type: 'phase',
+          phase: 'sources',
+          detail: `Registering ${entry.normalized.sources.length} sources`,
+        });
+        await this.upsertSources(mgr, entry.normalized);
+
+        importRecord = mgr.create(ImportRecordEntity, {
+          fileName: entry.fileMeta.fileName,
+          fileSize: entry.fileMeta.fileSize,
+          sha256: entry.fileMeta.sha256,
+          sourceApp: entry.fileMeta.sourceApp,
+          container: entry.fileMeta.container,
+          importedAt: Date.now(),
+          stats: { ...stats },
+        });
+        await mgr.save(importRecord);
+      });
+
+      this.jobs.emit(jobId, { type: 'phase', phase: 'manga' });
+      for (let start = 0; start < total; start += this.batchSize) {
+        const batch = manga.slice(start, start + this.batchSize);
+        await this.dataSource.transaction(async (mgr) => {
+          for (const m of batch) {
+            const { mangaId, created } = await this.upsertManga(mgr, m);
+            if (created) stats.titlesNew++;
+            else stats.titlesMerged++;
+            stats.chaptersTotal += m.chapters.length;
+            await this.linkCategories(
+              mgr,
+              mangaId,
+              m.categoryNames,
+              categoryIdByName,
+            );
+            await this.linkImport(mgr, mangaId, importRecord!.id);
+            processed++;
+            this.jobs.emit(jobId, {
+              type: 'manga',
+              title: m.title,
+              action: created ? 'created' : 'merged',
+              processed,
+              total,
+            });
+          }
+        });
+        // Persist running stats after each committed batch.
+        importRecord!.stats = { ...stats };
+        await this.dataSource
+          .getRepository(ImportRecordEntity)
+          .save(importRecord!);
+        this.jobs.emit(jobId, { type: 'batch', committed: processed, total });
       }
 
-      importRecord.stats = stats;
-      await mgr.save(importRecord);
-      return importRecord;
-    });
-
-    await this.archiveFile(entry.fileBytes, entry.fileMeta.sha256);
-    this.staged.delete(stagedId);
-    this.logger.log(
-      `import ${record.id}: ${stats.titlesNew} new, ${stats.titlesMerged} merged, ${stats.chaptersTotal} chapters`,
-    );
-    return toRecordDto(record);
+      this.jobs.emit(jobId, { type: 'phase', phase: 'done' });
+      const record = toRecordDto(importRecord!);
+      this.jobs.emit(jobId, { type: 'done', record });
+      this.staged.delete(stagedId);
+      this.logger.log(
+        `import ${record.id}: ${stats.titlesNew} new, ${stats.titlesMerged} merged, ${stats.chaptersTotal} chapters`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'commit failed';
+      this.logger.error(
+        `import job ${jobId} failed after ${processed}/${total}: ${message}`,
+      );
+      this.jobs.emit(jobId, { type: 'error', message, processed });
+    } finally {
+      this.jobs.complete(jobId);
+    }
   }
 
   // ---- preview ----

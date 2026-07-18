@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-18 02:00] session | M2 done — SSE streamed import + Flutter Backups UI
+Touched: import-pipeline, flutter-app
+
 ## [2026-07-18 01:00] session | M2 import pipeline (server) — parse, merge, endpoints
 Touched: tachibk-format (created), import-pipeline (created), index
 

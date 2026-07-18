@@ -49,7 +49,38 @@ Bottom nav has **3 tabs**: Dashboard (`/`), Library (`/library`, with nested
 (`archive_dashboard`, `library_archive`, `title_details`, `backup_sources`); Settings was never a
 design screen and is gone.
 
+## Import UI (M2, 2026-07-18) — Backups screen + live stream
+
+Backs the `backup_sources` mockup. Talks to the server [[import-pipeline]].
+
+```
+lib/data/import/
+  import_models.dart      # DTOs + sealed ImportEvent (manual fromJson, no codegen)
+  import_repository.dart  # importRepositoryProvider (Dio): stage/commit/streamEvents/discard/history
+lib/core/sse/sse_parser.dart   # transport-agnostic SSE `data:` frame parser (unit-tested)
+lib/features/backups/
+  import_controller.dart  # NotifierProvider<ImportController, ImportState> + importHistoryProvider
+  backups_screen.dart     # ConsumerWidget, state-driven bento cells
+```
+
+- **Flow (state machine `ImportState`):** `Idle → Staging → Review(queue) → Committing(live) →
+  Done/Failed`. `pickAndStage()` uses `file_picker` (multi-select `.tachibk`/`.json`, `withData:true`)
+  → `POST /imports/stage` per file. `commitAll()` commits each staged import sequentially:
+  `POST …/commit` → `jobId` → subscribe `streamEvents(jobId)` and fold each `ImportEvent` into state.
+- **SSE over Dio:** `dio.get(responseType: ResponseType.stream)`; byte stream → `utf8.decoder` →
+  `parseSseData` (custom parser — handles CRLF, cross-chunk splits, trailing event) → `jsonDecode` →
+  `ImportEvent.fromJson`. Dio sends the bearer header (native client, not browser `EventSource`).
+- **Live progress cell:** `GlowProgressBar(processed/total)`, phase label, and a **bounded** list
+  (last 50) of the most recent `manga` records with NEW/MERGED `StatusChip`s, appearing as events
+  arrive. Review + progress lists are `ListView.builder` (smooth at 1000+ titles).
+- **DTOs use manual `fromJson`** (no `json_serializable`/build_runner) — small read-only set; M3's
+  Library DTOs can revisit. Dep added: `file_picker`.
+- Tests: `test/sse_parser_test.dart`, `import_models_test.dart`, `backups_import_test.dart`
+  (commitAll fold with a fake scripted stream + widget render of review/progress cells).
+
 ## Removed / deferred
 
 - `shared_preferences` dependency removed (only the settings module used it). The M2 "move token
-  to flutter_secure_storage" to-do is now moot — no token is stored on-device; it's compiled in.
+  to flutter_secure_storage" to-do is moot — no token is stored on-device; it's compiled in.
+- Deferred on the Backups screen (out of M2): Active Sources / Storage / Cloud Sync cells
+  (cloud sync is past-v1 per CLAUDE.md; storage stats are M5).
