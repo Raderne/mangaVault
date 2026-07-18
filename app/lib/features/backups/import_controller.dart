@@ -87,17 +87,26 @@ class ImportController extends Notifier<ImportState> {
   ImportRepository get _repo => ref.read(importRepositoryProvider);
 
   /// Pick one or more backups and stage each; move to the review queue.
+  ///
+  /// Uses [FileType.any] (not a custom-extension filter): `.tachibk` has no
+  /// registered MIME type, so Android's document picker greys those files out
+  /// under `FileType.custom`. We filter by extension ourselves instead.
   Future<void> pickAndStage() async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       withData: true,
-      type: FileType.custom,
-      allowedExtensions: const ['tachibk', 'json'],
+      type: FileType.any,
     );
     if (result == null || result.files.isEmpty) return; // user cancelled
 
+    final accepted = result.files.where(_isBackupFile).toList();
+    if (accepted.isEmpty) {
+      state = const ImportFailed('Select a .tachibk or .json backup file.');
+      return;
+    }
+
     final existing = state is ImportReview ? [...(state as ImportReview).queue] : <StagedImport>[];
-    for (final file in result.files) {
+    for (final file in accepted) {
       final bytes = file.bytes;
       if (bytes == null) continue;
       state = ImportStaging(file.name);
@@ -109,6 +118,11 @@ class ImportController extends Notifier<ImportState> {
       }
     }
     state = existing.isEmpty ? const ImportIdle() : ImportReview(existing);
+  }
+
+  static bool _isBackupFile(PlatformFile f) {
+    final name = f.name.toLowerCase();
+    return name.endsWith('.tachibk') || name.endsWith('.json');
   }
 
   /// Commit every staged import sequentially, folding SSE events into state.

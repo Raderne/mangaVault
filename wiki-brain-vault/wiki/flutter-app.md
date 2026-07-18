@@ -64,8 +64,9 @@ lib/features/backups/
 ```
 
 - **Flow (state machine `ImportState`):** `Idle → Staging → Review(queue) → Committing(live) →
-  Done/Failed`. `pickAndStage()` uses `file_picker` (multi-select `.tachibk`/`.json`, `withData:true`)
-  → `POST /imports/stage` per file. `commitAll()` commits each staged import sequentially:
+  Done/Failed`. `pickAndStage()` uses `file_picker` with **`FileType.any`** + `withData:true`, then
+  filters to `.tachibk`/`.json` in code — `FileType.custom`+`allowedExtensions` greys `.tachibk`
+  files out in Android's document picker (no registered MIME type). Then `POST /imports/stage` per file. `commitAll()` commits each staged import sequentially:
   `POST …/commit` → `jobId` → subscribe `streamEvents(jobId)` and fold each `ImportEvent` into state.
 - **SSE over Dio:** `dio.get(responseType: ResponseType.stream)`; byte stream → `utf8.decoder` →
   `parseSseData` (custom parser — handles CRLF, cross-chunk splits, trailing event) → `jsonDecode` →
@@ -77,6 +78,12 @@ lib/features/backups/
   Library DTOs can revisit. Dep added: `file_picker`.
 - Tests: `test/sse_parser_test.dart`, `import_models_test.dart`, `backups_import_test.dart`
   (commitAll fold with a fake scripted stream + widget render of review/progress cells).
+- **Android gotcha:** `file_picker`'s `flutter_plugin_android_lifecycle` needs **compileSdk 36**,
+  but Flutter 3.44 defaults to 34 and doesn't propagate an app-level bump to plugin modules. Fixed
+  by pinning `compileSdk = 36` in `android/app/build.gradle.kts` **and** a
+  `subprojects { afterEvaluate { …compileSdkVersion(36) } }` override in `android/build.gradle.kts`
+  (registered *before* the `evaluationDependsOn(":app")` block, else Gradle errors "afterEvaluate …
+  already evaluated"). Verified with `flutter build apk --debug`.
 
 ## Removed / deferred
 

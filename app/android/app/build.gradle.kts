@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "dev.mangavault.mangavault"
-    compileSdk = flutter.compileSdkVersion
+    // file_picker's transitive flutter_plugin_android_lifecycle requires API 36+;
+    // pin explicitly rather than relying on the Flutter default (34).
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
