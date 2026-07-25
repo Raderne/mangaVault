@@ -95,6 +95,9 @@ export class LibraryService {
                    AND mc.category_id = ANY(${bind(q.categoryIds)}::uuid[]))`,
       );
     }
+    if (q.favorite !== undefined) {
+      conds.push(`m.favorite = ${bind(q.favorite)}`);
+    }
     const whereSql = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
     const totalRows = await this.dataSource.query<{ n: number }[]>(

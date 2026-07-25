@@ -36,6 +36,7 @@ class LibraryFilters {
   const LibraryFilters({
     this.text = '',
     this.status = '',
+    this.favorite = true,
     this.sortBy = 'title',
     this.sortDir = 'asc',
   });
@@ -44,6 +45,9 @@ class LibraryFilters {
 
   /// A single status value, or '' for all.
   final String status;
+
+  /// `true` = library favorites (default); `false` = non-favorites.
+  final bool favorite;
   final String sortBy;
   final String sortDir;
 
@@ -52,12 +56,14 @@ class LibraryFilters {
   LibraryFilters copyWith({
     String? text,
     String? status,
+    bool? favorite,
     String? sortBy,
     String? sortDir,
   }) =>
       LibraryFilters(
         text: text ?? this.text,
         status: status ?? this.status,
+        favorite: favorite ?? this.favorite,
         sortBy: sortBy ?? this.sortBy,
         sortDir: sortDir ?? this.sortDir,
       );
@@ -130,6 +136,7 @@ class LibraryController extends Notifier<LibraryState> {
       final page = await _repo.query(
         text: f.text,
         status: f.statusList,
+        favorite: f.favorite,
         sortBy: f.sortBy,
         sortDir: f.sortDir,
         offset: 0,
@@ -170,6 +177,14 @@ class LibraryController extends Notifier<LibraryState> {
     _fetch(reset: true);
   }
 
+  /// Toggle between favorites (default) and non-favorites.
+  void setFavorite(bool favorite) {
+    if (favorite == state.filters.favorite) return;
+    state =
+        state.copyWith(filters: state.filters.copyWith(favorite: favorite));
+    _fetch(reset: true);
+  }
+
   void setSearch(String text) {
     if (text == state.filters.text) return;
     state = state.copyWith(filters: state.filters.copyWith(text: text));
@@ -189,6 +204,7 @@ class LibraryController extends Notifier<LibraryState> {
       final pageData = await _repo.query(
         text: f.text,
         status: f.statusList,
+        favorite: f.favorite,
         sortBy: f.sortBy,
         sortDir: f.sortDir,
         offset: offset,
@@ -219,6 +235,7 @@ class LibraryController extends Notifier<LibraryState> {
   bool _sameFilters(LibraryFilters a, LibraryFilters b) =>
       a.text == b.text &&
       a.status == b.status &&
+      a.favorite == b.favorite &&
       a.sortBy == b.sortBy &&
       a.sortDir == b.sortDir;
 }

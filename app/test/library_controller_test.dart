@@ -6,11 +6,17 @@ import 'package:mangavault/data/library/library_repository.dart';
 import 'package:mangavault/features/library/library_controller.dart';
 
 /// In-memory repository: slices a fixed list by offset/limit and honors the
-/// status filter — enough to exercise paging and refetch.
+/// status / favorite filters — enough to exercise paging and refetch.
 class FakeLibraryRepository extends LibraryRepository {
-  FakeLibraryRepository(this.all) : super(Dio());
+  FakeLibraryRepository(this.all, {Set<String>? favorites})
+      : favorites = favorites,
+        super(Dio());
   final List<MangaListItem> all;
+
+  /// Ids treated as favorites. When null, every item is a favorite (DB default).
+  final Set<String>? favorites;
   int queries = 0;
+  bool? lastFavorite;
 
   @override
   Future<LibraryPage> query({
@@ -18,15 +24,23 @@ class FakeLibraryRepository extends LibraryRepository {
     List<String> status = const [],
     List<String> categoryIds = const [],
     List<String> sourceIds = const [],
+    bool? favorite,
     String sortBy = 'title',
     String sortDir = 'asc',
     int offset = 0,
     int limit = 40,
   }) async {
     queries++;
-    final filtered = status.isEmpty
-        ? all
-        : all.where((m) => status.contains(m.status)).toList();
+    lastFavorite = favorite;
+    var filtered = all;
+    if (status.isNotEmpty) {
+      filtered = filtered.where((m) => status.contains(m.status)).toList();
+    }
+    if (favorite != null) {
+      final favIds = favorites ?? all.map((m) => m.id).toSet();
+      filtered =
+          filtered.where((m) => favIds.contains(m.id) == favorite).toList();
+    }
     return LibraryPage(
       items: filtered.skip(offset).take(limit).toList(),
       total: filtered.length,
@@ -107,6 +121,28 @@ void main() {
     expect(state.filters.status, 'completed');
     expect(state.total, 2);
     expect(state.items.every((m) => m.status == 'completed'), isTrue);
+  });
+
+  test('setFavorite toggles to non-favorites by default-on', () async {
+    final repo = FakeLibraryRepository(
+      [_item(1), _item(2), _item(3)],
+      favorites: {'id-1', 'id-2'},
+    );
+    final container = _containerWith(repo);
+    final controller = container.read(libraryControllerProvider.notifier);
+
+    await controller.refresh();
+    expect(repo.lastFavorite, isTrue);
+    expect(container.read(libraryControllerProvider).total, 2);
+
+    controller.setFavorite(false);
+    await Future<void>.delayed(Duration.zero);
+    final state = container.read(libraryControllerProvider);
+
+    expect(state.filters.favorite, isFalse);
+    expect(repo.lastFavorite, isFalse);
+    expect(state.total, 1);
+    expect(state.items.single.id, 'id-3');
   });
 
   test('an empty result surfaces as isEmpty, not loading', () async {

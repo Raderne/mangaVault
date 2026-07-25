@@ -5,6 +5,12 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-25 16:45] session | On-device cover disk cache (cached_network_image)
+Touched: cover-fetching, flutter-app
+
+## [2026-07-25 15:55] session | Library favorites filter toggle
+Touched: library-api
+
 ## [2026-07-25 16:15] session | M4 — cover fetching/archiving + serve + app UI
 Touched: cover-fetching (created), backend, flutter-app, index
 

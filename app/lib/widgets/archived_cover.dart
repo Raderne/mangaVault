@@ -1,12 +1,17 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../data/covers/cover_cache.dart';
 import '../data/covers/cover_repository.dart';
 import 'entrance_fade.dart';
 
 /// Renders a title's archived cover with the bearer header attached (the serve
-/// route is guarded and `Image.network` doesn't use Dio), gently fading the
-/// image in as it decodes. Falls back to [placeholder] while unarchived or on
-/// error, so the grid/detail layout is identical with or without a cover.
+/// route is guarded and the image loader doesn't use Dio), gently fading the
+/// image in as it decodes. Backed by a persistent on-device disk cache
+/// ([CoverCache]) keyed by manga id, so a cover is fetched from the server once
+/// and then read from disk across restarts. Falls back to [placeholder] while
+/// unarchived / loading / on error, so the layout is identical with or without
+/// a cover.
 class ArchivedCover extends StatelessWidget {
   const ArchivedCover({
     super.key,
@@ -25,21 +30,16 @@ class ArchivedCover extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = CoverRepository.coverUrl(coverState, mangaId);
     if (url == null) return placeholder;
-    return Image.network(
-      url,
-      headers: CoverRepository.authHeaders,
+    return CachedNetworkImage(
+      imageUrl: url,
+      cacheKey: mangaId,
+      cacheManager: CoverCache.manager,
+      httpHeaders: CoverRepository.authHeaders,
       fit: fit,
-      gaplessPlayback: true,
-      errorBuilder: (_, _, _) => placeholder,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded) return child;
-        return AnimatedOpacity(
-          opacity: frame == null ? 0 : 1,
-          duration: const Duration(milliseconds: 300),
-          curve: kEntranceCurve,
-          child: child,
-        );
-      },
+      fadeInDuration: const Duration(milliseconds: 300),
+      fadeInCurve: kEntranceCurve,
+      placeholder: (_, _) => placeholder,
+      errorWidget: (_, _, _) => placeholder,
     );
   }
 }

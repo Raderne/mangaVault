@@ -126,9 +126,13 @@ lib/widgets/archived_cover.dart                     # the one cover widget (auth
 ```
 
 - **`ArchivedCover`** replaced the inline `Image.network` in both the grid card and the details hero.
-  It attaches the bearer via `headers:` (the `/covers/:id` route is guarded and `Image.network` doesn't
-  use Dio), fades the image in on decode (`frameBuilder` + `AnimatedOpacity`, `kEntranceCurve`), and
-  falls back to the caller's placeholder while unarchived / on error.
+  It uses **`CachedNetworkImage`** over a persistent disk cache (`CoverCache`, `cover_cache.dart` —
+  `cached_network_image` + `flutter_cache_manager`), so a cover is fetched **once** and then read from
+  disk across restarts/scrolling. It attaches the bearer via `httpHeaders:` (the `/covers/:id` route is
+  guarded and the loader isn't Dio), keys the cache by **manga id**, fades in on decode
+  (`fadeInDuration` + `kEntranceCurve`), and falls back to the caller's placeholder while
+  unarchived / loading / on error. Replaced covers are evicted via `CoverCache.evict(id, url)` (disk +
+  memory) in the Title Details re-fetch flow. Deps added: `cached_network_image`, `flutter_cache_manager`.
 - **Library:** app-bar **cloud-download** action → `CoverArchiveController.start()` → `POST
   /covers/archive-missing`; a slim **`_CoverBanner`** (`AnimatedSize` slide-in) shows `done/total` +
   `GlowProgressBar`, then the archived/failed summary + dismiss. The controller polls every 1 s and

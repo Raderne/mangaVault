@@ -31,6 +31,8 @@ export interface LibraryQueryDto {
   status: PublicationStatus[];
   categoryIds: string[];
   sourceIds: string[];
+  /** When set, restrict to favorites (`true`) or non-favorites (`false`). */
+  favorite?: boolean;
   sortBy: LibrarySortField;
   sortDir: 'asc' | 'desc';
   offset: number;

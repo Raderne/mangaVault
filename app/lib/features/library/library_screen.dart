@@ -192,6 +192,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   label: current.label,
                   onTap: () => _openSortSheet(state.filters),
                 ),
+                const SizedBox(width: AppDimens.unit),
+                _FavoriteToggle(
+                  favorite: state.filters.favorite,
+                  onTap: () => controller.setFavorite(!state.filters.favorite),
+                ),
                 const Spacer(),
                 if (state.status == LibraryStatus.ready)
                   Text(
@@ -474,6 +479,51 @@ class _SortPill extends StatelessWidget {
               Text(label, style: Theme.of(context).textTheme.labelSmall),
               const SizedBox(width: 4),
               Icon(Icons.expand_more, size: 16, color: scheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Toggle next to sort: on = favorites (default), off = non-favorites.
+class _FavoriteToggle extends StatelessWidget {
+  const _FavoriteToggle({required this.favorite, required this.onTap});
+
+  final bool favorite;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: favorite ? scheme.secondaryContainer : scheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppDimens.coverRadius),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppDimens.coverRadius),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                size: 16,
+                color: favorite
+                    ? scheme.onSecondaryContainer
+                    : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                favorite ? 'FAVORITES' : 'OTHER',
+                style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                      color: favorite
+                          ? scheme.onSecondaryContainer
+                          : scheme.onSurfaceVariant,
+                    ),
+              ),
             ],
           ),
         ),

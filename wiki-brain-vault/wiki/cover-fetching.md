@@ -66,14 +66,20 @@ aren't `@Public()`.
 ## App wiring (M4)
 
 ```
-lib/data/covers/            # cover_models.dart + cover_repository.dart
+lib/data/covers/            # cover_models.dart + cover_repository.dart + cover_cache.dart
 lib/features/covers/cover_archive_controller.dart   # Notifier: start → poll → progressive reload
-lib/widgets/archived_cover.dart                     # auth-header Image.network + fade-in + placeholder
+lib/widgets/archived_cover.dart                     # CachedNetworkImage (disk cache) + fade-in + placeholder
 ```
 
-- **`ArchivedCover`** is the single cover widget used by the grid card and the details hero: attaches
-  `authHeaders`, fades the image in on decode (`frameBuilder` + `AnimatedOpacity`, `kEntranceCurve`),
-  falls back to the screen's own placeholder while unarchived / on error — identical layout either way.
+- **`ArchivedCover`** is the single cover widget used by the grid card and the details hero. It uses
+  **`CachedNetworkImage`** (package `cached_network_image` + `flutter_cache_manager`) with a dedicated
+  **persistent disk cache** — `CoverCache.manager` (`lib/data/covers/cover_cache.dart`, key
+  `mangavault_covers`, 180-day stale period, 5000 objects) — so a cover is fetched from the server
+  **once** and then read from disk across restarts and grid scrolling (no more re-fetch per view).
+  It attaches `authHeaders` (the serve route is guarded and the image loader isn't Dio), keys the cache
+  by **manga id** (stable even if the compiled-in `SERVER_URL` changes), fades in on decode
+  (`fadeInDuration` + `kEntranceCurve`), and falls back to the screen's placeholder while
+  unarchived / loading / on error — identical layout either way.
 - **Library screen:** an app-bar **cloud-download action** starts `archive-missing`; a slim
   **`_CoverBanner`** (`AnimatedSize` slide-in) shows live `done/total` + a `GlowProgressBar`, then the
   archived/failed summary with a dismiss button. The controller **polls every 1 s** and calls
@@ -101,10 +107,12 @@ lib/widgets/archived_cover.dart                     # auth-header Image.network 
   single-title `retry`; `archiveMissing` orchestration is covered by the mocked service unit test.
 - Real covers can be **large** (verified: the One Piece MangaDex cover is an ~8 MB PNG — under the
   15 MB cap). 2000 titles → plan for a few GB of `covers/`.
-- **Cache-busting:** the serve URL is stable (`/covers/:id`); a *replaced* cover (custom/re-fetch) is
-  handled by evicting the `NetworkImage` on the details screen. The first-time `none→archived` case has
-  nothing cached to bust. No per-cover version param is exposed (list/detail DTOs carry no cover
-  version) — revisit if in-place replacement needs to invalidate the grid too.
+- **Cache-busting:** the serve URL is stable (`/covers/:id`) and the on-device cache is keyed by manga
+  id, so a *replaced* cover (custom/re-fetch) must be **explicitly evicted** — `CoverCache.evict(id, url)`
+  drops it from both the disk cache and Flutter's decoded-image cache, wired into the Title Details
+  re-fetch flow. The first-time `none→archived` case has nothing cached to bust. No per-cover version
+  param is exposed (list/detail DTOs carry no cover version) — revisit if in-place replacement needs to
+  invalidate the grid on other devices too.
 - **Verified end-to-end against the real DB** (2026-07-25): retried 3 real covers (One Piece, Tales of
   Demons and Gods) → `archived`; served with `image/png` + cache header; 404/401 correct; list
   `coverState` flipped to `archived`.

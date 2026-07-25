@@ -35,6 +35,8 @@ Registered in `app.module.ts`. Read-only in M3 — mutations from the interface 
 - `status` — CSV of `PublicationStatus`; invalid values dropped.
 - `categoryIds` — CSV of uuids (`EXISTS` against `manga_category`, cast `::uuid[]`).
 - `sourceIds` — CSV of decimal source-id strings.
+- `favorite` — `true` / `false` (also accepts `1`/`0`); when set, `m.favorite = …`.
+  Omitted → no favorite filter (whole library).
 - `sortBy` ∈ `title | dateAdded | lastReadAt | chapterCount | unreadCount` (default `title`);
   `sortDir` ∈ `asc | desc` (default: `asc` for title, `desc` otherwise).
 - `offset` (≥0), `limit` (1..**100**, default **40**).
@@ -55,15 +57,15 @@ Registered in `app.module.ts`. Read-only in M3 — mutations from the interface 
 - `get()` uses the TypeORM repo (`relations: categories/tracking/imports`) for the entity, then 3
   small chapter queries for `{total, readCount, lastReadAt}`, the most-recently-read chapter
   (`ORDER BY last_read_at DESC`), and the next unread (`ORDER BY chapter_number ASC NULLS LAST`).
-- **No favorite filter in M3** — the grid shows *everything* imported so the user sees their whole
-  library (their first-import complaint was "I don't see my titles"). A favorites-only view can come
-  later.
+- **Favorite filter** — optional `favorite=true|false` on `GET /library`. The Flutter grid defaults
+  to `favorite=true` (library favorites); tapping the star pill next to sort flips to non-favorites.
 
 ### Tests — `test/library.e2e-spec.ts` (Postgres 5433)
 
 Seeds a run-unique source's titles/chapters/category/import **via SQL** (deterministic even against
 the real 1.2k-title DB) and scopes every assertion by `sourceIds`. Covers pagination, status filter,
-FTS, sort-by-chapter-count, `get` (progress + archive), 404/400, categories, 401. 9 tests.
+FTS, favorite filter, sort-by-chapter-count, `get` (progress + archive), 404/400, categories, 401.
+10 tests.
 
 ## Flutter — `app/lib/data/library/` + `app/lib/features/library` + `title_details`
 
@@ -80,8 +82,9 @@ features/title_details/title_details_screen.dart  # stacked bento cells from man
 
 - **Paging:** `LibraryController` holds `LibraryState {items,total,filters,status,loadingMore}`.
   `build()` schedules the first `refresh()`; a scroll listener calls `loadMore()` ~600px before the
-  end (page size 40). Filter/sort/search setters reset to page 0. A stale-response guard drops a
-  page whose filters changed while it was in flight.
+  end (page size 40). Filter/sort/search/favorite setters reset to page 0. A stale-response guard
+  drops a page whose filters changed while it was in flight. `LibraryFilters.favorite` defaults to
+  `true`; the sort-row star pill toggles it.
 - **coverUrl** returns `null` until `coverState == 'archived'` (covers are **M4**) → cells render a
   placeholder. The URL shape is `${baseUrl}/api/v1/covers/:id` for when M4 lands.
 - **Details** button "Continue reading" is informational (SnackBar) — no in-app reader in v1.

@@ -19,6 +19,7 @@ class FakeLibraryRepository extends LibraryRepository {
     List<String> status = const [],
     List<String> categoryIds = const [],
     List<String> sourceIds = const [],
+    bool? favorite,
     String sortBy = 'title',
     String sortDir = 'asc',
     int offset = 0,

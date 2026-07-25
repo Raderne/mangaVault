@@ -58,11 +58,21 @@ function parseLibraryQuery(raw: Record<string, string>): LibraryQueryDto {
   );
   const offset = Math.max(0, Number.parseInt(raw.offset, 10) || 0);
 
+  // Accept "true"/"false" (and "1"/"0"); anything else leaves the filter unset.
+  const favoriteRaw = raw.favorite?.trim().toLowerCase();
+  const favorite =
+    favoriteRaw === 'true' || favoriteRaw === '1'
+      ? true
+      : favoriteRaw === 'false' || favoriteRaw === '0'
+        ? false
+        : undefined;
+
   return {
     text: raw.text?.trim() || undefined,
     status,
     categoryIds: csv(raw.categoryIds),
     sourceIds: csv(raw.sourceIds),
+    favorite,
     sortBy,
     sortDir,
     offset,

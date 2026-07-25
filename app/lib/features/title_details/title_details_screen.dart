@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/covers/cover_cache.dart';
 import '../../data/covers/cover_repository.dart';
 import '../../data/library/library_models.dart';
 import '../../theme/app_dimens.dart';
@@ -56,10 +57,11 @@ class TitleDetailsScreen extends ConsumerWidget {
     );
     try {
       final result = await ref.read(coverRepositoryProvider).retry(titleId);
-      // Drop any cached (possibly 404) image so the fresh cover shows.
+      // Drop any cached image (disk + memory) so the fresh cover shows — the
+      // serve URL is stable, so a replaced cover would otherwise stay stale.
       final url = CoverRepository.coverUrl('archived', titleId);
       if (url != null) {
-        await NetworkImage(url, headers: CoverRepository.authHeaders).evict();
+        await CoverCache.evict(titleId, url);
       }
       ref.invalidate(mangaDetailsProvider(titleId));
       messenger.hideCurrentSnackBar();

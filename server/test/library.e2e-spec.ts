@@ -91,6 +91,8 @@ describe('Library queries (e2e)', () => {
     alphaId = await insertManga('Alpha Archivist', 'ongoing', 'Author One');
     betaId = await insertManga('Beta Compendium', 'completed', 'Author Two');
     gammaId = await insertManga('Gamma Chronicle', 'on_hiatus', null);
+    // Gamma is the non-favorite title for the favorite filter test (DB default is true).
+    await ds.query(`UPDATE manga SET favorite = FALSE WHERE id = $1`, [gammaId]);
 
     // Alpha: 3 chapters, 2 read (ch 2 most recently).
     await insertChapter(alphaId, 1, true, runId - 1000);
@@ -156,6 +158,19 @@ describe('Library queries (e2e)', () => {
     const p = await page('status=completed');
     expect(p.total).toBe(1);
     expect(p.items[0].title).toBe('Beta Compendium');
+  });
+
+  it('filters by favorite', async () => {
+    const fav = await page('favorite=true&sortBy=title&sortDir=asc');
+    expect(fav.total).toBe(2);
+    expect(fav.items.map((i) => i.title)).toEqual([
+      'Alpha Archivist',
+      'Beta Compendium',
+    ]);
+
+    const unfav = await page('favorite=false');
+    expect(unfav.total).toBe(1);
+    expect(unfav.items[0].title).toBe('Gamma Chronicle');
   });
 
   it('full-text searches the title', async () => {
