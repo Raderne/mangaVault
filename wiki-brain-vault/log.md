@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-25 17:20] session | Cover fetcher: Mihon mobile UA + site Referer + cause logging
+Touched: cover-fetching
+
 ## [2026-07-25 16:45] session | On-device cover disk cache (cached_network_image)
 Touched: cover-fetching, flutter-app
 

@@ -21,17 +21,28 @@ describe('CoverFetcher', () => {
     global.fetch = fetchMock;
   });
 
-  it('sends a browser UA + origin Referer and returns sniffed bytes', async () => {
+  it('sends the mobile UA + site-origin Referer and returns sniffed bytes', async () => {
     fetchMock.mockResolvedValueOnce(imageResponse());
 
-    const result = await fetcher.fetch('https://cdn.example.com/a/cover.png');
+    // Sub-domain host: Referer should point at the registrable site, not the CDN.
+    const result = await fetcher.fetch('https://gg.asuracomic.net/a/cover.png');
 
     expect(result.mime).toBe('image/png');
     expect(result.bytes.length).toBe(PNG.length);
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const headers = init.headers as Record<string, string>;
-    expect(headers['User-Agent']).toContain('Mozilla/5.0');
-    expect(headers['Referer']).toBe('https://cdn.example.com/');
+    expect(headers['User-Agent']).toContain('Mobile'); // Mihon's mobile UA
+    expect(headers['Referer']).toBe('https://asuracomic.net/');
+    expect(headers['Sec-Fetch-Dest']).toBe('image');
+  });
+
+  it('uses the thumbnail origin as Referer for a bare domain', async () => {
+    fetchMock.mockResolvedValueOnce(imageResponse());
+    await fetcher.fetch('https://mangadex.org/covers/x.png');
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Record<string, string>)['Referer']).toBe(
+      'https://mangadex.org/',
+    );
   });
 
   it('applies per-source header overrides', async () => {

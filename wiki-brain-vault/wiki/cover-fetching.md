@@ -22,19 +22,43 @@ renders. Server module: `server/src/modules/covers/`.
 ## The fetcher (`cover.fetcher.ts`, pure, unit-tested)
 
 `CoverFetcher.fetch(url, hint?)` — Node 22's **global `fetch`** (undici), no new dependency.
-Mimics Mihon's `MangaCoverFetcher`:
+Modelled on Mihon's `MangaCoverFetcher` + `HttpSource`/`NetworkHelper` (read from the reference clone):
 
-- **Browser UA + `Referer` = the thumbnail's own origin** — many source CDNs 403 a default agent /
-  missing referer. Per-source overrides come from `known_source.fetch_hint` (`{ referer?, userAgent? }`).
-- **Validates by sniffing the bytes** (`image-sniff.ts`, magic-byte → mime/ext for jpg/png/gif/webp/
-  avif/heic/bmp), not the claimed `Content-Type` — a host lying with an HTML error page under
-  `image/jpeg` won't poison the archive.
-- **`AbortController` timeout**, **exponential-backoff retries** with jitter. Retriability is
-  **explicit** on `CoverFetchError.retriable`: transient HTTP (408/425/429/5xx) and network/abort
-  errors retry; a 200 with a bad body (non-image / empty / oversized) does **not** — the host
-  answered, it just answered wrong.
-- Config via env (module factory): `COVER_FETCH_TIMEOUT_MS` (20s), `COVER_MAX_BYTES` (15 MB),
+- **Mihon's *mobile* default User-Agent** (`NetworkPreferences.kt`:
+  `…Android 10; K…Chrome/141.0.0.0 Mobile Safari/537.36`) — **not** a desktop UA. Source CDNs
+  fingerprint the Mihon UA; a desktop string gets blocked by some. This alone flipped AsuraScans from
+  a connection-level `fetch failed` to a real HTTP response.
+- **`Referer` = the source *site* origin**, i.e. the **registrable domain** of the thumbnail host
+  (`gg.asuracomic.net` → `https://asuracomic.net/`), which is what a browser loading an `<img>` sends —
+  not the CDN sub-domain. Bare domains / IPs fall back to the thumbnail origin. Plus browser-like
+  `Accept` / `Accept-Language` / `Sec-Fetch-*` image headers. (Mihon's *default* `headersBuilder()` only
+  sets the UA; per-site Referer/headers live in each extension — which we don't have, hence the
+  registrable-domain heuristic.)
+- **Per-source overrides** via `known_source.fetch_hint` (`{ referer?, userAgent? }`) are the escape
+  hatch for a site that needs something specific — they win over the defaults.
+- **Validates by sniffing the bytes** (`image-sniff.ts`), not the claimed `Content-Type` — a host lying
+  with an HTML error page under `image/jpeg` won't poison the archive.
+- **`AbortController` timeout** (30s, matching Mihon's OkHttp), **exponential-backoff retries** with
+  jitter. Retriability is **explicit** on `CoverFetchError.retriable`: transient HTTP (408/425/429/5xx)
+  and network/abort errors retry; a 200 with a bad body (non-image/empty/oversized) **and a plain
+  4xx like 403 do not** — the host answered, it just refused. (So a hotlink 403 fails fast, one attempt.)
+- **URL fragments are stripped** (`#image-request` etc. — client-side only).
+- **Failure cause is surfaced**: Node's `fetch` throws `TypeError: fetch failed` with the real reason
+  (`ECONNRESET`, `UND_ERR_*`, TLS, DNS…) buried in `.cause`; `describeCause()` unwraps it into the
+  logged/returned error so failures are diagnosable instead of a uniform "fetch failed".
+- Config via env (module factory): `COVER_FETCH_TIMEOUT_MS` (30s), `COVER_MAX_BYTES` (15 MB),
   `COVER_MAX_ATTEMPTS` (3), `COVER_USER_AGENT`.
+
+### Why some covers still can't be archived (the Cloudflare ceiling)
+
+Sources behind **Cloudflare bot protection** (AsuraScans / `gg.asuracomic.net`, and similar) block
+non-browser clients by **TLS/JS fingerprint** — a `fetch failed` (connection reset) or a `403` that no
+header combination fixes (verified: even `curl` gets `000` to that host). Mihon only clears these with
+its on-device **`CloudflareInterceptor` (a WebView)** — see `NetworkHelper.kt`; the request rides the
+source's OkHttp client with that interceptor + a persistent cookie jar + Brotli. We have **no WebView
+and no per-source extension**, so those covers stay `failed` and render the placeholder. Options if it
+ever matters: seed a `fetch_hint` for a source that just needs a specific header, or (heavy, out of
+scope) route hard sources through a headless browser / FlareSolverr-style solver.
 
 ## Orchestration (`cover.service.ts`)
 

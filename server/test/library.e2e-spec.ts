@@ -92,7 +92,9 @@ describe('Library queries (e2e)', () => {
     betaId = await insertManga('Beta Compendium', 'completed', 'Author Two');
     gammaId = await insertManga('Gamma Chronicle', 'on_hiatus', null);
     // Gamma is the non-favorite title for the favorite filter test (DB default is true).
-    await ds.query(`UPDATE manga SET favorite = FALSE WHERE id = $1`, [gammaId]);
+    await ds.query(`UPDATE manga SET favorite = FALSE WHERE id = $1`, [
+      gammaId,
+    ]);
 
     // Alpha: 3 chapters, 2 read (ch 2 most recently).
     await insertChapter(alphaId, 1, true, runId - 1000);

@@ -22,18 +22,37 @@ export interface CoverFetcherOptions {
 }
 
 export const DEFAULT_COVER_FETCHER_OPTIONS: CoverFetcherOptions = {
-  timeoutMs: 20_000,
+  timeoutMs: 30_000, // matches Mihon's OkHttp connect/read timeout
   maxBytes: 15 * 1024 * 1024,
   maxAttempts: 3,
   baseBackoffMs: 500,
-  // A current desktop-Chrome UA: many manga source CDNs 403 default agents.
+  // Mihon's own default User-Agent (NetworkPreferences.kt) — a **mobile** Android
+  // Chrome. Source CDNs fingerprint this; a desktop UA gets 403'd/blocked by some.
   userAgent:
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-    '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 ' +
+    '(KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36',
 };
 
 /** HTTP statuses worth a retry (transient/server-side/rate-limit). */
 const RETRIABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+/**
+ * Unwrap the useful bit of a thrown fetch error. Node's global `fetch` throws a
+ * `TypeError: fetch failed` whose real reason (`ECONNRESET`, `UND_ERR_*`, TLS
+ * failure, DNS, …) hides in `.cause` — surface it so failures are diagnosable
+ * instead of a uniform "fetch failed".
+ */
+function describeCause(err: unknown): string {
+  if (err instanceof Error) {
+    const cause = (err as { cause?: unknown }).cause;
+    if (cause instanceof Error) {
+      const code = (cause as { code?: string }).code;
+      return `${err.message}: ${code ?? cause.message}`;
+    }
+    return err.message;
+  }
+  return 'cover fetch failed';
+}
 
 /**
  * Failure carrying the last HTTP status (if any) and whether another attempt
@@ -56,12 +75,18 @@ const sleep = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
 /**
- * Downloads a cover image the way Mihon would: a browser-like User-Agent plus a
- * `Referer` derived from the thumbnail's own origin (many source CDNs 403
- * otherwise), with per-source header overrides, a bounded timeout, and
- * exponential-backoff retries on transient failures. The response is validated
- * by **sniffing the bytes** — a host lying in its `Content-Type` won't smuggle
- * an HTML error page into the archive.
+ * Downloads a cover image the way Mihon would: its **mobile** default
+ * User-Agent, browser-like image headers, and a `Referer` pointed at the
+ * source's *site* origin (a browser loading an `<img>` sends the site, not the
+ * CDN sub-domain — e.g. `gg.asuracomic.net` → `asuracomic.net`), with per-source
+ * header overrides (`known_source.fetch_hint`), a bounded timeout, and
+ * exponential-backoff retries on transient/connection failures. The response is
+ * validated by **sniffing the bytes** — a host lying in its `Content-Type` won't
+ * smuggle an HTML error page into the archive.
+ *
+ * Limitation: sources behind a Cloudflare JS/TLS challenge (AsuraScans et al.)
+ * can still fail at the connection layer (`fetch failed`) — Mihon clears those
+ * with an on-device WebView we can't replicate server-side.
  */
 export class CoverFetcher {
   private readonly logger = new Logger(CoverFetcher.name);
@@ -75,33 +100,28 @@ export class CoverFetcher {
     url: string,
     hint?: CoverFetchHint | null,
   ): Promise<FetchedCover> {
-    let origin: string;
+    // Fragments (e.g. `#image-request`) are client-side only — strip so the URL
+    // we request, and derive headers from, is clean.
+    const cleanUrl = url.split('#')[0].trim();
+    let parsed: URL;
     try {
-      origin = new URL(url).origin;
+      parsed = new URL(cleanUrl);
     } catch {
       throw new CoverFetchError(`invalid cover url: ${url}`);
     }
 
-    const headers: Record<string, string> = {
-      'User-Agent': hint?.userAgent ?? this.opts.userAgent,
-      Referer: hint?.referer ?? `${origin}/`,
-      Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-    };
+    const headers = this.buildHeaders(parsed, hint);
 
     let lastError: CoverFetchError | undefined;
     for (let attempt = 1; attempt <= this.opts.maxAttempts; attempt++) {
       try {
-        return await this.attempt(url, headers);
+        return await this.attempt(cleanUrl, headers);
       } catch (err) {
         // A raw throw (network reset, abort/timeout) is transient → retriable.
         const e =
           err instanceof CoverFetchError
             ? err
-            : new CoverFetchError(
-                err instanceof Error ? err.message : 'cover fetch failed',
-                undefined,
-                true,
-              );
+            : new CoverFetchError(describeCause(err), undefined, true);
         lastError = e;
         if (!e.retriable || attempt === this.opts.maxAttempts) break;
         const backoff =
@@ -114,6 +134,41 @@ export class CoverFetcher {
       }
     }
     throw lastError ?? new CoverFetchError('cover fetch failed');
+  }
+
+  /** Browser-like image request headers (Mihon UA + a plausible site Referer). */
+  private buildHeaders(
+    u: URL,
+    hint?: CoverFetchHint | null,
+  ): Record<string, string> {
+    return {
+      'User-Agent': hint?.userAgent ?? this.opts.userAgent,
+      Accept:
+        'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Referer: this.resolveReferer(u, hint),
+      // What a browser sends when loading an <img> cross-site.
+      'Sec-Fetch-Dest': 'image',
+      'Sec-Fetch-Mode': 'no-cors',
+      'Sec-Fetch-Site': 'cross-site',
+    };
+  }
+
+  /**
+   * Referer a browser on the source site would send. Prefer an explicit
+   * per-source override, else the **registrable domain** of the thumbnail host
+   * (so a CDN sub-domain like `gg.asuracomic.net` → `https://asuracomic.net/`),
+   * else the thumbnail origin (IPs / bare domains).
+   */
+  private resolveReferer(u: URL, hint?: CoverFetchHint | null): string {
+    if (hint?.referer) return hint.referer;
+    const host = u.hostname;
+    const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':');
+    const labels = host.split('.');
+    if (!isIp && labels.length > 2) {
+      return `${u.protocol}//${labels.slice(-2).join('.')}/`;
+    }
+    return `${u.origin}/`;
   }
 
   private async attempt(
