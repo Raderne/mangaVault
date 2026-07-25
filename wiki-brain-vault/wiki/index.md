@@ -13,6 +13,8 @@ the first time substantial work happens on a topic.
 
 - [[migration]] — DB migration workflow, rules (never `synchronize`, never edit applied migrations).
 - [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage.
+- [[library-api]] — M3 read side: `/library` query + `/library/:id` + `/categories`; Flutter grid,
+  Title Details, paging, and the shared animation language.
 - [[database]] — _(to be created)_ Postgres schema decisions, indexes, `pg_trgm`/tsvector/GIN.
 - [[deployment]] — _(to be created)_ how/where the server is deployed (Docker on a VM).
 

@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-25 14:30] session | M3 — Library API + grid + Title Details + animations
+Touched: library-api (created), flutter-app, index
+
 ## [2026-07-18 02:00] session | M2 done — SSE streamed import + Flutter Backups UI
 Touched: import-pipeline, flutter-app
 

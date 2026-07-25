@@ -7,6 +7,7 @@ import { ApiTokenGuard } from './auth/api-token.guard';
 import { buildDataSourceOptions } from './database/data-source';
 import { HealthController } from './health/health.controller';
 import { ImportModule } from './modules/import/import.module';
+import { LibraryModule } from './modules/library/library.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ImportModule } from './modules/import/import.module';
         buildDataSourceOptions(config.getOrThrow<string>('DATABASE_URL')),
     }),
     ImportModule,
+    LibraryModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ApiTokenGuard }],
