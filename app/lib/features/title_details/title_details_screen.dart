@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/covers/cover_repository.dart';
 import '../../data/library/library_models.dart';
-import '../../data/library/library_repository.dart';
 import '../../theme/app_dimens.dart';
+import '../../widgets/archived_cover.dart';
 import '../../widgets/bento_cell.dart';
 import '../../widgets/entrance_fade.dart';
 import '../../widgets/glow_progress_bar.dart';
@@ -28,6 +29,13 @@ class TitleDetailsScreen extends ConsumerWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.image_outlined),
+            tooltip: 'Re-fetch cover',
+            onPressed: () => _refetchCover(ref, context),
+          ),
+        ],
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -37,6 +45,36 @@ class TitleDetailsScreen extends ConsumerWidget {
         data: (manga) => _DetailsBody(manga: manga),
       ),
     );
+  }
+
+  /// Ask the server to (re)archive this title's cover, then refresh the view.
+  Future<void> _refetchCover(WidgetRef ref, BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Fetching cover…')),
+    );
+    try {
+      final result = await ref.read(coverRepositoryProvider).retry(titleId);
+      // Drop any cached (possibly 404) image so the fresh cover shows.
+      final url = CoverRepository.coverUrl('archived', titleId);
+      if (url != null) {
+        await NetworkImage(url, headers: CoverRepository.authHeaders).evict();
+      }
+      ref.invalidate(mangaDetailsProvider(titleId));
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(
+        content: Text(result.archived
+            ? 'Cover archived'
+            : 'Cover unavailable'
+                '${result.error != null ? ' (${result.error})' : ''}'),
+      ));
+    } catch (_) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Cover fetch failed')),
+      );
+    }
   }
 }
 
@@ -75,7 +113,6 @@ class _HeroCover extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final coverUrl = LibraryRepository.coverUrl(manga.coverState, manga.id);
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppDimens.cellRadius),
       child: SizedBox(
@@ -85,11 +122,11 @@ class _HeroCover extends StatelessWidget {
           children: [
             Hero(
               tag: 'manga-cover-${manga.id}',
-              child: coverUrl != null
-                  ? Image.network(coverUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const _CoverFallback())
-                  : const _CoverFallback(),
+              child: ArchivedCover(
+                coverState: manga.coverState,
+                mangaId: manga.id,
+                placeholder: const _CoverFallback(),
+              ),
             ),
             const DecoratedBox(
               decoration: BoxDecoration(

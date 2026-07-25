@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-25 16:15] session | M4 — cover fetching/archiving + serve + app UI
+Touched: cover-fetching (created), backend, flutter-app, index
+
 ## [2026-07-25 14:30] session | M3 — Library API + grid + Title Details + animations
 Touched: library-api (created), flutter-app, index
 

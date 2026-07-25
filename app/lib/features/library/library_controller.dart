@@ -120,6 +120,32 @@ class LibraryController extends Notifier<LibraryState> {
   /// Reload from the first page with the current filters.
   Future<void> refresh() => _fetch(reset: true);
 
+  /// Re-fetch the currently loaded items in place — no skeleton flash, scroll
+  /// position kept. Used to reveal covers as they finish archiving.
+  Future<void> reload() async {
+    if (state.status != LibraryStatus.ready) return;
+    final f = state.filters;
+    final count = state.items.isEmpty ? _pageSize : state.items.length;
+    try {
+      final page = await _repo.query(
+        text: f.text,
+        status: f.statusList,
+        sortBy: f.sortBy,
+        sortDir: f.sortDir,
+        offset: 0,
+        limit: count,
+      );
+      if (!_sameFilters(state.filters, f)) return;
+      state = state.copyWith(
+        items: page.items,
+        total: page.total,
+        status: LibraryStatus.ready,
+      );
+    } catch (_) {
+      // Keep the current grid; a failed silent reload is non-fatal.
+    }
+  }
+
   /// Append the next page if there is one and we're idle.
   Future<void> loadMore() async {
     if (state.loadingMore ||

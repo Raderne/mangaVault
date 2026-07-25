@@ -21,7 +21,8 @@ the first time substantial work happens on a topic.
 ## Domain
 
 - [[tachibk-format]] — `.tachibk`/legacy-JSON parsing lib: pipeline, protobuf/int64/favorite gotchas.
-- [[cover-fetching]] — _(to be created)_ per-source cover-download quirks discovered in practice.
+- [[cover-fetching]] — M4 cover archiving: `/covers/*`, the Mihon-style fetcher, concurrency, serve +
+  `Image.network` auth, and the app's archive banner / progressive reveal.
 
 ## Meta
 

@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiTokenGuard } from './auth/api-token.guard';
 import { buildDataSourceOptions } from './database/data-source';
 import { HealthController } from './health/health.controller';
+import { CoverModule } from './modules/covers/cover.module';
 import { ImportModule } from './modules/import/import.module';
 import { LibraryModule } from './modules/library/library.module';
 
@@ -23,6 +24,7 @@ import { LibraryModule } from './modules/library/library.module';
     }),
     ImportModule,
     LibraryModule,
+    CoverModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ApiTokenGuard }],

@@ -1,0 +1,110 @@
+# Cover fetching & archiving (server + app)
+
+Created: 2026-07-25 (M4)
+
+Related: [[index]] · [[backend]] · [[library-api]] · [[flutter-app]] · [[tachibk-format]]
+
+The read side ([[library-api]]) surfaces titles; **M4 archives their cover images** so the app shows
+real art instead of placeholders. Thumbnail URLs rot, so covers are pulled into permanent local
+storage at import-adjacent time and the **archived file** (never the remote URL) is what the app
+renders. Server module: `server/src/modules/covers/`.
+
+## Endpoints (`/api/v1/covers`, all bearer-guarded)
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/covers/archive-missing` | POST | Start (or join) the background job archiving every missing cover → `{ jobId, total, alreadyRunning }` |
+| `/covers/jobs/:jobId` | GET | Poll progress → `{ total, done, archived, failed, skipped, finished }` |
+| `/covers/:mangaId/retry` | POST | Archive/re-archive one title's cover synchronously → `CoverResult` |
+| `/covers/:mangaId/custom` | PUT (multipart `file`) | Replace with a user-uploaded image → `CoverResult` |
+| `/covers/:mangaId` | GET | Serve the archived image (`StreamableFile`, `Cache-Control: private, max-age=86400`); **404 until archived** |
+
+## The fetcher (`cover.fetcher.ts`, pure, unit-tested)
+
+`CoverFetcher.fetch(url, hint?)` — Node 22's **global `fetch`** (undici), no new dependency.
+Mimics Mihon's `MangaCoverFetcher`:
+
+- **Browser UA + `Referer` = the thumbnail's own origin** — many source CDNs 403 a default agent /
+  missing referer. Per-source overrides come from `known_source.fetch_hint` (`{ referer?, userAgent? }`).
+- **Validates by sniffing the bytes** (`image-sniff.ts`, magic-byte → mime/ext for jpg/png/gif/webp/
+  avif/heic/bmp), not the claimed `Content-Type` — a host lying with an HTML error page under
+  `image/jpeg` won't poison the archive.
+- **`AbortController` timeout**, **exponential-backoff retries** with jitter. Retriability is
+  **explicit** on `CoverFetchError.retriable`: transient HTTP (408/425/429/5xx) and network/abort
+  errors retry; a 200 with a bad body (non-image / empty / oversized) does **not** — the host
+  answered, it just answered wrong.
+- Config via env (module factory): `COVER_FETCH_TIMEOUT_MS` (20s), `COVER_MAX_BYTES` (15 MB),
+  `COVER_MAX_ATTEMPTS` (3), `COVER_USER_AGENT`.
+
+## Orchestration (`cover.service.ts`)
+
+- **`archiveMissing`** selects `cover_state IN ('none','failed')` with a non-empty `thumbnail_url`
+  across the **whole DB**, creates a poll job, and runs in the background via `setImmediate`.
+  A `activeJobId` guard means a second trigger **joins** the running job (`alreadyRunning:true`)
+  rather than double-fetching. Covers download through `runPool` (`concurrency.ts`): a **global cap**
+  (`COVER_CONCURRENCY`, 6) **and a per-host cap** (`COVER_PER_HOST`, 2) — throughput across hosts,
+  politeness to any one. A thrown worker is swallowed so one bad cover never sinks the batch.
+- **Storage:** `writeCoverFile` writes `STORAGE_DIR/covers/<mangaId>.<ext>`; `cover_path` stores the
+  **relative** path with forward slashes (portable), `cover_state='archived'`. A previous file with a
+  different extension is unlinked. On failure `cover_state='failed'` (no path) → picked up again next
+  run / by retry.
+- **`resolveCoverFile`** (for serving) returns the abs path + mime only when `archived` and the file
+  `stat`s; otherwise the controller 404s.
+- **Job registry** (`cover-job.registry.ts`) is **poll-based** (counters only — no SSE like the import
+  pipeline), TTL-evicted 10 min after finishing.
+- `cover_state` enum is `none|pending|archived|failed`; **`pending` is intentionally unused** — rows
+  stay `none` until they resolve, so a server restart mid-run leaves them re-archivable (a stuck
+  `pending` would be skipped by the candidate query).
+
+## Serving + the auth gotcha
+
+`GET /covers/:mangaId` is **guarded like every route** (cover UUIDs are unguessable, but the token
+still gates it). Flutter's `Image.network` uses its **own** HTTP client (not Dio), so it must pass the
+bearer explicitly — `Image.network(url, headers: CoverRepository.authHeaders)`. This is why covers
+aren't `@Public()`.
+
+## App wiring (M4)
+
+```
+lib/data/covers/            # cover_models.dart + cover_repository.dart
+lib/features/covers/cover_archive_controller.dart   # Notifier: start → poll → progressive reload
+lib/widgets/archived_cover.dart                     # auth-header Image.network + fade-in + placeholder
+```
+
+- **`ArchivedCover`** is the single cover widget used by the grid card and the details hero: attaches
+  `authHeaders`, fades the image in on decode (`frameBuilder` + `AnimatedOpacity`, `kEntranceCurve`),
+  falls back to the screen's own placeholder while unarchived / on error — identical layout either way.
+- **Library screen:** an app-bar **cloud-download action** starts `archive-missing`; a slim
+  **`_CoverBanner`** (`AnimatedSize` slide-in) shows live `done/total` + a `GlowProgressBar`, then the
+  archived/failed summary with a dismiss button. The controller **polls every 1 s** and calls
+  `LibraryController.reload()` (new: in-place re-fetch, **no skeleton flash**, scroll kept) whenever the
+  archived count advances, so covers pop in progressively.
+- **Title Details:** a **"Re-fetch cover"** app-bar action calls `/covers/:id/retry`, evicts any cached
+  `NetworkImage`, invalidates `mangaDetailsProvider`, and toasts the outcome.
+
+## Tests
+
+- Unit: `image-sniff.spec`, `cover.fetcher.spec` (mock global fetch: UA/Referer, retry-then-succeed,
+  hard-403 no-retry, non-image rejected, size cap, invalid URL), `concurrency.spec` (global + per-host
+  caps, throw-safe), `cover.service.spec` (mocked DS/repo/fetcher: archives + marks failed + writes
+  files, single-run guard, empty set).
+- E2e `test/covers.e2e-spec.ts`: a **local in-process HTTP CDN** (one path serves a PNG, one 403s),
+  seeds run-unique titles, then `retry` → `GET /covers/:id` (bytes + content-type) → failed→404 →
+  custom upload → 404/400/401. Uses a temp `STORAGE_DIR`.
+- App: `cover_models_test`, `cover_archive_controller_test` (fake repos: nothing-missing, poll-to-done,
+  dismiss).
+
+## Gotchas / notes
+
+- **Never call `archive-missing` in an e2e / against the shared DB casually** — it scans the *whole*
+  library and fetches every real cover from the internet. The e2e covers the pipeline via scoped
+  single-title `retry`; `archiveMissing` orchestration is covered by the mocked service unit test.
+- Real covers can be **large** (verified: the One Piece MangaDex cover is an ~8 MB PNG — under the
+  15 MB cap). 2000 titles → plan for a few GB of `covers/`.
+- **Cache-busting:** the serve URL is stable (`/covers/:id`); a *replaced* cover (custom/re-fetch) is
+  handled by evicting the `NetworkImage` on the details screen. The first-time `none→archived` case has
+  nothing cached to bust. No per-cover version param is exposed (list/detail DTOs carry no cover
+  version) — revisit if in-place replacement needs to invalidate the grid too.
+- **Verified end-to-end against the real DB** (2026-07-25): retried 3 real covers (One Piece, Tales of
+  Demons and Gods) → `archived`; served with `image/png` + cache header; 404/401 correct; list
+  `coverState` flipped to `archived`.

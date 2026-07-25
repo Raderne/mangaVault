@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/library/library_models.dart';
-import '../../data/library/library_repository.dart';
 import '../../theme/app_dimens.dart';
+import '../../widgets/archived_cover.dart';
 import '../../widgets/bento_cell.dart';
 import '../../widgets/entrance_fade.dart';
+import '../../widgets/glow_progress_bar.dart';
 import '../../widgets/pressable.dart';
+import '../covers/cover_archive_controller.dart';
 import 'library_controller.dart';
 
 /// Library Archive: an infinite-scroll cover grid with status filters, sort,
@@ -85,10 +87,25 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(libraryControllerProvider);
+    final coverArchive = ref.watch(coverArchiveControllerProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Library'),
         actions: [
+          IconButton(
+            icon: coverArchive.isRunning
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cloud_download_outlined),
+            onPressed: coverArchive.isRunning
+                ? null
+                : () =>
+                    ref.read(coverArchiveControllerProvider.notifier).start(),
+            tooltip: 'Download covers',
+          ),
           IconButton(
             icon: Icon(_searchOpen ? Icons.close : Icons.search),
             onPressed: _toggleSearch,
@@ -102,6 +119,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           if (_searchOpen)
             SliverToBoxAdapter(child: _buildSearchField(context)),
           SliverToBoxAdapter(child: _buildFilterBar(context, state)),
+          const SliverToBoxAdapter(child: _CoverBanner()),
           ..._buildContent(context, state),
           SliverToBoxAdapter(
             child: _Footer(state: state),
@@ -273,7 +291,6 @@ class _LibraryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final coverUrl = LibraryRepository.coverUrl(item.coverState, item.id);
     return Pressable(
       onTap: onTap,
       child: Container(
@@ -288,13 +305,11 @@ class _LibraryCard extends StatelessWidget {
           children: [
             Hero(
               tag: 'manga-cover-${item.id}',
-              child: coverUrl != null
-                  ? Image.network(
-                      coverUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const _CoverPlaceholder(),
-                    )
-                  : const _CoverPlaceholder(),
+              child: ArchivedCover(
+                coverState: item.coverState,
+                mangaId: item.id,
+                placeholder: const _CoverPlaceholder(),
+              ),
             ),
             // Bottom scrim so overlaid text stays legible on any cover.
             const DecoratedBox(
@@ -521,6 +536,100 @@ class _Footer extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A slim banner that expands in while covers are being archived (and reports
+/// the result), driven by [coverArchiveControllerProvider]. Animates its height
+/// so it slides in/out rather than popping.
+class _CoverBanner extends ConsumerWidget {
+  const _CoverBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(coverArchiveControllerProvider);
+    final show = s.phase != CoverArchivePhase.idle;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: kEntranceCurve,
+      alignment: Alignment.topCenter,
+      child: !show
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppDimens.gutter, 0, AppDimens.gutter, AppDimens.unit),
+              child: BentoCell(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimens.unit * 2, vertical: AppDimens.unit * 1.5),
+                child: _content(context, ref, s),
+              ),
+            ),
+    );
+  }
+
+  Widget _content(BuildContext context, WidgetRef ref, CoverArchiveState s) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final controller = ref.read(coverArchiveControllerProvider.notifier);
+
+    if (s.phase == CoverArchivePhase.error) {
+      return Row(
+        children: [
+          Icon(Icons.cloud_off_outlined, size: 18, color: scheme.error),
+          const SizedBox(width: AppDimens.unit),
+          Expanded(
+            child: Text("Couldn't download covers",
+                style: theme.textTheme.bodyMedium),
+          ),
+          TextButton(onPressed: controller.start, child: const Text('Retry')),
+          _closeButton(controller),
+        ],
+      );
+    }
+
+    if (s.phase == CoverArchivePhase.done) {
+      final summary = s.total == 0
+          ? 'All covers are already archived.'
+          : '${s.archived} archived'
+              '${s.failed > 0 ? ' · ${s.failed} failed' : ''}';
+      return Row(
+        children: [
+          Icon(Icons.check_circle_outline, size: 18, color: scheme.primary),
+          const SizedBox(width: AppDimens.unit),
+          Expanded(
+            child: Text(summary, style: theme.textTheme.bodyMedium),
+          ),
+          _closeButton(controller),
+        ],
+      );
+    }
+
+    // Running.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Downloading covers', style: theme.textTheme.titleSmall),
+            const Spacer(),
+            Text(
+              s.total == 0 ? '…' : '${s.done} / ${s.total}',
+              style: theme.textTheme.labelSmall!
+                  .copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppDimens.unit),
+        GlowProgressBar(value: s.fraction),
+      ],
+    );
+  }
+
+  Widget _closeButton(CoverArchiveController controller) => IconButton(
+        icon: const Icon(Icons.close, size: 18),
+        visualDensity: VisualDensity.compact,
+        tooltip: 'Dismiss',
+        onPressed: controller.dismiss,
+      );
 }
 
 class _EmptyState extends StatelessWidget {

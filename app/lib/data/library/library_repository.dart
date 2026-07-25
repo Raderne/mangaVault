@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/config/app_config.dart';
 import 'library_models.dart';
 
 /// Talks to the server's `/library`, `/library/:id` and `/categories`
@@ -52,13 +51,6 @@ class LibraryRepository {
         .map((e) => Category.fromJson(e as Map<String, dynamic>))
         .toList();
   }
-
-  /// Archived-cover URL for an item, or null while covers aren't archived yet
-  /// (cover fetching lands in M4 — until then cells render a placeholder).
-  static String? coverUrl(String coverState, String mangaId) =>
-      coverState == 'archived'
-          ? '${AppConfig.baseUrl}/api/v1/covers/$mangaId'
-          : null;
 }
 
 final libraryRepositoryProvider = Provider<LibraryRepository>(

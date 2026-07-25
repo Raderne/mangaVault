@@ -110,11 +110,35 @@ lib/features/title_details/title_details_screen.dart   # stacked bento cells fro
   Hero), synopsis + genre chips, metadata (author / total chapters / **source**, since the mockup's
   "release year" isn't in our data), reading-progress (`GlowProgressBar` + read/total + informational
   "Continue reading" SnackBar — no in-app reader in v1), and archive history from the title's imports.
-- **Covers are placeholders** until M4: `LibraryRepository.coverUrl` returns null unless
-  `coverState=='archived'`.
+- **Covers** land in M4 (see below); before archiving, cells render a placeholder.
 - Tests: `library_models_test.dart`, `library_controller_test.dart` (fake repo: refresh/loadMore/
   filter/empty), `library_screen_test.dart` (grid + empty + details widget render; details needs a
   tall test surface since the detail `ListView` builds lazily).
+
+## Covers (M4, 2026-07-25)
+
+Renders and archives cover art. Server side + the full rationale live in [[cover-fetching]].
+
+```
+lib/data/covers/           # cover_models.dart + cover_repository.dart (archiveMissing/jobStatus/retry)
+lib/features/covers/cover_archive_controller.dart   # Notifier: start → poll (1s) → progressive reload
+lib/widgets/archived_cover.dart                     # the one cover widget (auth header + fade-in)
+```
+
+- **`ArchivedCover`** replaced the inline `Image.network` in both the grid card and the details hero.
+  It attaches the bearer via `headers:` (the `/covers/:id` route is guarded and `Image.network` doesn't
+  use Dio), fades the image in on decode (`frameBuilder` + `AnimatedOpacity`, `kEntranceCurve`), and
+  falls back to the caller's placeholder while unarchived / on error.
+- **Library:** app-bar **cloud-download** action → `CoverArchiveController.start()` → `POST
+  /covers/archive-missing`; a slim **`_CoverBanner`** (`AnimatedSize` slide-in) shows `done/total` +
+  `GlowProgressBar`, then the archived/failed summary + dismiss. The controller polls every 1 s and
+  calls the new **`LibraryController.reload()`** (in-place re-fetch, no skeleton flash, scroll kept)
+  as the archived count climbs — covers appear progressively.
+- **Title Details:** **"Re-fetch cover"** app-bar action → `/covers/:id/retry`, evicts the cached
+  `NetworkImage`, invalidates `mangaDetailsProvider`, toasts the outcome.
+- `LibraryRepository.coverUrl` moved to **`CoverRepository.coverUrl`** (+ `authHeaders`).
+- Tests: `cover_models_test.dart`, `cover_archive_controller_test.dart` (fake repos: nothing-missing,
+  poll-to-done, dismiss).
 
 ## Animations (M3) — subtle, design-aligned
 
