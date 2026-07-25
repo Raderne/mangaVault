@@ -5,6 +5,30 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-25 17:20] session | Cover fetcher: Mihon mobile UA + site Referer + cause logging
+Touched: cover-fetching
+
+## [2026-07-25 16:45] session | On-device cover disk cache (cached_network_image)
+Touched: cover-fetching, flutter-app
+
+## [2026-07-25 15:55] session | Library favorites filter toggle
+Touched: library-api
+
+## [2026-07-25 16:15] session | M4 — cover fetching/archiving + serve + app UI
+Touched: cover-fetching (created), backend, flutter-app, index
+
+## [2026-07-25 14:30] session | M3 — Library API + grid + Title Details + animations
+Touched: library-api (created), flutter-app, index
+
+## [2026-07-18 02:00] session | M2 done — SSE streamed import + Flutter Backups UI
+Touched: import-pipeline, flutter-app
+
+## [2026-07-18 01:00] session | M2 import pipeline (server) — parse, merge, endpoints
+Touched: tachibk-format (created), import-pipeline (created), index
+
+## [2026-07-18 00:00] session | Bake server config, remove Settings tab
+Touched: flutter-app (created), index
+
 ## [2026-07-17 00:00] session | Conform vault to Wiki-Brain guide
 Touched: index (created), backend, migration; CLAUDE.md rule block rewritten to "READ FIRST, KEEP UPDATED"
 

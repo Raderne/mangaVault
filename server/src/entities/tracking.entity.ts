@@ -19,7 +19,9 @@ export class TrackingEntity {
   @Column({ name: 'manga_id', type: 'uuid' })
   mangaId: string;
 
-  @ManyToOne(() => MangaEntity, (manga) => manga.tracking, { onDelete: 'CASCADE' })
+  @ManyToOne(() => MangaEntity, (manga) => manga.tracking, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'manga_id' })
   manga: MangaEntity;
 
@@ -49,9 +51,19 @@ export class TrackingEntity {
   @Column({ type: 'integer', default: 0 })
   status: number;
 
-  @Column({ name: 'started_at', type: 'bigint', nullable: true, transformer: bigIntToNumber })
+  @Column({
+    name: 'started_at',
+    type: 'bigint',
+    nullable: true,
+    transformer: bigIntToNumber,
+  })
   startedAt: number | null;
 
-  @Column({ name: 'finished_at', type: 'bigint', nullable: true, transformer: bigIntToNumber })
+  @Column({
+    name: 'finished_at',
+    type: 'bigint',
+    nullable: true,
+    transformer: bigIntToNumber,
+  })
   finishedAt: number | null;
 }

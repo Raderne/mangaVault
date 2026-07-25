@@ -14,6 +14,7 @@ server/storage/
 .env
 .env.*
 !.env.example
+Notes.md
 
 # Flutter / Dart / Android
 app/.dart_tool/

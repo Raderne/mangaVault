@@ -7,18 +7,22 @@ the first time substantial work happens on a topic.
 ## Components
 
 - [[backend]] — NestJS 11 API: layout, auth guard, migration-owned schema, int64 discipline, ports.
-- [[flutter-app]] — _(to be created)_ app structure, Riverpod + go_router, Minimalist Slate theming.
+- [[flutter-app]] — app structure, Riverpod + go_router, Minimalist Slate theming, compile-time server config.
 
 ## Concepts
 
 - [[migration]] — DB migration workflow, rules (never `synchronize`, never edit applied migrations).
+- [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage.
+- [[library-api]] — M3 read side: `/library` query + `/library/:id` + `/categories`; Flutter grid,
+  Title Details, paging, and the shared animation language.
 - [[database]] — _(to be created)_ Postgres schema decisions, indexes, `pg_trgm`/tsvector/GIN.
 - [[deployment]] — _(to be created)_ how/where the server is deployed (Docker on a VM).
 
 ## Domain
 
-- [[tachibk-format]] — _(to be created)_ `.tachibk` parsing notes beyond `docs/phase-1-data-structures.md`.
-- [[cover-fetching]] — _(to be created)_ per-source cover-download quirks discovered in practice.
+- [[tachibk-format]] — `.tachibk`/legacy-JSON parsing lib: pipeline, protobuf/int64/favorite gotchas.
+- [[cover-fetching]] — M4 cover archiving: `/covers/*`, the Mihon-style fetcher, concurrency, serve +
+  `Image.network` auth, and the app's archive banner / progressive reveal.
 
 ## Meta
 

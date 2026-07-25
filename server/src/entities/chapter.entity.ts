@@ -21,7 +21,9 @@ export class ChapterEntity {
   @Column({ name: 'manga_id', type: 'uuid' })
   mangaId: string;
 
-  @ManyToOne(() => MangaEntity, (manga) => manga.chapters, { onDelete: 'CASCADE' })
+  @ManyToOne(() => MangaEntity, (manga) => manga.chapters, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'manga_id' })
   manga: MangaEntity;
 
@@ -43,21 +45,51 @@ export class ChapterEntity {
   @Column({ type: 'boolean', default: false })
   bookmark: boolean;
 
-  @Column({ name: 'last_page_read', type: 'bigint', default: 0, transformer: bigIntToNumber })
+  @Column({
+    name: 'last_page_read',
+    type: 'bigint',
+    default: 0,
+    transformer: bigIntToNumber,
+  })
   lastPageRead: number;
 
-  @Column({ name: 'date_upload', type: 'bigint', default: 0, transformer: bigIntToNumber })
+  @Column({
+    name: 'date_upload',
+    type: 'bigint',
+    default: 0,
+    transformer: bigIntToNumber,
+  })
   dateUpload: number;
 
-  @Column({ name: 'date_fetch', type: 'bigint', default: 0, transformer: bigIntToNumber })
+  @Column({
+    name: 'date_fetch',
+    type: 'bigint',
+    default: 0,
+    transformer: bigIntToNumber,
+  })
   dateFetch: number;
 
-  @Column({ name: 'source_order', type: 'bigint', default: 0, transformer: bigIntToNumber })
+  @Column({
+    name: 'source_order',
+    type: 'bigint',
+    default: 0,
+    transformer: bigIntToNumber,
+  })
   sourceOrder: number;
 
-  @Column({ name: 'last_read_at', type: 'bigint', nullable: true, transformer: bigIntToNumber })
+  @Column({
+    name: 'last_read_at',
+    type: 'bigint',
+    nullable: true,
+    transformer: bigIntToNumber,
+  })
   lastReadAt: number | null;
 
-  @Column({ name: 'read_duration', type: 'bigint', default: 0, transformer: bigIntToNumber })
+  @Column({
+    name: 'read_duration',
+    type: 'bigint',
+    default: 0,
+    transformer: bigIntToNumber,
+  })
   readDuration: number;
 }

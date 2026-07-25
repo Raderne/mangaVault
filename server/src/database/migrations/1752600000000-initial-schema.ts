@@ -122,10 +122,16 @@ export class InitialSchema1752600000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX idx_manga_search ON manga USING GIN (search_tsv)`);
-    await queryRunner.query(`CREATE INDEX idx_manga_trgm ON manga USING GIN (title gin_trgm_ops)`);
+    await queryRunner.query(
+      `CREATE INDEX idx_manga_search ON manga USING GIN (search_tsv)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_manga_trgm ON manga USING GIN (title gin_trgm_ops)`,
+    );
     await queryRunner.query(`CREATE INDEX idx_manga_status ON manga(status)`);
-    await queryRunner.query(`CREATE INDEX idx_chapter_manga ON chapter(manga_id)`);
+    await queryRunner.query(
+      `CREATE INDEX idx_chapter_manga ON chapter(manga_id)`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

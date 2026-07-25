@@ -2,7 +2,8 @@
 
 Created: 2026-07-16 (M1)
 
-Related: [[index]] · [[migration]] · [[database]] · [[deployment]] · [[tachibk-format]]
+Related: [[index]] · [[migration]] · [[database]] · [[deployment]] · [[tachibk-format]] ·
+[[import-pipeline]] · [[library-api]] · [[cover-fetching]]
 
 ## Stack
 
@@ -22,6 +23,9 @@ server/src/
   entities/                # TypeORM entities; index.ts exports ALL_ENTITIES
   database/data-source.ts  # buildDataSourceOptions() + CLI DataSource (dotenv .env, ../.env)
   database/migrations/     # raw-SQL migrations (schema source of truth)
+  modules/import/          # [[import-pipeline]] — stage/commit, SSE progress
+  modules/library/         # [[library-api]] — /library, /library/:id, /categories
+  modules/covers/          # [[cover-fetching]] — /covers/*, fetcher, StreamableFile serve
 ```
 
 ## Decisions & gotchas

@@ -1,10 +1,11 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import 'features/backups/backups_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/library/library_screen.dart';
-import 'features/settings/settings_screen.dart';
 import 'features/title_details/title_details_screen.dart';
+import 'widgets/entrance_fade.dart';
 import 'widgets/app_shell.dart';
 
 final router = GoRouter(
@@ -24,17 +25,25 @@ final router = GoRouter(
             routes: [
               GoRoute(
                 path: 'title/:id',
-                builder: (context, state) =>
-                    TitleDetailsScreen(titleId: state.pathParameters['id']!),
+                pageBuilder: (context, state) => CustomTransitionPage<void>(
+                  key: state.pageKey,
+                  child: TitleDetailsScreen(titleId: state.pathParameters['id']!),
+                  transitionDuration: const Duration(milliseconds: 260),
+                  reverseTransitionDuration: const Duration(milliseconds: 220),
+                  // A soft fade lets the shared-element cover Hero lead the eye,
+                  // instead of the platform slide competing with it.
+                  transitionsBuilder: (_, animation, _, child) => FadeTransition(
+                    opacity: CurvedAnimation(
+                        parent: animation, curve: kEntranceCurve),
+                    child: child,
+                  ),
+                ),
               ),
             ],
           ),
         ]),
         StatefulShellBranch(routes: [
           GoRoute(path: '/backups', builder: (_, _) => const BackupsScreen()),
-        ]),
-        StatefulShellBranch(routes: [
-          GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
         ]),
       ],
     ),

@@ -77,7 +77,12 @@ export class MangaEntity {
   @Column({ type: 'boolean', default: true })
   favorite: boolean;
 
-  @Column({ name: 'date_added', type: 'bigint', default: 0, transformer: bigIntToNumber })
+  @Column({
+    name: 'date_added',
+    type: 'bigint',
+    default: 0,
+    transformer: bigIntToNumber,
+  })
   dateAdded: number;
 
   @Column({ name: 'updated_at', type: 'bigint', transformer: bigIntToNumber })
