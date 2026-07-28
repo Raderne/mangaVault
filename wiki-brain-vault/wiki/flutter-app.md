@@ -164,9 +164,14 @@ lib/core/format.dart                # shared formatters (relativeDate moved here
 - Cells: hero total-titles → paired Chapters/Covers → reading-progress ring + status mix → backup
   health (staleness dot per source app) → resume-reading shelf → recently-added shelf → vault size.
 - Gotchas worth remembering: `IntrinsicHeight` is required around the paired-cell `Row` (stretch in a
-  `ListView` = infinite height), shelf taps use `context.go('/library/title/:id')` so the shell
-  switches to the Library branch (and shelf covers carry no Hero, which belongs to the grid), and
-  chapter numbers must go through `chapterNumberLabel` because Mihon's floats carry float32 noise.
+  `ListView` = infinite height), the horizontal shelves size themselves from
+  `MediaQuery.textScalerOf` rather than a constant (a hardcoded height overflowed on a device with an
+  enlarged system font), shelf taps use `context.go('/library/title/:id')` so the shell switches to
+  the Library branch (and shelf covers carry no Hero, which belongs to the grid), and chapter numbers
+  must go through `chapterNumberLabel` because Mihon's floats carry float32 noise.
+- **Layout overflow is invisible to `flutter test`** — `RenderFlex` reports it from `paint`, so
+  `tester.takeException()` stays null while a device throws. Assert rects (`tester.getRect`) for any
+  fixed-height layout. Details in [[dashboard-stats]].
 - Tests: `format_test.dart`, `stats_models_test.dart`, `dashboard_screen_test.dart`.
 
 ## Animations (M3) — subtle, design-aligned

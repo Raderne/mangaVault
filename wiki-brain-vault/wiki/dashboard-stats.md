@@ -90,6 +90,21 @@ widgets/progress_ring.dart         # the mockup's animated ring
 - **Paired stat cells need `IntrinsicHeight`.** `CrossAxisAlignment.stretch` inside a `ListView`
   forces an infinite height constraint and throws in layout; `IntrinsicHeight` bounds the `Row` so
   the two cells still match heights when one caption wraps.
+- **A horizontal shelf's fixed height must be derived from the text scale, never hardcoded.** The
+  first cut used `_shelfHeight = 238`, computed by hand at scale 1.0 (234 of content). On a device
+  with the system font enlarged (~1.1) the tile needed 240 and Flutter reported *"A RenderFlex
+  overflowed by 2.0 pixels"* — repeated once per visible tile. `_ShelfMetrics.of(context)` now
+  measures both text blocks with `MediaQuery.textScalerOf`, and the tile's title/caption sit in
+  `SizedBox`es of exactly those heights, so the children sum to the reserved height by construction.
+  The theme sets an explicit `height` on `bodyMedium`/`labelSmall`, which is what makes a line box
+  exactly `scaledFontSize * height` and the arithmetic trustworthy.
+- **Widget tests do NOT fail on `RenderFlex` overflow — don't trust `takeException()` for layout.**
+  Verified deliberately: with the shelf box shrunk to 100px against ~242px of tile (a 142px
+  overflow), `flutter test` still reported "All tests passed" and `tester.takeException()` returned
+  null, while a real device threw loudly. Overflow is reported from `RenderFlex.paint`, which the
+  test harness doesn't surface. So `dashboard_screen_test.dart` asserts the **geometry** instead —
+  the caption's `getRect().bottom` must sit inside the shelf `ListView`'s rect — and that assertion
+  was confirmed to fail against both the 238 constant and the 100px probe before being kept.
 - **Shelf tiles navigate with `context.go('/library/title/<id>')`, not `push`.** The details route
   lives in the Library branch of the `StatefulShellRoute`; `go` switches the shell to that branch
   with details on top, so the back gesture lands on the Library grid instead of a dead end. Shelf
@@ -102,7 +117,11 @@ widgets/progress_ring.dart         # the mockup's animated ring
   whole ones lose the `.0`, and `-1` (unnumbered) falls back to the chapter name.
 - Tests: `format_test.dart` (formatters incl. the float-noise case), `stats_models_test.dart`
   (parsing, derived fractions, sparse payload, staleness default), `dashboard_screen_test.dart`
-  (real figures / empty archive / error+retry, on a tall test surface since the cells build lazily).
+  (real figures / empty archive / error+retry / **enlarged system font**, on a tall test surface
+  since the cells build lazily). Text scale is set with
+  `tester.platformDispatcher.textScaleFactorTestValue` — a `MediaQuery` wrapped *above* `MaterialApp`
+  is silently overridden by the `MediaQuery.fromView` that `WidgetsApp` installs, so that route
+  looks like it works and tests nothing.
 
 ## Verified against real data (2026-07-28)
 

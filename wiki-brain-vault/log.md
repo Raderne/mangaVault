@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-28 23:05] session | Fix shelf tile overflow at enlarged system font
+Touched: dashboard-stats, flutter-app
+
 ## [2026-07-28 22:55] session | M5 — dashboard stats API + Archive Dashboard screen
 Touched: dashboard-stats (created), backend, flutter-app, index
 
