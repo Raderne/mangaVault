@@ -163,6 +163,13 @@ lib/core/format.dart                # shared formatters (relativeDate moved here
   pull-to-refresh never dies.
 - Cells: hero total-titles → paired Chapters/Covers → reading-progress ring + status mix → backup
   health (staleness dot per source app) → resume-reading shelf → recently-added shelf → vault size.
+- **Bento tonal layering (2026-07-28):** `BentoCell` takes an optional `BentoTone` (`low` /
+  `mid` / `high` → `surfaceContainerLow` / `surfaceContainer` / `surfaceContainerHigh`). Shared
+  `AccentIconWell` (`primaryContainer` + `primary` icon) and `NestedWell` (low surface + light
+  border) live in `widgets/bento_cell.dart`. Accents stay sparse — no whole-cell indigo fills.
+  Dashboard: hero + reading-progress use `high`; stat/vault cells lead with icon wells; health rows
+  sit in nested wells; Aging uses `onTertiaryContainer` (Fresh keeps `secondary`) because the scheme
+  maps `secondary` ≡ `tertiary`. Backups CTA / done / history follow the same wells.
 - Gotchas worth remembering: `IntrinsicHeight` is required around the paired-cell `Row` (stretch in a
   `ListView` = infinite height), the horizontal shelves size themselves from
   `MediaQuery.textScalerOf` rather than a constant (a hardcoded height overflowed on a device with an

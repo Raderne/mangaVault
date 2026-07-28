@@ -69,10 +69,16 @@ class _ImportCtaCell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return BentoCell(
+      tone: BentoTone.high,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CellLabel('Initialization'),
+          Row(
+            children: [
+              const Expanded(child: CellLabel('Initialization')),
+              const AccentIconWell(icon: Icons.upload_file),
+            ],
+          ),
           const SizedBox(height: AppDimens.unit),
           Text('Import Backup', style: theme.textTheme.headlineMedium),
           const SizedBox(height: AppDimens.unit),
@@ -312,16 +318,28 @@ class _DoneCell extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.check_circle, color: theme.colorScheme.secondary),
-              const SizedBox(width: AppDimens.unit),
-              Text('Import complete', style: theme.textTheme.titleMedium),
-            ],
+          NestedWell(
+            child: Row(
+              children: [
+                const AccentIconWell(icon: Icons.check_circle_outline),
+                const SizedBox(width: AppDimens.unit * 1.5),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Import complete', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$titlesNew new · $titlesMerged merged across ${records.length} file(s).',
+                        style: theme.textTheme.bodyMedium!
+                            .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: AppDimens.unit),
-          Text('$titlesNew new · $titlesMerged merged across ${records.length} file(s).',
-              style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           const SizedBox(height: AppDimens.gutter),
           PillButton(
             label: 'Import another',
@@ -377,7 +395,12 @@ class _HistoryCell extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CellLabel('Import history'),
+          const Row(
+            children: [
+              Expanded(child: CellLabel('Import history')),
+              AccentIconWell(icon: Icons.history, size: 32, iconSize: 16),
+            ],
+          ),
           const SizedBox(height: AppDimens.unit * 2),
           history.when(
             loading: () => const Padding(
@@ -389,7 +412,20 @@ class _HistoryCell extends ConsumerWidget {
             data: (records) => records.isEmpty
                 ? Text('No imports yet.',
                     style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant))
-                : Column(children: [for (final r in records) _HistoryRow(record: r)]),
+                : Column(
+                    children: [
+                      for (var i = 0; i < records.length; i++) ...[
+                        if (i > 0) const SizedBox(height: AppDimens.unit),
+                        NestedWell(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppDimens.unit * 1.5,
+                            vertical: AppDimens.unit * 1.5,
+                          ),
+                          child: _HistoryRow(record: records[i]),
+                        ),
+                      ],
+                    ],
+                  ),
           ),
         ],
       ),
@@ -405,27 +441,24 @@ class _HistoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = record.stats;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(record.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
-                const SizedBox(height: 2),
-                Text(
-                  '${record.sourceApp.isEmpty ? 'unknown' : record.sourceApp} · '
-                  '${s.titlesNew} new · ${s.titlesMerged} merged · ${_relativeDate(record.importedAt)}',
-                  style: theme.textTheme.labelSmall!.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(record.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 2),
+              Text(
+                '${record.sourceApp.isEmpty ? 'unknown' : record.sourceApp} · '
+                '${s.titlesNew} new · ${s.titlesMerged} merged · ${_relativeDate(record.importedAt)}',
+                style: theme.textTheme.labelSmall!.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

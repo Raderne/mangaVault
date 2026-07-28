@@ -149,6 +149,7 @@ class _TotalTitlesCell extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return BentoCell(
+      tone: BentoTone.high,
       child: Stack(
         children: [
           // Oversized watermark glyph, as in the mockup's large cell.
@@ -158,7 +159,7 @@ class _TotalTitlesCell extends StatelessWidget {
             child: Icon(
               Icons.auto_stories,
               size: 96,
-              color: scheme.onSurface.withValues(alpha: 0.06),
+              color: scheme.primary.withValues(alpha: 0.09),
             ),
           ),
           Column(
@@ -229,7 +230,7 @@ class _StatCell extends StatelessWidget {
           Row(
             children: [
               Expanded(child: CellLabel(label)),
-              Icon(icon, size: 16, color: scheme.onSurfaceVariant),
+              AccentIconWell(icon: icon, size: 32, iconSize: 16),
             ],
           ),
           const SizedBox(height: AppDimens.unit),
@@ -258,6 +259,7 @@ class _ReadingProgressCell extends StatelessWidget {
     final scheme = theme.colorScheme;
     final percent = (stats.readFraction * 100).round();
     return BentoCell(
+      tone: BentoTone.high,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -283,12 +285,28 @@ class _ReadingProgressCell extends StatelessWidget {
                     const SizedBox(height: AppDimens.unit),
                     for (final entry in _statusMix(stats))
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          '${labelForStatus(entry.key)} · '
-                          '${groupedNumber(entry.value)}',
-                          style: theme.textTheme.labelSmall!
-                              .copyWith(color: scheme.onSurfaceVariant),
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: _statusDotColor(scheme, entry.key),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: AppDimens.unit),
+                            Expanded(
+                              child: Text(
+                                '${labelForStatus(entry.key)} · '
+                                '${groupedNumber(entry.value)}',
+                                style: theme.textTheme.labelSmall!.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -307,6 +325,14 @@ class _ReadingProgressCell extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
     return entries.take(3).toList();
   }
+
+  /// Sparse accent dots so the status mix isn't grey-on-grey.
+  Color _statusDotColor(ColorScheme scheme, String status) => switch (status) {
+        'ongoing' => scheme.secondary,
+        'completed' || 'publishing_finished' => scheme.primary,
+        'on_hiatus' || 'cancelled' => scheme.error,
+        _ => scheme.onSurfaceVariant,
+      };
 }
 
 /// Per-source-app backup freshness — the archive's "is my data current" cell.
@@ -368,43 +394,51 @@ class _HealthRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    // secondary ≡ tertiary hex in the scheme; Aging uses the deep tertiary
+    // container so it reads distinct from Fresh's lavender.
     final (color, word) = switch (row.staleness) {
       Staleness.fresh => (scheme.secondary, 'Fresh'),
-      Staleness.aging => (scheme.tertiary, 'Aging'),
+      Staleness.aging => (scheme.onTertiaryContainer, 'Aging'),
       Staleness.stale => (scheme.error, 'Stale'),
     };
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: AppDimens.unit * 1.5),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                row.sourceApp,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyLarge,
-              ),
-              Text(
-                '${groupedNumber(row.titleCount)} titles · '
-                '${relativeDate(row.lastImportAt)}',
-                style: theme.textTheme.labelSmall!
-                    .copyWith(color: scheme.onSurfaceVariant),
-              ),
-            ],
+    return NestedWell(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.unit * 1.5,
+        vertical: AppDimens.unit * 1.5,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-        ),
-        Text(
-          word.toUpperCase(),
-          style: theme.textTheme.labelSmall!.copyWith(color: color),
-        ),
-      ],
+          const SizedBox(width: AppDimens.unit * 1.5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.sourceApp,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge,
+                ),
+                Text(
+                  '${groupedNumber(row.titleCount)} titles · '
+                  '${relativeDate(row.lastImportAt)}',
+                  style: theme.textTheme.labelSmall!
+                      .copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            word.toUpperCase(),
+            style: theme.textTheme.labelSmall!.copyWith(color: color),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -646,19 +680,21 @@ class _VaultCell extends StatelessWidget {
                     Icon(Icons.cloud_done_outlined,
                         size: 14, color: scheme.onSurfaceVariant),
                     const SizedBox(width: 4),
-                    Text(
-                      last == null
-                          ? 'Nothing imported yet'
-                          : 'Last import ${relativeDate(last)}',
-                      style: theme.textTheme.bodyMedium!
-                          .copyWith(color: scheme.onSurfaceVariant),
+                    Expanded(
+                      child: Text(
+                        last == null
+                            ? 'Nothing imported yet'
+                            : 'Last import ${relativeDate(last)}',
+                        style: theme.textTheme.bodyMedium!
+                            .copyWith(color: scheme.onSurfaceVariant),
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          Icon(Icons.storage, size: 28, color: scheme.onSurfaceVariant),
+          const AccentIconWell(icon: Icons.storage),
         ],
       ),
     );

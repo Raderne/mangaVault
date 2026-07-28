@@ -84,6 +84,11 @@ widgets/progress_ring.dart         # the mockup's animated ring
   paired Chapters / Covers cells → reading-progress `ProgressRing` + top-3 status mix → backup health
   (a staleness dot per source app + relative last-import + `Import a backup` pill) → resume-reading
   shelf → recently-added shelf → vault-on-disk cell.
+- **Tonal pop (not new colors).** Tokens were always complete; the grid was flat mid-grey. Hero and
+  reading-progress cells use `BentoTone.high`; Chapters/Covers/Vault lead with `AccentIconWell`;
+  health rows wrap in `NestedWell`; status-mix lines get 7px dots (`secondary` / `primary` /
+  `error` / `onSurfaceVariant` by status key). Aging label/dot uses `onTertiaryContainer` so it
+  differs from Fresh (`secondary` ≡ `tertiary` in the scheme). See [[flutter-app]] widgets note.
 - **`ProgressRing`** (`widgets/progress_ring.dart`) is a `CustomPaint` arc from 12 o'clock with a
   rounded cap over a track, animating its sweep via `TweenAnimationBuilder` on `kEntranceCurve` and
   snapping under reduce-motion — the mockup's "90%" ring, reused for archive read progress.
