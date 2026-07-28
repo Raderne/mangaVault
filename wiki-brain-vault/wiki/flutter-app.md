@@ -2,7 +2,7 @@
 
 Created: 2026-07-18
 
-Related: [[index]] · [[backend]]
+Related: [[index]] · [[backend]] · [[library-api]] · [[cover-fetching]] · [[dashboard-stats]]
 
 ## Stack
 
@@ -20,6 +20,7 @@ app/lib/
   core/
     config/app_config.dart      # compile-time server config (SERVER_URL, API_TOKEN)
     api/api_client.dart         # apiClientProvider → Dio(baseUrl + bearer)
+    format.dart                 # groupedNumber / formatBytes / relativeDate / chapterNumberLabel
   features/<screen>/            # dashboard, library, title_details, backups
 app/config/
   dev.json                      # git-ignored: real LAN URL + API token
@@ -144,6 +145,30 @@ lib/widgets/archived_cover.dart                     # the one cover widget (auth
 - Tests: `cover_models_test.dart`, `cover_archive_controller_test.dart` (fake repos: nothing-missing,
   poll-to-done, dismiss).
 
+## Dashboard (M5, 2026-07-28)
+
+Backs the `archive_dashboard` mockup — the last placeholder screen, now fed from `GET /stats/*`.
+Full rationale (including the server aggregates) in [[dashboard-stats]].
+
+```
+lib/data/stats/                     # stats_models.dart + stats_repository.dart
+lib/features/dashboard/             # dashboard_controller.dart (one snapshot) + dashboard_screen.dart
+lib/widgets/progress_ring.dart      # the mockup's animated CustomPaint ring
+lib/core/format.dart                # shared formatters (relativeDate moved here from Title Details)
+```
+
+- `dashboardProvider` is a `FutureProvider<DashboardData>` that awaits all four `/stats` calls
+  together (record `.wait`), so the bento grid appears in one pass; app-bar refresh invalidates it and
+  `RefreshIndicator` re-awaits `.future`. Loading/error/empty states are all scrollable so
+  pull-to-refresh never dies.
+- Cells: hero total-titles → paired Chapters/Covers → reading-progress ring + status mix → backup
+  health (staleness dot per source app) → resume-reading shelf → recently-added shelf → vault size.
+- Gotchas worth remembering: `IntrinsicHeight` is required around the paired-cell `Row` (stretch in a
+  `ListView` = infinite height), shelf taps use `context.go('/library/title/:id')` so the shell
+  switches to the Library branch (and shelf covers carry no Hero, which belongs to the grid), and
+  chapter numbers must go through `chapterNumberLabel` because Mihon's floats carry float32 noise.
+- Tests: `format_test.dart`, `stats_models_test.dart`, `dashboard_screen_test.dart`.
+
 ## Animations (M3) — subtle, design-aligned
 
 The mockups define the motion language (bento cells fade-up staggered on `cubic-bezier(0.22,1,0.36,1)`,
@@ -165,4 +190,7 @@ The mockups define the motion language (bento cells fade-up staggered on `cubic-
 - `shared_preferences` dependency removed (only the settings module used it). The M2 "move token
   to flutter_secure_storage" to-do is moot — no token is stored on-device; it's compiled in.
 - Deferred on the Backups screen (out of M2): Active Sources / Storage / Cloud Sync cells
-  (cloud sync is past-v1 per CLAUDE.md; storage stats are M5).
+  (cloud sync is past-v1 per CLAUDE.md). Storage/vault size landed on the **Dashboard** in M5
+  ([[dashboard-stats]]); the storage *breakdown* and integrity report are M6.
+- `backups_screen.dart` still has its own private `_relativeDate`; it can fold into
+  `core/format.dart` next time that file is touched.

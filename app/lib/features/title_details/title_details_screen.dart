@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/format.dart';
 import '../../data/covers/cover_cache.dart';
 import '../../data/covers/cover_repository.dart';
 import '../../data/library/library_models.dart';
@@ -514,21 +515,4 @@ class _DetailsError extends StatelessWidget {
       ),
     );
   }
-}
-
-const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-/// Compact relative/absolute date for archive rows.
-String relativeDate(int millis) {
-  if (millis <= 0) return '';
-  final d = DateTime.fromMillisecondsSinceEpoch(millis);
-  final diff = DateTime.now().difference(d);
-  if (diff.inMinutes < 1) return 'just now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-  if (diff.inHours < 24) return '${diff.inHours}h ago';
-  if (diff.inDays < 7) return '${diff.inDays}d ago';
-  return '${_months[d.month - 1]} ${d.day}, ${d.year}';
 }

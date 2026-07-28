@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-28 22:55] session | M5 — dashboard stats API + Archive Dashboard screen
+Touched: dashboard-stats (created), backend, flutter-app, index
+
 ## [2026-07-25 17:20] session | Cover fetcher: Mihon mobile UA + site Referer + cause logging
 Touched: cover-fetching
 
