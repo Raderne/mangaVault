@@ -2,7 +2,14 @@
 
 Created: 2026-07-25
 
-Related: [[index]] · [[backend]] · [[flutter-app]] · [[import-pipeline]] · [[database]]
+Related: [[index]] · [[backend]] · [[flutter-app]] · [[import-pipeline]] · [[database]] ·
+[[local-library-mirror]]
+
+> **Superseded on the client (2026-07-30).** `GET /library`, `/library/:id` and `/categories` are
+> still the server's read API and still tested, but the **Flutter app no longer calls them** — it
+> reads an on-device SQLite mirror filled by `/sync/*`. `LibraryRepository` is now an interface whose
+> only implementation queries drift. See [[local-library-mirror]]. The paging/filter/sort semantics
+> documented below are re-implemented locally and verified to match field-for-field.
 
 The read side of the archive: browse the imported library and open a title. Backs the
 `library_archive` and `title_details` mockups. Endpoints under `/api/v1`, bearer-guarded like the

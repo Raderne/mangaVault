@@ -17,7 +17,9 @@ the first time substantial work happens on a topic.
   Title Details, paging, and the shared animation language.
 - [[dashboard-stats]] — M5 dashboard: `/stats/*` aggregates, backup staleness, the bento grid,
   shelves, and the shared `core/format.dart` helpers.
-- [[database]] — _(to be created)_ Postgres schema decisions, indexes, `pg_trgm`/tsvector/GIN.
+- [[local-library-mirror]] — on-device SQLite mirror + `/sync/*` delta feed: `row_version` triggers,
+  the advisory lock, drift schema, and why `updated_at` can't be a cursor.
+- [[database]] — Postgres schema, migrations, indexes, int64 discipline, unmapped columns, restores.
 - [[deployment]] — _(to be created)_ how/where the server is deployed (Docker on a VM).
 
 ## Domain

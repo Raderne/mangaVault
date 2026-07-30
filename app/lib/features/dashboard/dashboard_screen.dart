@@ -14,6 +14,7 @@ import '../../widgets/pill_button.dart';
 import '../../widgets/pressable.dart';
 import '../../widgets/progress_ring.dart';
 import '../library/library_screen.dart' show labelForStatus;
+import '../sync/sync_controller.dart';
 import 'dashboard_controller.dart';
 
 /// Archive Dashboard (home): the `archive_dashboard` mockup's bento grid, fed
@@ -32,12 +33,14 @@ class DashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh stats',
-            onPressed: () => ref.invalidate(dashboardProvider),
+            onPressed: () => ref.read(syncControllerProvider.notifier).run(),
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(dashboardProvider.future),
+        // Stats are derived from the on-device mirror, so a real refresh means
+        // syncing it first; the provider recomputes when the revision bumps.
+        onRefresh: () => ref.read(syncControllerProvider.notifier).run(),
         child: switch (async) {
           AsyncData(:final value) => _DashboardBody(data: value),
           AsyncError() => _ErrorState(

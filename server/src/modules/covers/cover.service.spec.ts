@@ -38,14 +38,25 @@ describe('CoverService.archiveMissing', () => {
     candidates: unknown[],
     fetchImpl: (url: string) => Promise<{ bytes: Buffer; mime: string }>,
   ) => {
+    const mangaRepo = { findOne: jest.fn(), update: jest.fn() };
+    // Cover writes go through withSyncLock → dataSource.transaction, so the
+    // fake manager forwards `update(Entity, id, patch)` to the repo mock the
+    // assertions below inspect.
     const dataSource = {
       query: jest.fn((sql: string) =>
         sql.includes('known_source')
           ? Promise.resolve([])
           : Promise.resolve(candidates),
       ),
+      transaction: jest.fn((work: (mgr: unknown) => Promise<unknown>) =>
+        work({
+          query: jest.fn(() => Promise.resolve([])), // pg_advisory_xact_lock
+          update: (_entity: unknown, id: string, patch: unknown): void => {
+            mangaRepo.update(id, patch);
+          },
+        }),
+      ),
     };
-    const mangaRepo = { findOne: jest.fn(), update: jest.fn() };
     const fetcher = { fetch: jest.fn((url: string) => fetchImpl(url)) };
     const config = {
       get: (key: string) => (key === 'STORAGE_DIR' ? storageDir : undefined),

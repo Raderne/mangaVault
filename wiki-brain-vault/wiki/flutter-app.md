@@ -2,7 +2,8 @@
 
 Created: 2026-07-18
 
-Related: [[index]] · [[backend]] · [[library-api]] · [[cover-fetching]] · [[dashboard-stats]]
+Related: [[index]] · [[backend]] · [[library-api]] · [[cover-fetching]] · [[dashboard-stats]] ·
+[[local-library-mirror]]
 
 ## Stack
 
@@ -180,6 +181,69 @@ lib/core/format.dart                # shared formatters (relativeDate moved here
   `tester.takeException()` stays null while a device throws. Assert rects (`tester.getRect`) for any
   fixed-height layout. Details in [[dashboard-stats]].
 - Tests: `format_test.dart`, `stats_models_test.dart`, `dashboard_screen_test.dart`.
+
+## Local library mirror (2026-07-30) — the app reads SQLite, not HTTP
+
+Full rationale in [[local-library-mirror]]; the app-side essentials:
+
+```
+lib/data/local/       # drift: tables.dart, app_database.dart, local_library_dao.dart
+lib/data/sync/        # sync_models.dart, sync_repository.dart, library_sync_service.dart
+lib/features/sync/sync_controller.dart   # SyncState + localRevisionProvider + lastSyncedAtProvider
+```
+
+- **`LibraryRepository` and `StatsRepository` are now interfaces**, implemented by
+  `LocalLibraryRepository` / `LocalStatsRepository` over drift. Signatures are unchanged, so
+  `LibraryController`, `dashboardProvider` and every screen were untouched — only the provider
+  bindings moved. `SyncRepository` is the app's **only** network reader for library data.
+- **First codegen in the project**: `drift_dev` + `build_runner`, scoped strictly to `lib/data/local/`.
+  All DTOs stay manual `fromJson`. Run `dart run build_runner build` after editing `tables.dart`.
+- **`sqlite3_flutter_libs` must NOT be a dependency** — `package:sqlite3` 3.x bundles SQLite via
+  native assets and the old package is a `+eol` no-op. `flutter pub add drift` pulls it in; remove it.
+  Verified `flutter build apk --debug` works with native assets on Flutter 3.44.
+- **`localRevisionProvider` is a plain `Notifier<int>`, not a drift stream.** The sync service is the
+  only writer and runs in this isolate, so a database watch bought nothing and dragged a live drift
+  subscription into every widget tree — which opened real DB files in tests and left pending timers.
+  It's bumped per committed sync page; controllers `ref.watch`/`ref.listen` it.
+- **Every test must use `AppDatabase.memory()`** and override `appDatabaseProvider`. A test that
+  doesn't will silently open a file-backed DB (and trip drift's multiple-instance warning).
+  `backups_import_test` also stubs `syncControllerProvider`, otherwise `commitAll()` fires a real
+  network sync at the compiled-in `SERVER_URL`.
+- **Library screen** gained a `RefreshIndicator` (pull-to-refresh syncs), a `_SyncBanner` mirroring
+  `_CoverBanner`, and a first-run `bootstrap()` in `initState`. The `CustomScrollView` needs
+  `AlwaysScrollableScrollPhysics` so the pull works on an empty library.
+
+### Filters moved to a bottom sheet (2026-07-30)
+
+The inline filter bar (status chips + sort pill + favourites toggle + counts) **overflowed
+horizontally** once a "Synced …" label joined it — reported from a real device at a 347pt row width,
+and reproducible at a 1.6× text scale. Rather than keep squeezing a five-element `Row`, the filters
+moved out:
+
+```
+lib/features/library/library_filter_sheet.dart
+  showLibraryFilterSheet(context)   # status · show (favorites/others) · sort by · reset
+  hasActiveFilters(filters)         # drives the app-bar badge
+  kLibraryBranchIndex = 1
+```
+
+- **Two entry points:** the app bar's `Icons.tune` action (badged when filters are non-default,
+  since they're now off-screen), and **re-tapping the Library tab** — `AppShell` intercepts a
+  re-select and opens the sheet, but only when already at `/library`, so re-tapping from Title
+  Details still just pops back to the grid.
+- The screen keeps one quiet `_MetaLine` above the grid: `"1,234 favorites · hiatus · synced 5m ago"`.
+  It is a **single `Text`** with `maxLines: 1` + ellipsis — a lone Text cannot overflow a Row, which
+  is the structural fix rather than another round of `Flexible` tuning.
+- `LibraryController.resetFilters()` returns status/favorite/sort to defaults while keeping the
+  search term (typed separately from the sheet).
+- Deleted from `library_screen.dart`: `_FilterChipButton`, `_SortPill`, `_FavoriteToggle`,
+  `_SortSheet` (the old sort-only sheet). `labelForStatus` stays — dashboard and title details
+  import it.
+- **Testing overflow:** widget tests do not fail on `RenderFlex` overflow, and an overflowing Row
+  still reports the *constrained* size — so `test/library_filter_bar_test.dart` measures the
+  **children's** rects against the screen at 320pt and 1.6× scale. Writing `SyncMeta` in a test must
+  use `update().write()` (the service's own path); `insertOnConflictUpdate` against the seeded
+  singleton silently does not persist the field.
 
 ## Animations (M3) — subtle, design-aligned
 

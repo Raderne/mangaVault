@@ -3,7 +3,12 @@
 Created: 2026-07-28
 
 Related: [[index]] · [[backend]] · [[flutter-app]] · [[library-api]] · [[cover-fetching]] ·
-[[import-pipeline]] · [[database]]
+[[import-pipeline]] · [[database]] · [[local-library-mirror]]
+
+> **2026-07-30:** the app computes all four aggregates from the on-device mirror instead of calling
+> `/stats/*` (the endpoints remain, and the local figures are verified to match them exactly against
+> the real 2,000-title library). `vaultSizeBytes` is the one exception — it spans Postgres plus the
+> server's `storage/` dir, so it rides along in `/sync/meta`. See [[local-library-mirror]].
 
 The archive's overview: how much is stored, how much has been read, and whether the backups behind
 it are still current. Backs the `archive_dashboard` mockup and replaces the em-dash placeholders that

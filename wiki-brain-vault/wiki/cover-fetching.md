@@ -2,7 +2,13 @@
 
 Created: 2026-07-25 (M4)
 
-Related: [[index]] · [[backend]] · [[library-api]] · [[flutter-app]] · [[tachibk-format]]
+Related: [[index]] · [[backend]] · [[library-api]] · [[flutter-app]] · [[tachibk-format]] ·
+[[local-library-mirror]]
+
+> **2026-07-30:** cover-state writes now go through `CoverService.updateCover`, which wraps the row
+> update in `withSyncLock` so concurrent archive workers can't break the sync cursor's ordering
+> ([[local-library-mirror]]). The image disk cache (`CoverCache`) is unchanged and independent of the
+> metadata mirror.
 
 The read side ([[library-api]]) surfaces titles; **M4 archives their cover images** so the app shows
 real art instead of placeholders. Thumbnail URLs rot, so covers are pulled into permanent local

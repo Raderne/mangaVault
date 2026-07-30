@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangavault/data/library/library_models.dart';
@@ -8,9 +7,15 @@ import 'package:mangavault/features/library/library_controller.dart';
 /// In-memory repository: slices a fixed list by offset/limit and honors the
 /// status / favorite filters — enough to exercise paging and refetch.
 class FakeLibraryRepository extends LibraryRepository {
-  FakeLibraryRepository(this.all, {Set<String>? favorites})
-      : favorites = favorites,
-        super(Dio());
+  FakeLibraryRepository(this.all, {this.favorites});
+
+  // Paging/filtering is what these tests cover; details and categories aren't.
+  @override
+  Future<VaultManga> get(String id) => throw UnimplementedError();
+
+  @override
+  Future<List<Category>> categories() async => const [];
+
   final List<MangaListItem> all;
 
   /// Ids treated as favorites. When null, every item is a favorite (DB default).

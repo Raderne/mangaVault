@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/library/library_models.dart';
 import '../../data/library/library_repository.dart';
+import '../sync/sync_controller.dart';
 
 /// A named sort option surfaced in the sort sheet.
 class LibrarySort {
@@ -118,6 +119,12 @@ class LibraryController extends Notifier<LibraryState> {
 
   @override
   LibraryState build() {
+    // Every committed sync transaction bumps the local revision; re-read in
+    // place so titles appear as they land without a skeleton flash.
+    ref.listen(localRevisionProvider, (previous, next) {
+      if (previous == null) return;
+      reload();
+    });
     // Kick off the first page after construction returns.
     Future<void>.microtask(refresh);
     return const LibraryState(filters: LibraryFilters());
@@ -191,6 +198,16 @@ class LibraryController extends Notifier<LibraryState> {
     _fetch(reset: true);
   }
 
+  /// Back to status-all / favorites / title A–Z. Keeps the search term, which
+  /// the user types separately from the filter sheet.
+  void resetFilters() {
+    const defaults = LibraryFilters();
+    final next = defaults.copyWith(text: state.filters.text);
+    if (_sameFilters(next, state.filters)) return;
+    state = state.copyWith(filters: next);
+    _fetch(reset: true);
+  }
+
   Future<void> _fetch({required bool reset}) async {
     final f = state.filters;
     if (reset) {
@@ -244,11 +261,14 @@ final libraryControllerProvider =
     NotifierProvider<LibraryController, LibraryState>(LibraryController.new);
 
 /// Categories for the filter surface (currently informational; counts included).
-final categoriesProvider = FutureProvider<List<Category>>(
-  (ref) => ref.watch(libraryRepositoryProvider).categories(),
-);
+final categoriesProvider = FutureProvider<List<Category>>((ref) {
+  ref.watch(localRevisionProvider);
+  return ref.watch(libraryRepositoryProvider).categories();
+});
 
 /// Full details for one title, keyed by id (Title Details screen).
-final mangaDetailsProvider = FutureProvider.family<VaultManga, String>(
-  (ref, id) => ref.watch(libraryRepositoryProvider).get(id),
-);
+final mangaDetailsProvider =
+    FutureProvider.family<VaultManga, String>((ref, id) {
+  ref.watch(localRevisionProvider);
+  return ref.watch(libraryRepositoryProvider).get(id);
+});

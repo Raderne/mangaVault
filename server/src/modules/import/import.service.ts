@@ -14,6 +14,7 @@ import { DataSource, EntityManager } from 'typeorm';
 
 import { ImportJobRegistry } from './import-job.registry';
 
+import { acquireSyncLock } from '../../common/sync-lock';
 import {
   CategoryEntity,
   ChapterEntity,
@@ -212,6 +213,7 @@ export class ImportService {
       // Categories + sources + the import_record header, in one small transaction.
       let categoryIdByName = new Map<string, string>();
       await this.dataSource.transaction(async (mgr) => {
+        await acquireSyncLock(mgr);
         this.jobs.emit(jobId, {
           type: 'phase',
           phase: 'categories',
@@ -242,6 +244,8 @@ export class ImportService {
       for (let start = 0; start < total; start += this.batchSize) {
         const batch = manga.slice(start, start + this.batchSize);
         await this.dataSource.transaction(async (mgr) => {
+          // Keeps row_version order == commit order for the sync cursor.
+          await acquireSyncLock(mgr);
           for (const m of batch) {
             const { mangaId, created } = await this.upsertManga(mgr, m);
             if (created) stats.titlesNew++;

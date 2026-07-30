@@ -3,7 +3,8 @@
 Created: 2026-07-16 (M1)
 
 Related: [[index]] · [[migration]] · [[database]] · [[deployment]] · [[tachibk-format]] ·
-[[import-pipeline]] · [[library-api]] · [[cover-fetching]] · [[dashboard-stats]]
+[[import-pipeline]] · [[library-api]] · [[cover-fetching]] · [[dashboard-stats]] ·
+[[local-library-mirror]]
 
 ## Stack
 
@@ -27,6 +28,8 @@ server/src/
   modules/library/         # [[library-api]] — /library, /library/:id, /categories
   modules/covers/          # [[cover-fetching]] — /covers/*, fetcher, StreamableFile serve
   modules/stats/           # [[dashboard-stats]] — /stats/*, derived aggregates, staleness
+  modules/sync/            # [[local-library-mirror]] — /sync/library + /sync/meta delta feed
+  common/sync-lock.ts      # pg_advisory_xact_lock wrapper: keeps row_version order == commit order
 ```
 
 ## Decisions & gotchas

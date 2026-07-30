@@ -29,7 +29,11 @@ class FakeCoverRepository extends CoverRepository {
 
 /// Minimal library repo so the controller's in-place reload has something to do.
 class FakeLibraryRepository extends LibraryRepository {
-  FakeLibraryRepository() : super(Dio());
+  FakeLibraryRepository();
+
+  // Not exercised here — this test only drives the in-place reload.
+  @override
+  Future<VaultManga> get(String id) => throw UnimplementedError();
 
   @override
   Future<LibraryPage> query({
