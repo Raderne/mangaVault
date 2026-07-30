@@ -100,8 +100,9 @@ void main() {
 
     expect(find.text('Solo Leveling'), findsOneWidget);
     expect(find.text('Omniscient Reader'), findsOneWidget);
-    // Total count chip.
-    expect(find.text('2'), findsOneWidget);
+    // Result count now lives in the meta line above the grid; the filters
+    // themselves moved into the bottom sheet.
+    expect(find.textContaining('2 favorites'), findsOneWidget);
   });
 
   testWidgets('empty library shows the no-match state', (tester) async {

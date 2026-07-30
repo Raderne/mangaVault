@@ -198,6 +198,16 @@ class LibraryController extends Notifier<LibraryState> {
     _fetch(reset: true);
   }
 
+  /// Back to status-all / favorites / title A–Z. Keeps the search term, which
+  /// the user types separately from the filter sheet.
+  void resetFilters() {
+    const defaults = LibraryFilters();
+    final next = defaults.copyWith(text: state.filters.text);
+    if (_sameFilters(next, state.filters)) return;
+    state = state.copyWith(filters: next);
+    _fetch(reset: true);
+  }
+
   Future<void> _fetch({required bool reset}) async {
     final f = state.filters;
     if (reset) {

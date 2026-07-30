@@ -15,6 +15,7 @@ import '../../widgets/pressable.dart';
 import '../covers/cover_archive_controller.dart';
 import '../sync/sync_controller.dart';
 import 'library_controller.dart';
+import 'library_filter_sheet.dart';
 
 /// Library Archive: an infinite-scroll cover grid with status filters, sort,
 /// and search — the `library_archive` mockup, wired to `GET /library`.
@@ -76,29 +77,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
   }
 
-  Future<void> _openSortSheet(LibraryFilters filters) async {
-    final selected = await showModalBottomSheet<LibrarySort>(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppDimens.cellRadius)),
-      ),
-      builder: (context) => _SortSheet(current: filters),
-    );
-    if (selected != null) {
-      ref.read(libraryControllerProvider.notifier).setSort(selected);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(libraryControllerProvider);
     final coverArchive = ref.watch(coverArchiveControllerProvider);
+    final filtersActive = hasActiveFilters(state.filters);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Library'),
         actions: [
+          // Filters live in a bottom sheet (also reachable by re-tapping the
+          // Library tab). Since they're off-screen, a dot marks non-defaults.
+          IconButton(
+            icon: Badge(
+              isLabelVisible: filtersActive,
+              smallSize: 8,
+              child: const Icon(Icons.tune),
+            ),
+            onPressed: () => showLibraryFilterSheet(context),
+            tooltip: 'Filter & sort',
+          ),
           IconButton(
             icon: coverArchive.isRunning
                 ? const SizedBox(
@@ -132,7 +130,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           slivers: [
             if (_searchOpen)
               SliverToBoxAdapter(child: _buildSearchField(context)),
-            SliverToBoxAdapter(child: _buildFilterBar(context, state)),
+            SliverToBoxAdapter(child: _MetaLine(state: state)),
             const SliverToBoxAdapter(child: _SyncBanner()),
             const SliverToBoxAdapter(child: _CoverBanner()),
             ..._buildContent(context, state),
@@ -162,73 +160,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  Widget _buildFilterBar(BuildContext context, LibraryState state) {
-    final controller = ref.read(libraryControllerProvider.notifier);
-    final current = kLibrarySorts.firstWhere(
-      (s) => s.matches(state.filters),
-      orElse: () => kLibrarySorts.first,
-    );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppDimens.gutter, AppDimens.unit, AppDimens.gutter, AppDimens.unit),
-      child: BentoCell(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.unit * 2, vertical: AppDimens.unit * 1.5),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final (label, value) in kStatusFilters)
-                    Padding(
-                      padding: const EdgeInsets.only(right: AppDimens.unit),
-                      child: _FilterChipButton(
-                        label: label,
-                        selected: state.filters.status == value,
-                        onTap: () => controller.setStatus(value),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppDimens.unit),
-            Row(
-              children: [
-                Text(
-                  'SORT',
-                  style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        letterSpacing: 1.2,
-                      ),
-                ),
-                const SizedBox(width: AppDimens.unit),
-                _SortPill(
-                  label: current.label,
-                  onTap: () => _openSortSheet(state.filters),
-                ),
-                const SizedBox(width: AppDimens.unit),
-                _FavoriteToggle(
-                  favorite: state.filters.favorite,
-                  onTap: () => controller.setFavorite(!state.filters.favorite),
-                ),
-                const Spacer(),
-                const _LastSyncedLabel(),
-                if (state.status == LibraryStatus.ready)
-                  Text(
-                    '${state.total}',
-                    style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // (filters moved to the bottom sheet — see library_filter_sheet.dart)
 
   List<Widget> _buildContent(BuildContext context, LibraryState state) {
     if (state.status == LibraryStatus.loading) {
@@ -437,154 +369,6 @@ String labelForStatus(String status) => switch (status) {
       _ => 'UNKNOWN',
     };
 
-class _FilterChipButton extends StatelessWidget {
-  const _FilterChipButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: selected ? scheme.secondaryContainer : scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            label.toUpperCase(),
-            style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                  color: selected
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurfaceVariant,
-                ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SortPill extends StatelessWidget {
-  const _SortPill({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppDimens.coverRadius),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppDimens.coverRadius),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.labelSmall),
-              const SizedBox(width: 4),
-              Icon(Icons.expand_more, size: 16, color: scheme.onSurfaceVariant),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Toggle next to sort: on = favorites (default), off = non-favorites.
-class _FavoriteToggle extends StatelessWidget {
-  const _FavoriteToggle({required this.favorite, required this.onTap});
-
-  final bool favorite;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: favorite ? scheme.secondaryContainer : scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(AppDimens.coverRadius),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppDimens.coverRadius),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                size: 16,
-                color: favorite
-                    ? scheme.onSecondaryContainer
-                    : scheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                favorite ? 'FAVORITES' : 'OTHER',
-                style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                      color: favorite
-                          ? scheme.onSecondaryContainer
-                          : scheme.onSurfaceVariant,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SortSheet extends StatelessWidget {
-  const _SortSheet({required this.current});
-  final LibraryFilters current;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppDimens.unit),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppDimens.cellPadding, AppDimens.unit, 0, AppDimens.unit),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: CellLabel('Sort by'),
-              ),
-            ),
-            for (final sort in kLibrarySorts)
-              ListTile(
-                title: Text(sort.label),
-                trailing: sort.matches(current)
-                    ? Icon(Icons.check, color: scheme.secondary)
-                    : null,
-                onTap: () => Navigator.of(context).pop(sort),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _Footer extends StatelessWidget {
   const _Footer({required this.state});
   final LibraryState state;
@@ -605,22 +389,40 @@ class _Footer extends StatelessWidget {
   }
 }
 
-/// "Synced 5m ago" next to the result count — the library is read from the
-/// device, so how fresh it is has to be visible somewhere.
-class _LastSyncedLabel extends ConsumerWidget {
-  const _LastSyncedLabel();
+/// One quiet line above the grid: how many titles match, how fresh the mirror
+/// is, and which filter is active. It is a **single** [Text] on its own line —
+/// the previous inline filter bar crammed these next to the sort and favourites
+/// pills and overflowed horizontally on narrow phones and at large text scales.
+class _MetaLine extends ConsumerWidget {
+  const _MetaLine({required this.state});
+
+  final LibraryState state;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final at = ref.watch(lastSyncedAtProvider).value;
-    if (at == null) return const SizedBox.shrink();
     final theme = Theme.of(context);
+    final syncedAt = ref.watch(lastSyncedAtProvider).value;
+
+    final parts = <String>[
+      if (state.status == LibraryStatus.ready)
+        '${groupedNumber(state.total)} '
+            '${state.filters.favorite ? 'favorites' : 'others'}',
+      if (state.filters.status.isNotEmpty)
+        labelForStatus(state.filters.status).toLowerCase(),
+      if (syncedAt != null) 'synced ${relativeDate(syncedAt)}',
+    ];
+    if (parts.isEmpty) return const SizedBox(height: AppDimens.unit);
+
     return Padding(
-      padding: const EdgeInsets.only(right: AppDimens.unit),
+      padding: const EdgeInsets.fromLTRB(
+          AppDimens.gutter, AppDimens.unit, AppDimens.gutter, AppDimens.unit),
       child: Text(
-        'Synced ${relativeDate(at)}',
-        style: theme.textTheme.labelSmall!
-            .copyWith(color: theme.colorScheme.onSurfaceVariant),
+        parts.join('  ·  '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall!.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
