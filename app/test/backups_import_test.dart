@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangavault/data/import/import_models.dart';
 import 'package:mangavault/data/import/import_repository.dart';
+import 'package:mangavault/data/local/app_database.dart';
 import 'package:mangavault/features/backups/backups_screen.dart';
 import 'package:mangavault/features/backups/import_controller.dart';
+import 'package:mangavault/features/sync/sync_controller.dart';
 import 'package:mangavault/theme/app_theme.dart';
 
 /// Fake repository: scripted event stream, no real HTTP.
@@ -33,6 +35,29 @@ class SeededController extends ImportController {
   final ImportState seed;
   @override
   ImportState build() => seed;
+}
+
+/// Stands in for the real sync so tests never touch a database or the network,
+/// and so the import → sync hand-off can be asserted directly.
+class RecordingSyncController extends SyncController {
+  int runs = 0;
+
+  @override
+  SyncState build() => const SyncIdle();
+
+  @override
+  Future<void> run({bool force = false}) async => runs++;
+
+  @override
+  Future<void> bootstrap() async {}
+}
+
+/// In-memory mirror for the Backups screen's import-history cell, so no test
+/// opens a real database file.
+AppDatabase _memoryDb() {
+  final db = AppDatabase.memory();
+  addTearDown(db.close);
+  return db;
 }
 
 ImportRecord _record() => ImportRecord(
@@ -85,9 +110,12 @@ void main() {
       DoneEvent(record),
     ]);
 
+    final sync = RecordingSyncController();
     final container = ProviderContainer(overrides: [
       importRepositoryProvider.overrideWithValue(repo),
       importControllerProvider.overrideWith(() => SeededController(ImportReview([_staged()]))),
+      appDatabaseProvider.overrideWithValue(_memoryDb()),
+      syncControllerProvider.overrideWith(() => sync),
     ]);
     addTearDown(container.dispose);
 
@@ -96,6 +124,9 @@ void main() {
     final state = container.read(importControllerProvider);
     expect(state, isA<ImportDone>());
     expect((state as ImportDone).records.single.id, 'r1');
+    // A finished import must pull the new titles into the on-device mirror,
+    // or the Library and Dashboard would keep showing the pre-import library.
+    expect(sync.runs, 1);
   });
 
   testWidgets('live progress cell renders streamed manga records', (tester) async {
@@ -113,6 +144,8 @@ void main() {
       overrides: [
         importRepositoryProvider.overrideWithValue(FakeImportRepository(const [])),
         importControllerProvider.overrideWith(() => SeededController(committing)),
+        appDatabaseProvider.overrideWithValue(_memoryDb()),
+        syncControllerProvider.overrideWith(RecordingSyncController.new),
       ],
       child: MaterialApp(theme: buildAppTheme(), home: const BackupsScreen()),
     ));
@@ -145,6 +178,8 @@ void main() {
       overrides: [
         importRepositoryProvider.overrideWithValue(FakeImportRepository(const [])),
         importControllerProvider.overrideWith(() => SeededController(ImportReview([staged]))),
+        appDatabaseProvider.overrideWithValue(_memoryDb()),
+        syncControllerProvider.overrideWith(RecordingSyncController.new),
       ],
       child: MaterialApp(theme: buildAppTheme(), home: const BackupsScreen()),
     ));

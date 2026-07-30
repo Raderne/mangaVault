@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/format.dart';
 import '../../data/library/library_models.dart';
 import '../../theme/app_dimens.dart';
 import '../../widgets/archived_cover.dart';
@@ -12,6 +13,7 @@ import '../../widgets/entrance_fade.dart';
 import '../../widgets/glow_progress_bar.dart';
 import '../../widgets/pressable.dart';
 import '../covers/cover_archive_controller.dart';
+import '../sync/sync_controller.dart';
 import 'library_controller.dart';
 
 /// Library Archive: an infinite-scroll cover grid with status filters, sort,
@@ -37,6 +39,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // First run has an empty mirror and nothing to show, so fill it. A no-op
+    // once a cursor exists — later syncs are import-driven or pull-to-refresh.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(syncControllerProvider.notifier).bootstrap();
+    });
   }
 
   @override
@@ -113,18 +120,27 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           ),
         ],
       ),
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          if (_searchOpen)
-            SliverToBoxAdapter(child: _buildSearchField(context)),
-          SliverToBoxAdapter(child: _buildFilterBar(context, state)),
-          const SliverToBoxAdapter(child: _CoverBanner()),
-          ..._buildContent(context, state),
-          SliverToBoxAdapter(
-            child: _Footer(state: state),
-          ),
-        ],
+      body: RefreshIndicator(
+        // Pull-to-refresh pulls server changes into the mirror; the grid then
+        // re-reads locally when the sync bumps the revision.
+        onRefresh: () => ref.read(syncControllerProvider.notifier).run(),
+        child: CustomScrollView(
+          controller: _scrollController,
+          // Always scrollable, so the pull gesture works on a short or empty
+          // library too.
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            if (_searchOpen)
+              SliverToBoxAdapter(child: _buildSearchField(context)),
+            SliverToBoxAdapter(child: _buildFilterBar(context, state)),
+            const SliverToBoxAdapter(child: _SyncBanner()),
+            const SliverToBoxAdapter(child: _CoverBanner()),
+            ..._buildContent(context, state),
+            SliverToBoxAdapter(
+              child: _Footer(state: state),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -198,6 +214,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   onTap: () => controller.setFavorite(!state.filters.favorite),
                 ),
                 const Spacer(),
+                const _LastSyncedLabel(),
                 if (state.status == LibraryStatus.ready)
                   Text(
                     '${state.total}',
@@ -584,6 +601,114 @@ class _Footer extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
       ),
+    );
+  }
+}
+
+/// "Synced 5m ago" next to the result count — the library is read from the
+/// device, so how fresh it is has to be visible somewhere.
+class _LastSyncedLabel extends ConsumerWidget {
+  const _LastSyncedLabel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final at = ref.watch(lastSyncedAtProvider).value;
+    if (at == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(right: AppDimens.unit),
+      child: Text(
+        'Synced ${relativeDate(at)}',
+        style: theme.textTheme.labelSmall!
+            .copyWith(color: theme.colorScheme.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
+/// Mirrors [_CoverBanner] for library sync: shows progress while the mirror is
+/// being filled from the server, and reports a failure without hiding whatever
+/// the mirror already holds — an unreachable server degrades to stale data, not
+/// an empty screen.
+class _SyncBanner extends ConsumerWidget {
+  const _SyncBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final state = ref.watch(syncControllerProvider);
+    // A completed sync needs no announcement — the titles simply appear.
+    final show = state is SyncRunning || state is SyncFailed;
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: kEntranceCurve,
+      alignment: Alignment.topCenter,
+      child: !show
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppDimens.gutter, 0, AppDimens.gutter, AppDimens.unit),
+              child: BentoCell(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimens.unit * 2,
+                    vertical: AppDimens.unit * 1.5),
+                child: switch (state) {
+                  SyncFailed(:final message) => Row(
+                      children: [
+                        Icon(Icons.sync_problem_outlined,
+                            size: 18, color: scheme.error),
+                        const SizedBox(width: AppDimens.unit),
+                        Expanded(
+                          child: Text(
+                            "Couldn't reach the server — showing the last "
+                            'synced library.',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              ref.read(syncControllerProvider.notifier).run(),
+                          child: const Text('Retry'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          tooltip: message,
+                          onPressed:
+                              ref.read(syncControllerProvider.notifier).dismiss,
+                        ),
+                      ],
+                    ),
+                  SyncRunning(
+                    :final received,
+                    :final total,
+                    :final fraction
+                  ) =>
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text('Syncing library',
+                                style: theme.textTheme.titleSmall),
+                            const Spacer(),
+                            Text(
+                              total == 0 ? '…' : '$received / $total',
+                              style: theme.textTheme.labelSmall!.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppDimens.unit),
+                        GlowProgressBar(value: fraction),
+                      ],
+                    ),
+                  _ => const SizedBox.shrink(),
+                },
+              ),
+            ),
     );
   }
 }

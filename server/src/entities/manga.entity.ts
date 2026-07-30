@@ -91,6 +91,11 @@ export class MangaEntity {
   // search_tsv is a generated tsvector column managed in the initial
   // migration; it is intentionally not mapped here.
 
+  // row_version (BIGINT) is stamped by a database trigger on every write —
+  // see the sync-row-version migration. Deliberately NOT mapped: TypeORM must
+  // never write it, and the sync module reads it via raw SQL. Like search_tsv,
+  // `migration:generate` may propose dropping it — always review the diff.
+
   @OneToMany(() => ChapterEntity, (chapter) => chapter.manga)
   chapters: ChapterEntity[];
 

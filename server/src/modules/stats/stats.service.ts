@@ -262,8 +262,12 @@ export class StatsService {
 
   // ---- internals ----
 
-  /** DB size + archived backup files + cover files. */
-  private async vaultSizeBytes(): Promise<number> {
+  /**
+   * DB size + archived backup files + cover files. Public because the sync
+   * module reports it in `/sync/meta` — it is the one dashboard figure the
+   * on-device mirror cannot derive for itself.
+   */
+  async vaultSizeBytes(): Promise<number> {
     const [dbSize, imports, covers] = await Promise.all([
       this.dataSource
         .query<{ size: string }[]>(

@@ -2,7 +2,7 @@
 
 Created: 2026-07-18 (M2)
 
-Related: [[index]] · [[backend]] · [[tachibk-format]] · [[database]]
+Related: [[index]] · [[backend]] · [[tachibk-format]] · [[database]] · [[local-library-mirror]]
 
 NestJS module that turns an uploaded backup into library rows. `server/src/modules/import/`.
 Consumes the pure [[tachibk-format]] lib; owns the DB writes and file archiving.
@@ -62,6 +62,9 @@ The engine is DB-agnostic: the service projects a `MangaEntity` (+children) into
 
 ## Persistence notes
 
+- **Every commit transaction takes the sync advisory lock first** (`acquireSyncLock(mgr)`, both the
+  header transaction and each batch) so `manga.row_version` order matches commit order — see
+  [[local-library-mirror]]. Do not add a new write path here without it.
 - Children written with `manager.upsert(ChapterEntity, rows, ['mangaId','url'])` /
   `['mangaId','tracker']` — relies on the unique constraints from the initial migration.
 - Junction rows (`manga_category`, `manga_import`) inserted via query builder `.orIgnore()`.
@@ -85,3 +88,8 @@ The Flutter Backups screen consumes all of the above — see [[flutter-app]] (Im
 `ImportRepository` (multipart stage, commit→jobId, Dio SSE stream via `core/sse/sse_parser.dart`),
 an `ImportController` state machine, and a live-progress screen that renders each `manga` event as
 it streams in. M2 is complete.
+
+Since 2026-07-30, `commitAll()` also **runs a library sync** before emitting `ImportDone`, so the
+newly imported titles land in the on-device mirror and the Library/Dashboard update immediately —
+the *Import Service → Library Sync service* hand-off. A sync failure never fails a successful
+import. See [[local-library-mirror]].

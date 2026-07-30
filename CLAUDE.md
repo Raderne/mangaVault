@@ -22,6 +22,11 @@ library store, cover fetching/archiving, and stats. The **Flutter app** is a cli
 backup files, browses the library, and renders the four designed screens. Nothing archival lives
 only on the phone.
 
+The app *does* keep an on-device SQLite **mirror** of the library for fast, offline browsing, filled
+by a delta sync (`/sync/*`). That is a disposable cache, not storage: it holds only the fields the
+screens render, can be deleted and rebuilt in seconds, and never holds anything the server doesn't.
+The rule above is unchanged. See `wiki-brain-vault/wiki/local-library-mirror.md`.
+
 ## Commands
 
 First-time setup: copy `.env.example` → `.env` at the repo root (set a real `API_TOKEN`), then

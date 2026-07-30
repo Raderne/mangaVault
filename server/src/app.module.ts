@@ -10,6 +10,7 @@ import { CoverModule } from './modules/covers/cover.module';
 import { ImportModule } from './modules/import/import.module';
 import { LibraryModule } from './modules/library/library.module';
 import { StatsModule } from './modules/stats/stats.module';
+import { SyncModule } from './modules/sync/sync.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { StatsModule } from './modules/stats/stats.module';
     LibraryModule,
     CoverModule,
     StatsModule,
+    SyncModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ApiTokenGuard }],

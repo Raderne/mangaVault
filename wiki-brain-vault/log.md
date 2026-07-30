@@ -5,6 +5,10 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-30 17:45] session | Local library mirror — on-device SQLite + delta sync
+Touched: local-library-mirror (created), database (created), index, backend, flutter-app,
+library-api, import-pipeline, cover-fetching, dashboard-stats, migration
+
 ## [2026-07-28 23:20] session | Bento tile tonal color pop
 Touched: flutter-app, dashboard-stats
 

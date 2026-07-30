@@ -2,7 +2,7 @@
 
 Created: 2026-07-16 (M1)
 
-Related: [[index]] · [[backend]] · [[database]]
+Related: [[index]] · [[backend]] · [[database]] · [[local-library-mirror]]
 
 Workflow (all from `server/`, Postgres running via `docker compose up -d postgres`):
 
@@ -23,6 +23,8 @@ npm run migration:generate -- src/database/migrations/<name>   # diff entities -
   - Hand-write SQL when TypeORM can't express it (extensions, generated columns, partial/GIN
     indexes); `001 initial-schema` is the template.
   - After `migration:generate`, always review the diff — TypeORM does not know about the
-    unmapped `search_tsv` column and may try to drop it. Remove any such statements.
-- Schema reference lives in `docs/phase-1-data-structures.md` §3.2; keep it in sync when the
-  schema evolves.
+    **unmapped** `search_tsv` **or** `row_version` columns and may try to drop them. Remove any such
+    statements. (`row_version` is written only by a database trigger; see [[local-library-mirror]].)
+- Applied so far: `1752600000000-initial-schema`, `1753900000000-sync-row-version`. Full schema
+  reference in [[database]]; `docs/phase-1-data-structures.md` §3.2 covers the initial tables only
+  and predates the sync columns.

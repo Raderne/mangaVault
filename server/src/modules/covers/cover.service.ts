@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
+import { withSyncLock } from '../../common/sync-lock';
 import { MangaEntity } from '../../entities';
 import type { CoverFetchHint } from '../../entities/known-source.entity';
 import { runPool } from './concurrency';
@@ -137,7 +138,7 @@ export class CoverService {
       sniffed.ext,
       m.coverPath,
     );
-    await this.mangaRepo.update(mangaId, {
+    await this.updateCover(mangaId, {
       coverPath: relPath,
       coverState: 'archived',
     });
@@ -204,6 +205,21 @@ export class CoverService {
     }
   }
 
+  /**
+   * Persist a cover-state change under the sync lock, so `row_version` order
+   * matches commit order even with `COVER_CONCURRENCY` workers writing at once
+   * (see common/sync-lock.ts). The fetch and the file write already happened —
+   * only the row update is inside the transaction, so the lock is held briefly.
+   */
+  private async updateCover(
+    mangaId: string,
+    patch: Partial<Pick<MangaEntity, 'coverPath' | 'coverState'>>,
+  ): Promise<void> {
+    await withSyncLock(this.dataSource, async (mgr) => {
+      await mgr.update(MangaEntity, mangaId, patch);
+    });
+  }
+
   private async archiveCandidate(
     c: Candidate,
     hint: CoverFetchHint | null,
@@ -220,14 +236,14 @@ export class CoverService {
         extForMime(mime),
         c.coverPath,
       );
-      await this.mangaRepo.update(c.id, {
+      await this.updateCover(c.id, {
         coverPath: relPath,
         coverState: 'archived',
       });
       return { mangaId: c.id, outcome: 'archived', coverState: 'archived' };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'cover fetch failed';
-      await this.mangaRepo.update(c.id, { coverState: 'failed' });
+      await this.updateCover(c.id, { coverState: 'failed' });
       this.logger.debug(`cover ${c.id} failed: ${message}`);
       return {
         mangaId: c.id,

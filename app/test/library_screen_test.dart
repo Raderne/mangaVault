@@ -1,15 +1,15 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mangavault/data/library/library_models.dart';
 import 'package:mangavault/data/library/library_repository.dart';
+import 'package:mangavault/data/local/app_database.dart';
 import 'package:mangavault/features/library/library_screen.dart';
 import 'package:mangavault/features/title_details/title_details_screen.dart';
 import 'package:mangavault/theme/app_theme.dart';
 
 class FakeLibraryRepository extends LibraryRepository {
-  FakeLibraryRepository({this.items = const [], this.manga}) : super(Dio());
+  FakeLibraryRepository({this.items = const [], this.manga});
   final List<MangaListItem> items;
   final VaultManga? manga;
 
@@ -75,12 +75,24 @@ VaultManga _manga() => VaultManga.fromJson({
       ],
     });
 
+/// A throwaway in-memory mirror, closed when the test ends.
+AppDatabase _memoryDb(WidgetTester _) {
+  final db = AppDatabase.memory();
+  addTearDown(db.close);
+  return db;
+}
+
 void main() {
   testWidgets('library grid renders titles from the API', (tester) async {
     final repo = FakeLibraryRepository(items: [_item('Solo Leveling'), _item('Omniscient Reader')]);
 
     await tester.pumpWidget(ProviderScope(
-      overrides: [libraryRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        libraryRepositoryProvider.overrideWithValue(repo),
+        // The screen kicks off a bootstrap sync, which touches the mirror —
+        // keep it in memory so no test opens a real database file.
+        appDatabaseProvider.overrideWithValue(_memoryDb(tester)),
+      ],
       child: MaterialApp(theme: buildAppTheme(), home: const LibraryScreen()),
     ));
     await tester.pump(); // run initial fetch microtask
@@ -96,7 +108,12 @@ void main() {
     final repo = FakeLibraryRepository(items: const []);
 
     await tester.pumpWidget(ProviderScope(
-      overrides: [libraryRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        libraryRepositoryProvider.overrideWithValue(repo),
+        // The screen kicks off a bootstrap sync, which touches the mirror —
+        // keep it in memory so no test opens a real database file.
+        appDatabaseProvider.overrideWithValue(_memoryDb(tester)),
+      ],
       child: MaterialApp(theme: buildAppTheme(), home: const LibraryScreen()),
     ));
     await tester.pump();

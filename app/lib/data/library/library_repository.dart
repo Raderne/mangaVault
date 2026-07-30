@@ -1,17 +1,46 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/api_client.dart';
+import '../../features/sync/sync_controller.dart';
+import '../local/local_library_dao.dart';
 import 'library_models.dart';
 
-/// Talks to the server's `/library`, `/library/:id` and `/categories`
-/// endpoints — the read side of the archive (M3).
-class LibraryRepository {
-  LibraryRepository(this._dio);
-
-  final Dio _dio;
-
+/// The library read surface the UI depends on.
+///
+/// An interface rather than a concrete class so the backing store can change
+/// without touching `LibraryController` or the screens — which is exactly what
+/// happened when reads moved from HTTP to the on-device mirror — and so tests
+/// can substitute a fake without constructing a database.
+abstract class LibraryRepository {
   /// A paginated, filtered, sorted slice of the library.
+  Future<LibraryPage> query({
+    String text,
+    List<String> status,
+    List<String> categoryIds,
+    List<String> sourceIds,
+    bool? favorite,
+    String sortBy,
+    String sortDir,
+    int offset,
+    int limit,
+  });
+
+  /// The full record for one title.
+  Future<VaultManga> get(String id);
+
+  /// Categories with title counts, for the filter chips.
+  Future<List<Category>> categories();
+}
+
+/// Reads the library from the **on-device mirror**, not the network.
+///
+/// The server is still the source of truth; [LibrarySyncService] pulls its
+/// changes into SQLite and this reads them back.
+class LocalLibraryRepository implements LibraryRepository {
+  LocalLibraryRepository(this._dao);
+
+  final LocalLibraryDao _dao;
+
+  @override
   Future<LibraryPage> query({
     String text = '',
     List<String> status = const [],
@@ -22,39 +51,26 @@ class LibraryRepository {
     String sortDir = 'asc',
     int offset = 0,
     int limit = 40,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/library',
-      queryParameters: {
-        if (text.trim().isNotEmpty) 'text': text.trim(),
-        if (status.isNotEmpty) 'status': status.join(','),
-        if (categoryIds.isNotEmpty) 'categoryIds': categoryIds.join(','),
-        if (sourceIds.isNotEmpty) 'sourceIds': sourceIds.join(','),
-        if (favorite != null) 'favorite': favorite,
-        'sortBy': sortBy,
-        'sortDir': sortDir,
-        'offset': offset,
-        'limit': limit,
-      },
-    );
-    return LibraryPage.fromJson(res.data!);
-  }
+  }) =>
+      _dao.queryPage(
+        text: text,
+        status: status,
+        categoryIds: categoryIds,
+        sourceIds: sourceIds,
+        favorite: favorite,
+        sortBy: sortBy,
+        sortDir: sortDir,
+        offset: offset,
+        limit: limit,
+      );
 
-  /// The full record for one title.
-  Future<VaultManga> get(String id) async {
-    final res = await _dio.get<Map<String, dynamic>>('/library/$id');
-    return VaultManga.fromJson(res.data!);
-  }
+  @override
+  Future<VaultManga> get(String id) => _dao.get(id);
 
-  /// Categories with title counts, for the filter chips.
-  Future<List<Category>> categories() async {
-    final res = await _dio.get<List<dynamic>>('/categories');
-    return (res.data ?? const [])
-        .map((e) => Category.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
+  @override
+  Future<List<Category>> categories() => _dao.categories();
 }
 
 final libraryRepositoryProvider = Provider<LibraryRepository>(
-  (ref) => LibraryRepository(ref.watch(apiClientProvider)),
+  (ref) => LocalLibraryRepository(ref.watch(localLibraryDaoProvider)),
 );

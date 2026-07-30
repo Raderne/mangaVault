@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/import/import_models.dart';
 import '../../data/import/import_repository.dart';
+import '../sync/sync_controller.dart';
 
 /// Keep only the most recent manga records in the live view (perf at 1000+).
 const _recentCap = 50;
@@ -156,6 +157,17 @@ class ImportController extends Notifier<ImportState> {
       }
     }
 
+    // Pull the newly imported titles into the on-device mirror before showing
+    // "done", so the Library and Dashboard reflect the import immediately —
+    // this is the Import Service → Library Sync service arrow of the design.
+    // A sync failure must not fail a successful import: the rows are safely in
+    // Postgres either way, and the next refresh will pick them up.
+    try {
+      await ref.read(syncControllerProvider.notifier).run();
+    } catch (_) {
+      // Surfaced by the library's sync banner, not here.
+    }
+
     ref.invalidate(importHistoryProvider);
     state = ImportDone(records);
   }
@@ -219,6 +231,8 @@ class ImportController extends Notifier<ImportState> {
 final importControllerProvider =
     NotifierProvider<ImportController, ImportState>(ImportController.new);
 
-final importHistoryProvider = FutureProvider<List<ImportRecord>>(
-  (ref) => ref.watch(importRepositoryProvider).history(),
-);
+/// Import history from the on-device mirror, refreshed whenever a sync commits.
+final importHistoryProvider = FutureProvider<List<ImportRecord>>((ref) {
+  ref.watch(localRevisionProvider);
+  return ref.watch(localLibraryDaoProvider).importHistory();
+});
