@@ -210,8 +210,40 @@ lib/features/sync/sync_controller.dart   # SyncState + localRevisionProvider + l
   `backups_import_test` also stubs `syncControllerProvider`, otherwise `commitAll()` fires a real
   network sync at the compiled-in `SERVER_URL`.
 - **Library screen** gained a `RefreshIndicator` (pull-to-refresh syncs), a `_SyncBanner` mirroring
-  `_CoverBanner`, a `_LastSyncedLabel`, and a first-run `bootstrap()` in `initState`. The
-  `CustomScrollView` needs `AlwaysScrollableScrollPhysics` so the pull works on an empty library.
+  `_CoverBanner`, and a first-run `bootstrap()` in `initState`. The `CustomScrollView` needs
+  `AlwaysScrollableScrollPhysics` so the pull works on an empty library.
+
+### Filters moved to a bottom sheet (2026-07-30)
+
+The inline filter bar (status chips + sort pill + favourites toggle + counts) **overflowed
+horizontally** once a "Synced …" label joined it — reported from a real device at a 347pt row width,
+and reproducible at a 1.6× text scale. Rather than keep squeezing a five-element `Row`, the filters
+moved out:
+
+```
+lib/features/library/library_filter_sheet.dart
+  showLibraryFilterSheet(context)   # status · show (favorites/others) · sort by · reset
+  hasActiveFilters(filters)         # drives the app-bar badge
+  kLibraryBranchIndex = 1
+```
+
+- **Two entry points:** the app bar's `Icons.tune` action (badged when filters are non-default,
+  since they're now off-screen), and **re-tapping the Library tab** — `AppShell` intercepts a
+  re-select and opens the sheet, but only when already at `/library`, so re-tapping from Title
+  Details still just pops back to the grid.
+- The screen keeps one quiet `_MetaLine` above the grid: `"1,234 favorites · hiatus · synced 5m ago"`.
+  It is a **single `Text`** with `maxLines: 1` + ellipsis — a lone Text cannot overflow a Row, which
+  is the structural fix rather than another round of `Flexible` tuning.
+- `LibraryController.resetFilters()` returns status/favorite/sort to defaults while keeping the
+  search term (typed separately from the sheet).
+- Deleted from `library_screen.dart`: `_FilterChipButton`, `_SortPill`, `_FavoriteToggle`,
+  `_SortSheet` (the old sort-only sheet). `labelForStatus` stays — dashboard and title details
+  import it.
+- **Testing overflow:** widget tests do not fail on `RenderFlex` overflow, and an overflowing Row
+  still reports the *constrained* size — so `test/library_filter_bar_test.dart` measures the
+  **children's** rects against the screen at 320pt and 1.6× scale. Writing `SyncMeta` in a test must
+  use `update().write()` (the service's own path); `insertOnConflictUpdate` against the seeded
+  singleton silently does not persist the field.
 
 ## Animations (M3) — subtle, design-aligned
 

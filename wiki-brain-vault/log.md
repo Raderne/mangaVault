@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-30 18:30] session | Library filters → bottom sheet (fixes filter-bar overflow)
+Touched: flutter-app, local-library-mirror
+
 ## [2026-07-30 17:45] session | Local library mirror — on-device SQLite + delta sync
 Touched: local-library-mirror (created), database (created), index, backend, flutter-app,
 library-api, import-pipeline, cover-fetching, dashboard-stats, migration

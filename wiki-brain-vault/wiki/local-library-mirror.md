@@ -181,8 +181,10 @@ manga id. This feature is metadata-only; keep that separation.
 - **No periodic polling**, by decision — a single-user archive only changes on import.
 
 Offline is non-fatal: `_SyncBanner` reports "Couldn't reach the server — showing the last synced
-library" with Retry, and a `_LastSyncedLabel` ("Synced 5m ago") sits next to the result count so
-staleness is visible.
+library" with Retry, and a `_MetaLine` above the grid ("1,234 favorites · synced 5m ago") keeps
+staleness visible. That line replaced the inline filter bar, which overflowed once the sync label
+joined it — filters now live in a bottom sheet (see [[flutter-app]] §Filters moved to a bottom
+sheet).
 
 ## Seam for deletes (designed, not built)
 
