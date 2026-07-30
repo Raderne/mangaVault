@@ -3,7 +3,7 @@
 Created: 2026-07-16 (M1)
 
 Related: [[index]] · [[migration]] · [[database]] · [[deployment]] · [[tachibk-format]] ·
-[[import-pipeline]] · [[library-api]] · [[cover-fetching]]
+[[import-pipeline]] · [[library-api]] · [[cover-fetching]] · [[dashboard-stats]]
 
 ## Stack
 
@@ -26,6 +26,7 @@ server/src/
   modules/import/          # [[import-pipeline]] — stage/commit, SSE progress
   modules/library/         # [[library-api]] — /library, /library/:id, /categories
   modules/covers/          # [[cover-fetching]] — /covers/*, fetcher, StreamableFile serve
+  modules/stats/           # [[dashboard-stats]] — /stats/*, derived aggregates, staleness
 ```
 
 ## Decisions & gotchas
@@ -46,3 +47,7 @@ server/src/
   from another project). In-container/compose networking still uses 5432.
 - The e2e test boots a slim module (health + guard) without Postgres on purpose; DB-backed e2e
   starts in M2 with the import pipeline.
+- **Actual script names** (CLAUDE.md is stale on two of these): the watch dev server is
+  `npm run dev` (there is no `start:dev`), and Jest's single-test flag is now
+  `npm test -- --testPathPatterns <name>` (plural — Jest renamed `--testPathPattern` and errors
+  out on the old form).
