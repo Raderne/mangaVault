@@ -2762,6 +2762,41 @@ class $SyncMetaTable extends SyncMeta
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _vaultDatabaseBytesMeta =
+      const VerificationMeta('vaultDatabaseBytes');
+  @override
+  late final GeneratedColumn<int> vaultDatabaseBytes = GeneratedColumn<int>(
+    'vault_database_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _vaultCoversBytesMeta = const VerificationMeta(
+    'vaultCoversBytes',
+  );
+  @override
+  late final GeneratedColumn<int> vaultCoversBytes = GeneratedColumn<int>(
+    'vault_covers_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _vaultBackupsBytesMeta = const VerificationMeta(
+    'vaultBackupsBytes',
+  );
+  @override
+  late final GeneratedColumn<int> vaultBackupsBytes = GeneratedColumn<int>(
+    'vault_backups_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _localRevisionMeta = const VerificationMeta(
     'localRevision',
   );
@@ -2781,6 +2816,9 @@ class $SyncMetaTable extends SyncMeta
     serverEpoch,
     lastSyncedAt,
     vaultSizeBytes,
+    vaultDatabaseBytes,
+    vaultCoversBytes,
+    vaultBackupsBytes,
     localRevision,
   ];
   @override
@@ -2831,6 +2869,33 @@ class $SyncMetaTable extends SyncMeta
         ),
       );
     }
+    if (data.containsKey('vault_database_bytes')) {
+      context.handle(
+        _vaultDatabaseBytesMeta,
+        vaultDatabaseBytes.isAcceptableOrUnknown(
+          data['vault_database_bytes']!,
+          _vaultDatabaseBytesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vault_covers_bytes')) {
+      context.handle(
+        _vaultCoversBytesMeta,
+        vaultCoversBytes.isAcceptableOrUnknown(
+          data['vault_covers_bytes']!,
+          _vaultCoversBytesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vault_backups_bytes')) {
+      context.handle(
+        _vaultBackupsBytesMeta,
+        vaultBackupsBytes.isAcceptableOrUnknown(
+          data['vault_backups_bytes']!,
+          _vaultBackupsBytesMeta,
+        ),
+      );
+    }
     if (data.containsKey('local_revision')) {
       context.handle(
         _localRevisionMeta,
@@ -2869,6 +2934,18 @@ class $SyncMetaTable extends SyncMeta
         DriftSqlType.int,
         data['${effectivePrefix}vault_size_bytes'],
       )!,
+      vaultDatabaseBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vault_database_bytes'],
+      )!,
+      vaultCoversBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vault_covers_bytes'],
+      )!,
+      vaultBackupsBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vault_backups_bytes'],
+      )!,
       localRevision: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}local_revision'],
@@ -2896,6 +2973,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
   /// Vault size in bytes; the one dashboard figure the device cannot derive.
   final int vaultSizeBytes;
 
+  /// The same total split by where it lives on the server. Stored as parts so
+  /// the dashboard can show "613 MB of that is covers" while offline.
+  final int vaultDatabaseBytes;
+  final int vaultCoversBytes;
+  final int vaultBackupsBytes;
+
   /// Bumped once per committed sync transaction. Screens watch this instead of
   /// every table, so one cheap stream drives all the local-read providers.
   final int localRevision;
@@ -2905,6 +2988,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     this.serverEpoch,
     this.lastSyncedAt,
     required this.vaultSizeBytes,
+    required this.vaultDatabaseBytes,
+    required this.vaultCoversBytes,
+    required this.vaultBackupsBytes,
     required this.localRevision,
   });
   @override
@@ -2921,6 +3007,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       map['last_synced_at'] = Variable<int>(lastSyncedAt);
     }
     map['vault_size_bytes'] = Variable<int>(vaultSizeBytes);
+    map['vault_database_bytes'] = Variable<int>(vaultDatabaseBytes);
+    map['vault_covers_bytes'] = Variable<int>(vaultCoversBytes);
+    map['vault_backups_bytes'] = Variable<int>(vaultBackupsBytes);
     map['local_revision'] = Variable<int>(localRevision);
     return map;
   }
@@ -2938,6 +3027,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ? const Value.absent()
           : Value(lastSyncedAt),
       vaultSizeBytes: Value(vaultSizeBytes),
+      vaultDatabaseBytes: Value(vaultDatabaseBytes),
+      vaultCoversBytes: Value(vaultCoversBytes),
+      vaultBackupsBytes: Value(vaultBackupsBytes),
       localRevision: Value(localRevision),
     );
   }
@@ -2953,6 +3045,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       serverEpoch: serializer.fromJson<String?>(json['serverEpoch']),
       lastSyncedAt: serializer.fromJson<int?>(json['lastSyncedAt']),
       vaultSizeBytes: serializer.fromJson<int>(json['vaultSizeBytes']),
+      vaultDatabaseBytes: serializer.fromJson<int>(json['vaultDatabaseBytes']),
+      vaultCoversBytes: serializer.fromJson<int>(json['vaultCoversBytes']),
+      vaultBackupsBytes: serializer.fromJson<int>(json['vaultBackupsBytes']),
       localRevision: serializer.fromJson<int>(json['localRevision']),
     );
   }
@@ -2965,6 +3060,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       'serverEpoch': serializer.toJson<String?>(serverEpoch),
       'lastSyncedAt': serializer.toJson<int?>(lastSyncedAt),
       'vaultSizeBytes': serializer.toJson<int>(vaultSizeBytes),
+      'vaultDatabaseBytes': serializer.toJson<int>(vaultDatabaseBytes),
+      'vaultCoversBytes': serializer.toJson<int>(vaultCoversBytes),
+      'vaultBackupsBytes': serializer.toJson<int>(vaultBackupsBytes),
       'localRevision': serializer.toJson<int>(localRevision),
     };
   }
@@ -2975,6 +3073,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     Value<String?> serverEpoch = const Value.absent(),
     Value<int?> lastSyncedAt = const Value.absent(),
     int? vaultSizeBytes,
+    int? vaultDatabaseBytes,
+    int? vaultCoversBytes,
+    int? vaultBackupsBytes,
     int? localRevision,
   }) => SyncMetaData(
     id: id ?? this.id,
@@ -2982,6 +3083,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     serverEpoch: serverEpoch.present ? serverEpoch.value : this.serverEpoch,
     lastSyncedAt: lastSyncedAt.present ? lastSyncedAt.value : this.lastSyncedAt,
     vaultSizeBytes: vaultSizeBytes ?? this.vaultSizeBytes,
+    vaultDatabaseBytes: vaultDatabaseBytes ?? this.vaultDatabaseBytes,
+    vaultCoversBytes: vaultCoversBytes ?? this.vaultCoversBytes,
+    vaultBackupsBytes: vaultBackupsBytes ?? this.vaultBackupsBytes,
     localRevision: localRevision ?? this.localRevision,
   );
   SyncMetaData copyWithCompanion(SyncMetaCompanion data) {
@@ -2997,6 +3101,15 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       vaultSizeBytes: data.vaultSizeBytes.present
           ? data.vaultSizeBytes.value
           : this.vaultSizeBytes,
+      vaultDatabaseBytes: data.vaultDatabaseBytes.present
+          ? data.vaultDatabaseBytes.value
+          : this.vaultDatabaseBytes,
+      vaultCoversBytes: data.vaultCoversBytes.present
+          ? data.vaultCoversBytes.value
+          : this.vaultCoversBytes,
+      vaultBackupsBytes: data.vaultBackupsBytes.present
+          ? data.vaultBackupsBytes.value
+          : this.vaultBackupsBytes,
       localRevision: data.localRevision.present
           ? data.localRevision.value
           : this.localRevision,
@@ -3011,6 +3124,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ..write('serverEpoch: $serverEpoch, ')
           ..write('lastSyncedAt: $lastSyncedAt, ')
           ..write('vaultSizeBytes: $vaultSizeBytes, ')
+          ..write('vaultDatabaseBytes: $vaultDatabaseBytes, ')
+          ..write('vaultCoversBytes: $vaultCoversBytes, ')
+          ..write('vaultBackupsBytes: $vaultBackupsBytes, ')
           ..write('localRevision: $localRevision')
           ..write(')'))
         .toString();
@@ -3023,6 +3139,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     serverEpoch,
     lastSyncedAt,
     vaultSizeBytes,
+    vaultDatabaseBytes,
+    vaultCoversBytes,
+    vaultBackupsBytes,
     localRevision,
   );
   @override
@@ -3034,6 +3153,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           other.serverEpoch == this.serverEpoch &&
           other.lastSyncedAt == this.lastSyncedAt &&
           other.vaultSizeBytes == this.vaultSizeBytes &&
+          other.vaultDatabaseBytes == this.vaultDatabaseBytes &&
+          other.vaultCoversBytes == this.vaultCoversBytes &&
+          other.vaultBackupsBytes == this.vaultBackupsBytes &&
           other.localRevision == this.localRevision);
 }
 
@@ -3043,6 +3165,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   final Value<String?> serverEpoch;
   final Value<int?> lastSyncedAt;
   final Value<int> vaultSizeBytes;
+  final Value<int> vaultDatabaseBytes;
+  final Value<int> vaultCoversBytes;
+  final Value<int> vaultBackupsBytes;
   final Value<int> localRevision;
   const SyncMetaCompanion({
     this.id = const Value.absent(),
@@ -3050,6 +3175,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.serverEpoch = const Value.absent(),
     this.lastSyncedAt = const Value.absent(),
     this.vaultSizeBytes = const Value.absent(),
+    this.vaultDatabaseBytes = const Value.absent(),
+    this.vaultCoversBytes = const Value.absent(),
+    this.vaultBackupsBytes = const Value.absent(),
     this.localRevision = const Value.absent(),
   });
   SyncMetaCompanion.insert({
@@ -3058,6 +3186,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.serverEpoch = const Value.absent(),
     this.lastSyncedAt = const Value.absent(),
     this.vaultSizeBytes = const Value.absent(),
+    this.vaultDatabaseBytes = const Value.absent(),
+    this.vaultCoversBytes = const Value.absent(),
+    this.vaultBackupsBytes = const Value.absent(),
     this.localRevision = const Value.absent(),
   });
   static Insertable<SyncMetaData> custom({
@@ -3066,6 +3197,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Expression<String>? serverEpoch,
     Expression<int>? lastSyncedAt,
     Expression<int>? vaultSizeBytes,
+    Expression<int>? vaultDatabaseBytes,
+    Expression<int>? vaultCoversBytes,
+    Expression<int>? vaultBackupsBytes,
     Expression<int>? localRevision,
   }) {
     return RawValuesInsertable({
@@ -3074,6 +3208,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       if (serverEpoch != null) 'server_epoch': serverEpoch,
       if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
       if (vaultSizeBytes != null) 'vault_size_bytes': vaultSizeBytes,
+      if (vaultDatabaseBytes != null)
+        'vault_database_bytes': vaultDatabaseBytes,
+      if (vaultCoversBytes != null) 'vault_covers_bytes': vaultCoversBytes,
+      if (vaultBackupsBytes != null) 'vault_backups_bytes': vaultBackupsBytes,
       if (localRevision != null) 'local_revision': localRevision,
     });
   }
@@ -3084,6 +3222,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Value<String?>? serverEpoch,
     Value<int?>? lastSyncedAt,
     Value<int>? vaultSizeBytes,
+    Value<int>? vaultDatabaseBytes,
+    Value<int>? vaultCoversBytes,
+    Value<int>? vaultBackupsBytes,
     Value<int>? localRevision,
   }) {
     return SyncMetaCompanion(
@@ -3092,6 +3233,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       serverEpoch: serverEpoch ?? this.serverEpoch,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
       vaultSizeBytes: vaultSizeBytes ?? this.vaultSizeBytes,
+      vaultDatabaseBytes: vaultDatabaseBytes ?? this.vaultDatabaseBytes,
+      vaultCoversBytes: vaultCoversBytes ?? this.vaultCoversBytes,
+      vaultBackupsBytes: vaultBackupsBytes ?? this.vaultBackupsBytes,
       localRevision: localRevision ?? this.localRevision,
     );
   }
@@ -3114,6 +3258,15 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     if (vaultSizeBytes.present) {
       map['vault_size_bytes'] = Variable<int>(vaultSizeBytes.value);
     }
+    if (vaultDatabaseBytes.present) {
+      map['vault_database_bytes'] = Variable<int>(vaultDatabaseBytes.value);
+    }
+    if (vaultCoversBytes.present) {
+      map['vault_covers_bytes'] = Variable<int>(vaultCoversBytes.value);
+    }
+    if (vaultBackupsBytes.present) {
+      map['vault_backups_bytes'] = Variable<int>(vaultBackupsBytes.value);
+    }
     if (localRevision.present) {
       map['local_revision'] = Variable<int>(localRevision.value);
     }
@@ -3128,6 +3281,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
           ..write('serverEpoch: $serverEpoch, ')
           ..write('lastSyncedAt: $lastSyncedAt, ')
           ..write('vaultSizeBytes: $vaultSizeBytes, ')
+          ..write('vaultDatabaseBytes: $vaultDatabaseBytes, ')
+          ..write('vaultCoversBytes: $vaultCoversBytes, ')
+          ..write('vaultBackupsBytes: $vaultBackupsBytes, ')
           ..write('localRevision: $localRevision')
           ..write(')'))
         .toString();
@@ -4565,6 +4721,9 @@ typedef $$SyncMetaTableCreateCompanionBuilder =
       Value<String?> serverEpoch,
       Value<int?> lastSyncedAt,
       Value<int> vaultSizeBytes,
+      Value<int> vaultDatabaseBytes,
+      Value<int> vaultCoversBytes,
+      Value<int> vaultBackupsBytes,
       Value<int> localRevision,
     });
 typedef $$SyncMetaTableUpdateCompanionBuilder =
@@ -4574,6 +4733,9 @@ typedef $$SyncMetaTableUpdateCompanionBuilder =
       Value<String?> serverEpoch,
       Value<int?> lastSyncedAt,
       Value<int> vaultSizeBytes,
+      Value<int> vaultDatabaseBytes,
+      Value<int> vaultCoversBytes,
+      Value<int> vaultBackupsBytes,
       Value<int> localRevision,
     });
 
@@ -4608,6 +4770,21 @@ class $$SyncMetaTableFilterComposer
 
   ColumnFilters<int> get vaultSizeBytes => $composableBuilder(
     column: $table.vaultSizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vaultDatabaseBytes => $composableBuilder(
+    column: $table.vaultDatabaseBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vaultCoversBytes => $composableBuilder(
+    column: $table.vaultCoversBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vaultBackupsBytes => $composableBuilder(
+    column: $table.vaultBackupsBytes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4651,6 +4828,21 @@ class $$SyncMetaTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get vaultDatabaseBytes => $composableBuilder(
+    column: $table.vaultDatabaseBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get vaultCoversBytes => $composableBuilder(
+    column: $table.vaultCoversBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get vaultBackupsBytes => $composableBuilder(
+    column: $table.vaultBackupsBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get localRevision => $composableBuilder(
     column: $table.localRevision,
     builder: (column) => ColumnOrderings(column),
@@ -4684,6 +4876,21 @@ class $$SyncMetaTableAnnotationComposer
 
   GeneratedColumn<int> get vaultSizeBytes => $composableBuilder(
     column: $table.vaultSizeBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get vaultDatabaseBytes => $composableBuilder(
+    column: $table.vaultDatabaseBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get vaultCoversBytes => $composableBuilder(
+    column: $table.vaultCoversBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get vaultBackupsBytes => $composableBuilder(
+    column: $table.vaultBackupsBytes,
     builder: (column) => column,
   );
 
@@ -4729,6 +4936,9 @@ class $$SyncMetaTableTableManager
                 Value<String?> serverEpoch = const Value.absent(),
                 Value<int?> lastSyncedAt = const Value.absent(),
                 Value<int> vaultSizeBytes = const Value.absent(),
+                Value<int> vaultDatabaseBytes = const Value.absent(),
+                Value<int> vaultCoversBytes = const Value.absent(),
+                Value<int> vaultBackupsBytes = const Value.absent(),
                 Value<int> localRevision = const Value.absent(),
               }) => SyncMetaCompanion(
                 id: id,
@@ -4736,6 +4946,9 @@ class $$SyncMetaTableTableManager
                 serverEpoch: serverEpoch,
                 lastSyncedAt: lastSyncedAt,
                 vaultSizeBytes: vaultSizeBytes,
+                vaultDatabaseBytes: vaultDatabaseBytes,
+                vaultCoversBytes: vaultCoversBytes,
+                vaultBackupsBytes: vaultBackupsBytes,
                 localRevision: localRevision,
               ),
           createCompanionCallback:
@@ -4745,6 +4958,9 @@ class $$SyncMetaTableTableManager
                 Value<String?> serverEpoch = const Value.absent(),
                 Value<int?> lastSyncedAt = const Value.absent(),
                 Value<int> vaultSizeBytes = const Value.absent(),
+                Value<int> vaultDatabaseBytes = const Value.absent(),
+                Value<int> vaultCoversBytes = const Value.absent(),
+                Value<int> vaultBackupsBytes = const Value.absent(),
                 Value<int> localRevision = const Value.absent(),
               }) => SyncMetaCompanion.insert(
                 id: id,
@@ -4752,6 +4968,9 @@ class $$SyncMetaTableTableManager
                 serverEpoch: serverEpoch,
                 lastSyncedAt: lastSyncedAt,
                 vaultSizeBytes: vaultSizeBytes,
+                vaultDatabaseBytes: vaultDatabaseBytes,
+                vaultCoversBytes: vaultCoversBytes,
+                vaultBackupsBytes: vaultBackupsBytes,
                 localRevision: localRevision,
               ),
           withReferenceMapper: (p0) => p0

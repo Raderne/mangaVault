@@ -6,5 +6,14 @@
   "setupFiles": ["<rootDir>/setup-e2e.ts"],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "$comment": [
+    "Suites run one at a time. They all share the single local Postgres, and",
+    "sync.e2e asserts on delta *pages*: concurrent writes from another suite",
+    "push its tombstone above the safe cursor and the assertion fails (seen",
+    "twice). Each suite also boots its own Nest app with migrationsRun, so",
+    "serial execution stops them racing the same DDL when a migration lands.",
+    "Costs a few seconds; removes the whole class of flake."
+  ],
+  "maxWorkers": 1
 }

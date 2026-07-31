@@ -18,7 +18,7 @@ import {
   LIBRARY_SORT_FIELDS,
   PUBLICATION_STATUSES,
   type CategoryDto,
-  type DeletedTitleDto,
+  type DeletedTitlesPageDto,
   type DeleteTitlesResultDto,
   type LibraryPageDto,
   type LibraryQueryDto,
@@ -140,7 +140,7 @@ export class LibraryController {
    * until they're restored or purged from here.
    */
   @Get('library/deleted')
-  deleted(): Promise<DeletedTitleDto[]> {
+  deleted(): Promise<DeletedTitlesPageDto> {
     return this.deletedTitles.list();
   }
 

@@ -296,6 +296,12 @@ class LocalLibraryDao extends DatabaseAccessor<AppDatabase>
       importCount: importAgg.read<int>('n'),
       lastImportAt: importAgg.read<int?>('last_at'),
       vaultSizeBytes: meta?.vaultSizeBytes ?? 0,
+      vaultStorage: VaultStorage(
+        databaseBytes: meta?.vaultDatabaseBytes ?? 0,
+        coversBytes: meta?.vaultCoversBytes ?? 0,
+        backupsBytes: meta?.vaultBackupsBytes ?? 0,
+        totalBytes: meta?.vaultSizeBytes ?? 0,
+      ),
     );
   }
 

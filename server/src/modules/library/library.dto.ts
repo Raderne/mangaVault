@@ -59,6 +59,20 @@ export interface DeletedTitleDto {
   seenCount: number;
 }
 
+/**
+ * The registry plus what it costs on disk.
+ *
+ * The snapshots are the reason this table exists and the reason its size gets
+ * questioned, so the size travels with the list rather than having to be
+ * inferred — measured, it is ~64 B per archived chapter against ~512 B for the
+ * same chapter live, i.e. deleting a title still frees ~87% of its storage.
+ */
+export interface DeletedTitlesPageDto {
+  items: DeletedTitleDto[];
+  /** `pg_total_relation_size('deleted_manga')` — heap + TOAST + indexes. */
+  totalBytes: number;
+}
+
 export interface RestoreResultDto {
   restored: number;
   /** Entries that couldn't be restored (already present again, or failed). */

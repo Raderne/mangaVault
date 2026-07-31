@@ -4,6 +4,44 @@
 
 import '../library/library_models.dart';
 
+/// Where the vault's bytes live.
+///
+/// Kept as three parts rather than one total because they behave completely
+/// differently: on a 2,000-title library the database is ~113 MB while the
+/// cover images are ~613 MB, so "the vault is growing" nearly always means
+/// covers — which one combined number hid.
+class VaultStorage {
+  const VaultStorage({
+    this.databaseBytes = 0,
+    this.coversBytes = 0,
+    this.backupsBytes = 0,
+    this.totalBytes = 0,
+  });
+
+  /// Postgres: every table, index and TOAST segment.
+  final int databaseBytes;
+
+  /// Archived cover images on the server's disk.
+  final int coversBytes;
+
+  /// The original `.tachibk` files, kept verbatim.
+  final int backupsBytes;
+  final int totalBytes;
+
+  /// Share of the vault taken by covers, in [0, 1] — the headline ratio.
+  double get coverFraction =>
+      totalBytes == 0 ? 0 : (coversBytes / totalBytes).clamp(0.0, 1.0);
+
+  bool get isEmpty => totalBytes == 0;
+
+  factory VaultStorage.fromJson(Map<String, dynamic> j) => VaultStorage(
+        databaseBytes: (j['databaseBytes'] as num?)?.toInt() ?? 0,
+        coversBytes: (j['coversBytes'] as num?)?.toInt() ?? 0,
+        backupsBytes: (j['backupsBytes'] as num?)?.toInt() ?? 0,
+        totalBytes: (j['totalBytes'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// Headline archive figures behind the dashboard's stat cells.
 class LibraryStats {
   const LibraryStats({
@@ -20,6 +58,7 @@ class LibraryStats {
     required this.importCount,
     required this.lastImportAt,
     required this.vaultSizeBytes,
+    this.vaultStorage = const VaultStorage(),
   });
 
   final int totalTitles;
@@ -35,6 +74,9 @@ class LibraryStats {
   final int importCount;
   final int? lastImportAt;
   final int vaultSizeBytes;
+
+  /// The same total, split by database / covers / backups.
+  final VaultStorage vaultStorage;
 
   /// Read fraction of the whole archive, in [0, 1].
   double get readFraction =>
@@ -61,6 +103,9 @@ class LibraryStats {
         importCount: (j['importCount'] as num?)?.toInt() ?? 0,
         lastImportAt: (j['lastImportAt'] as num?)?.toInt(),
         vaultSizeBytes: (j['vaultSizeBytes'] as num?)?.toInt() ?? 0,
+        vaultStorage: VaultStorage.fromJson(
+          (j['vaultStorage'] as Map<String, dynamic>?) ?? const {},
+        ),
       );
 
   static Map<String, int> _countMap(Object? raw) {

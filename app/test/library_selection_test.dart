@@ -65,7 +65,8 @@ class _FakeWrite implements LibraryWriteRepository {
   }
 
   @override
-  Future<List<DeletedTitle>> deletedTitles() async => const [];
+  Future<DeletedTitlesPage> deletedTitles() async =>
+      const DeletedTitlesPage(items: [], totalBytes: 0);
 
   @override
   Future<RestoreResult> restore(List<String> ids) async =>

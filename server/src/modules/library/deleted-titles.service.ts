@@ -17,7 +17,7 @@ import type {
   DeletedMangaSnapshot,
   DeletedTracking,
 } from '../../entities/deleted-manga.entity';
-import type { DeletedTitleDto, RestoreResultDto } from './library.dto';
+import type { DeletedTitlesPageDto, RestoreResultDto } from './library.dto';
 
 /** Identity of a title within the Mihon ecosystem. */
 export interface MangaKey {
@@ -191,21 +191,40 @@ export class DeletedTitlesService {
     );
   }
 
-  /** The recycle bin, most recently deleted first. Snapshots stay server-side. */
-  async list(): Promise<DeletedTitleDto[]> {
-    const rows = await this.repo.find({ order: { deletedAt: 'DESC' } });
-    return rows.map((r) => ({
-      id: r.id,
-      sourceId: r.sourceId,
-      mangaUrl: r.mangaUrl,
-      sourceName: r.sourceName,
-      title: r.title,
-      chapterCount: r.chapterCount,
-      readCount: r.readCount,
-      deletedAt: r.deletedAt,
-      lastSeenAt: r.lastSeenAt,
-      seenCount: r.seenCount,
-    }));
+  /**
+   * The recycle bin, most recently deleted first, with what it costs on disk.
+   * Snapshots stay server-side — the list only carries what the screen renders.
+   *
+   * The size is a `pg_total_relation_size` catalog lookup, not a scan of the
+   * rows: `pg_column_size` per row would have to touch every TOASTed snapshot.
+   */
+  async list(): Promise<DeletedTitlesPageDto> {
+    const [rows, size] = await Promise.all([
+      this.repo.find({ order: { deletedAt: 'DESC' } }),
+      this.dataSource
+        .query<{ bytes: string }[]>(
+          `SELECT pg_total_relation_size('deleted_manga')::text AS bytes`,
+        )
+        .then((r) => Number(r[0]?.bytes ?? 0))
+        // A size we can't read must not break the list itself.
+        .catch(() => 0),
+    ]);
+
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        sourceId: r.sourceId,
+        mangaUrl: r.mangaUrl,
+        sourceName: r.sourceName,
+        title: r.title,
+        chapterCount: r.chapterCount,
+        readCount: r.readCount,
+        deletedAt: r.deletedAt,
+        lastSeenAt: r.lastSeenAt,
+        seenCount: r.seenCount,
+      })),
+      totalBytes: size,
+    };
   }
 
   /**

@@ -12,6 +12,7 @@ import type {
 } from '../src/modules/import/import.dto';
 import type {
   DeletedTitleDto,
+  DeletedTitlesPageDto,
   LibraryPageDto,
   RestoreResultDto,
 } from '../src/modules/library/library.dto';
@@ -120,17 +121,19 @@ describe('Deleted titles registry (e2e)', () => {
   }
 
   async function registry(): Promise<DeletedTitleDto[]> {
+    return (await registryPage()).items.filter((d) => d.sourceId === sourceId);
+  }
+
+  async function registryPage(): Promise<DeletedTitlesPageDto> {
     const res = await request(app.getHttpServer())
       .get('/api/v1/library/deleted')
       .set('Authorization', auth)
       .expect(200);
-    return (res.body as DeletedTitleDto[]).filter(
-      (d) => d.sourceId === sourceId,
-    );
+    return res.body as DeletedTitlesPageDto;
   }
 
   async function idOfTitle(title: string): Promise<string> {
-    const rows = await ds.query(
+    const rows = await ds.query<{ id: string }[]>(
       `SELECT id FROM manga WHERE source_id = $1 AND title = $2`,
       [sourceId, title],
     );
@@ -156,9 +159,10 @@ describe('Deleted titles registry (e2e)', () => {
 
   afterAll(async () => {
     if (ds?.isInitialized) {
-      const rows = await ds.query(`SELECT id FROM manga WHERE source_id = $1`, [
-        sourceId,
-      ]);
+      const rows = await ds.query<{ id: string }[]>(
+        `SELECT id FROM manga WHERE source_id = $1`,
+        [sourceId],
+      );
       await ds.query(`DELETE FROM manga WHERE source_id = $1`, [sourceId]);
       await ds.query(`DELETE FROM deleted_manga WHERE source_id = $1`, [
         sourceId,
@@ -206,6 +210,10 @@ describe('Deleted titles registry (e2e)', () => {
       lastSeenAt: null,
     });
     doomedRegistryId = entries[0].id;
+
+    // The list also reports what the recycle bin costs on disk, so the
+    // snapshots are an observable number rather than a worry.
+    expect((await registryPage()).totalBytes).toBeGreaterThan(0);
   });
 
   it('a later backup previews it as skipped and does not bring it back', async () => {

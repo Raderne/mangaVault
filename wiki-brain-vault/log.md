@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-31 22:40] session | Storage: measured the registry, fixed real bloat
+Touched: database, deleted-titles, dashboard-stats
+
 ## [2026-07-31 21:20] session | Cover archiving as a durable background job
 Touched: cover-fetching, database, import-pipeline, index
 

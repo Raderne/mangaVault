@@ -188,7 +188,7 @@ export class SyncService {
 
   /** Full category + import lists, the current high-water mark, and vault size. */
   async meta(): Promise<SyncMetaDto> {
-    const [epoch, cursorRows, totalRows, categories, importRows, vaultSize] =
+    const [epoch, cursorRows, totalRows, categories, importRows, storage] =
       await Promise.all([
         this.serverEpoch(),
         this.dataSource.query<{ cursor: string | null }[]>(
@@ -208,7 +208,7 @@ export class SyncService {
              FROM import_record
             ORDER BY imported_at DESC`,
         ),
-        this.stats.vaultSizeBytes(),
+        this.stats.vaultStorage(),
       ]);
 
     return {
@@ -226,7 +226,8 @@ export class SyncService {
         importedAt: Number(r.imported_at),
         stats: r.stats ?? {},
       })),
-      vaultSizeBytes: vaultSize,
+      vaultSizeBytes: storage.totalBytes,
+      vaultStorage: storage,
     };
   }
 

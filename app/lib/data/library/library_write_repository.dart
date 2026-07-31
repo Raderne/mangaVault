@@ -39,12 +39,11 @@ class LibraryWriteRepository {
   }
 
   /// Titles that were deleted, and are therefore skipped by every import until
-  /// they're restored or purged. Newest deletion first.
-  Future<List<DeletedTitle>> deletedTitles() async {
-    final res = await _dio.get<List<dynamic>>('/library/deleted');
-    return (res.data ?? const [])
-        .map((e) => DeletedTitle.fromJson(e as Map<String, dynamic>))
-        .toList();
+  /// they're restored or purged. Newest deletion first, with the registry's
+  /// size on disk so the screen can state what the recycle bin costs.
+  Future<DeletedTitlesPage> deletedTitles() async {
+    final res = await _dio.get<Map<String, dynamic>>('/library/deleted');
+    return DeletedTitlesPage.fromJson(res.data ?? const {});
   }
 
   /// Put deleted titles back. Ids are **registry** ids, not old manga ids.

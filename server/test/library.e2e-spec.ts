@@ -303,14 +303,14 @@ describe('Library queries (e2e)', () => {
       .set('Authorization', auth)
       .expect(404);
 
-    const chapters = await ds.query(
+    const chapters = await ds.query<{ n: number }[]>(
       `SELECT COUNT(*)::int AS n FROM chapter WHERE manga_id = $1`,
       [id],
     );
     expect(chapters[0].n).toBe(0);
 
     // The tombstone is what carries the delete to every device mirror.
-    const tombs = await ds.query(
+    const tombs = await ds.query<{ n: number }[]>(
       `SELECT COUNT(*)::int AS n FROM sync_tombstone
         WHERE entity = 'manga' AND entity_id = $1`,
       [id],
@@ -344,7 +344,7 @@ describe('Library queries (e2e)', () => {
       .expect(200);
     expect(res.body).toMatchObject({ deleted: 2, coversRemoved: 0 });
 
-    const left = await ds.query(
+    const left = await ds.query<{ n: number }[]>(
       `SELECT COUNT(*)::int AS n FROM manga WHERE id = ANY($1::uuid[])`,
       [[first, second]],
     );

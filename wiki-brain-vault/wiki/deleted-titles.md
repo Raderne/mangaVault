@@ -31,6 +31,34 @@ two jobs at once:
 | `last_seen_at`, `seen_count` | **bumped every time an import offers the title again** — the signal the restore UI shows ("in 2 backups since") |
 | `snapshot` | `{ manga, chapters[], tracking[], categoryNames[], importIds[] }` |
 
+### The snapshot is compression, not duplication (measured 2026-07-31)
+
+The obvious objection is that `snapshot` copies rows that already exist in `manga` + `chapter`.
+Measured on the live 2,000-title vault, the opposite is true:
+
+| | live | archived in the registry |
+|---|---|---|
+| per chapter | **512 B** (`chapter` = 95 MB / 194,576 rows, heap + indexes) | **64 B** |
+| 20 deleted titles / 1,232 chapters | — | 232 kB table total |
+
+The JSONB is TOAST-compressed **5.1×** (393 kB of JSON stored as 77 kB), so **deleting a title still
+frees ~87% of its storage** even with a full snapshot kept. Deleting the entire library would leave
+a ~13 MB registry while shrinking the database by ~100 MB. The registry is bounded by the library
+size and is currently 0.2% of the database.
+
+Rejected on those numbers: **soft delete** (`manga.deleted_at` — rows never leave the hot tables, so
+the database never shrinks, and every read path needs a new predicate); **shadow tables**
+(~150–250 B/chapter of heap+index versus 64 B compressed, and nothing queries inside a snapshot);
+**LZ4 TOAST** (a cold archive wants ratio, not speed — lz4 compresses worse than the pglz already in
+use); and **slimming the payload** (dropping `read:false` / `scanlator:null` defaults measured at 28%
+off the *raw* JSON, but pglz already collapses those repeats — ~10 kB real, against a versioned
+snapshot format and a tolerant reader).
+
+What was missing was **visibility**, not a redesign: `GET /library/deleted` now returns
+`{ items, totalBytes }` (a `pg_total_relation_size` catalog lookup, no row scan) and the screen's app
+bar states `22 titles · 77 kB`. The vault's real weight is elsewhere and now visible too — see the
+storage breakdown in [[dashboard-stats]] and the bloat work in [[database]].
+
 **Why a snapshot rather than "re-import it from the archived backup"** (we do keep every imported
 file at `STORAGE_DIR/<sha256>.tachibk`): reading progress in the vault can be *newer* than any backup
 on disk, the contributing backup may be months old, and replaying a whole `.tachibk` to recover one

@@ -63,3 +63,25 @@ class RestoreResult {
         skipped: (j['skipped'] as num?)?.toInt() ?? 0,
       );
 }
+
+/// The registry plus what it costs on disk.
+///
+/// The size travels with the list because the snapshots are exactly what gets
+/// questioned: measured, an archived chapter costs ~64 B against ~512 B for the
+/// same chapter live, so deleting a title still frees ~87% of its storage.
+class DeletedTitlesPage {
+  const DeletedTitlesPage({required this.items, required this.totalBytes});
+
+  final List<DeletedTitle> items;
+
+  /// Whole-table size on the server (heap + TOAST + indexes).
+  final int totalBytes;
+
+  factory DeletedTitlesPage.fromJson(Map<String, dynamic> j) =>
+      DeletedTitlesPage(
+        items: ((j['items'] as List?) ?? const [])
+            .map((e) => DeletedTitle.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        totalBytes: (j['totalBytes'] as num?)?.toInt() ?? 0,
+      );
+}

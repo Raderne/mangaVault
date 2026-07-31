@@ -32,8 +32,9 @@ class AppDatabase extends _$AppDatabase {
   /// In-memory instance for tests.
   AppDatabase.memory() : super(NativeDatabase.memory());
 
+  /// 2 (2026-07-31): `sync_meta` gained the vault storage breakdown.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

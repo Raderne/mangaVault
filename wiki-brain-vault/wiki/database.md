@@ -140,3 +140,52 @@ of silently double-fetching the whole library.
 
 `manga.cover_failed_at` (BIGINT, nullable) rides along — it lets a resumed run exclude covers the
 interrupted run already tried. Full rationale in [[cover-fetching]].
+
+## Storage tuning (2026-07-31, migration 5)
+
+Prompted by "the deletion registry duplicates `manga` — will the database run out of space?" The
+measurements said no (see [[deleted-titles]]) but surfaced two real problems, both fixed by
+`1754200000000-storage-tuning.ts`.
+
+### `fillfactor` and HOT updates
+
+`chapter` was carrying **16.3% dead tuples** and only **0.7%** of its 125,042 updates had been HOT
+(839). With the default `fillfactor = 100` a page has no spare room, so an `UPDATE` must put the new
+row version on a different page — which means inserting into **every** index on the table, including
+the 28 MB `uq_chapter_url`. Every re-import touches most chapter rows, so this is what grew the
+indexes.
+
+Now `chapter` is `fillfactor = 85` and `manga` `fillfactor = 90`.
+
+**The trap, measured:** `fillfactor` only governs pages built *after* it. Setting it changed nothing
+on its own — a no-op `UPDATE` of 3,053 chapter rows produced **1** HOT update. The same test after a
+table rewrite produced **585 of 3,053 (19%)**. Existing bloat needs the rewrite; plain `VACUUM` frees
+tuples for reuse but does not re-pack pages to the new fillfactor.
+
+`VACUUM` is deliberately **not** in the migration: TypeORM runs migrations in a transaction and
+`VACUUM` cannot run in one, and rewriting a 95 MB table on boot is not a thing a deploy should do
+silently. It lives in `npm run db:maintenance` (`server/scripts/db-maintenance.mjs`) — report +
+`VACUUM (ANALYZE)` online, `-- --full` for `VACUUM FULL` + `REINDEX` under an exclusive lock.
+
+Measured on the 2,000-title vault, `--full`:
+
+| | before | after |
+|---|---|---|
+| `chapter` | 95.2 MB (40.3 MB indexes) | **68.8 MB** (24.6 MB indexes) |
+| `manga` | 5.5 MB | 3.3 MB |
+| database | 110 MB | **81.5 MB** |
+
+### Dropped: `idx_manga_search`, `idx_manga_trgm`
+
+3.4 MB of GIN indexes with **0** and **3** scans. They only back `GET /library?text=`, which no
+client has called since the app started reading its on-device mirror ([[local-library-mirror]]); at
+2,000 rows the sequential scan is ~1 ms and the e2e still passes unchanged. The generated
+`search_tsv` column and the query stay, so re-creating them (the migration's `down()`) is all it
+takes if a web client ever makes server-side search hot again.
+
+### e2e suites now run serially
+
+`test/jest-e2e.json` sets `maxWorkers: 1`. Every suite talks to the same local Postgres and boots its
+own Nest app with `migrationsRun`, so in parallel they raced the same DDL when a migration landed and
+— worse — concurrent writes pushed `sync.e2e`'s tombstone above the delta page's safe cursor, failing
+6 tests at random. Observed twice. Serial costs a few seconds and removes the class of flake.

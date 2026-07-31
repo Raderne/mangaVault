@@ -16,7 +16,8 @@ class _FakeWrite implements LibraryWriteRepository {
   final List<List<String>> purged = [];
 
   @override
-  Future<List<DeletedTitle>> deletedTitles() async => _entries;
+  Future<DeletedTitlesPage> deletedTitles() async =>
+      DeletedTitlesPage(items: _entries, totalBytes: 77 * 1024);
 
   @override
   Future<RestoreResult> restore(List<String> ids) async {
@@ -104,6 +105,8 @@ void main() {
     expect(find.text('Solo Leveling'), findsOneWidget);
     expect(find.text('Omniscient Reader'), findsOneWidget);
     expect(find.text('in 2 backups since'), findsOneWidget);
+    // The bin states what it costs, so the snapshots aren't left to imagination.
+    expect(find.text('2 titles · 77.0 KB'), findsOneWidget);
     // Nothing selected yet, so the action bar isn't there.
     expect(find.byType(FilledButton), findsNothing);
   });

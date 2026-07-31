@@ -15,7 +15,7 @@ import '../sync/sync_controller.dart';
 /// Not mirrored in SQLite: it is small, rarely opened, and every action on it
 /// needs the server anyway — so a drift table would only buy a schema bump.
 final deletedTitlesProvider =
-    FutureProvider.autoDispose<List<DeletedTitle>>((ref) {
+    FutureProvider.autoDispose<DeletedTitlesPage>((ref) {
   return ref.watch(libraryWriteRepositoryProvider).deletedTitles();
 });
 
@@ -38,13 +38,14 @@ class _DeletedTitlesScreenState extends ConsumerState<DeletedTitlesScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(deletedTitlesProvider);
-    final entries = async.value ?? const <DeletedTitle>[];
+    final page = async.value;
+    final entries = page?.items ?? const <DeletedTitle>[];
     // Selections can outlive a refresh that removed their rows.
     final selected = _selected.where((id) => entries.any((e) => e.id == id));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Deleted titles'),
+        title: _Title(page: page),
         actions: [
           if (entries.isNotEmpty)
             IconButton(
@@ -76,10 +77,10 @@ class _DeletedTitlesScreenState extends ConsumerState<DeletedTitlesScreen> {
             message: e.toString().replaceFirst('Exception: ', ''),
             onRetry: () => ref.invalidate(deletedTitlesProvider),
           ),
-          data: (all) => all.isEmpty
+          data: (all) => all.items.isEmpty
               ? const _EmptyState()
               : _List(
-                  entries: all,
+                  entries: all.items,
                   selected: _selected,
                   onToggle: (id) => setState(() {
                     if (!_selected.remove(id)) _selected.add(id);
@@ -168,6 +169,37 @@ class _DeletedTitlesScreenState extends ConsumerState<DeletedTitlesScreen> {
           ],
         ),
       );
+}
+
+/// App-bar title with what the recycle bin actually costs.
+///
+/// The size is stated rather than left to be imagined: the snapshots that make
+/// restore possible are the part people assume is duplicating the library, and
+/// a real number ("22 titles · 77 kB") settles that at a glance.
+class _Title extends StatelessWidget {
+  const _Title({required this.page});
+
+  final DeletedTitlesPage? page;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = page?.items.length ?? 0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Deleted titles'),
+        if (page != null && count > 0)
+          Text(
+            '$count ${count == 1 ? 'title' : 'titles'} · '
+            '${formatBytes(page!.totalBytes)}',
+            style: theme.textTheme.labelSmall!
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+      ],
+    );
+  }
 }
 
 class _List extends StatelessWidget {

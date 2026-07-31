@@ -115,6 +115,12 @@ class SyncMeta extends Table {
   /// Vault size in bytes; the one dashboard figure the device cannot derive.
   IntColumn get vaultSizeBytes => integer().withDefault(const Constant(0))();
 
+  /// The same total split by where it lives on the server. Stored as parts so
+  /// the dashboard can show "613 MB of that is covers" while offline.
+  IntColumn get vaultDatabaseBytes => integer().withDefault(const Constant(0))();
+  IntColumn get vaultCoversBytes => integer().withDefault(const Constant(0))();
+  IntColumn get vaultBackupsBytes => integer().withDefault(const Constant(0))();
+
   /// Bumped once per committed sync transaction. Screens watch this instead of
   /// every table, so one cheap stream drives all the local-read providers.
   IntColumn get localRevision => integer().withDefault(const Constant(0))();
