@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { CoverJobEntity } from '../../entities';
+import { CoverOptimizer } from './cover.optimizer';
 import { CoverService } from './cover.service';
 import { CoverJobStore } from './cover-job.store';
 
@@ -118,6 +119,10 @@ describe('CoverService.archiveMissing', () => {
       dataSource as never,
       mangaRepo as never,
       fetcher as never,
+      // The real optimizer: these tests feed it 1×1 PNGs, which it correctly
+      // declines to "optimise" (no saving), so the stored bytes stay the
+      // fixture bytes and every existing assertion still means what it did.
+      new CoverOptimizer(),
       jobs,
       config as never,
     );

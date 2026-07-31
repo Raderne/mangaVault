@@ -253,3 +253,56 @@ lib/widgets/archived_cover.dart                     # CachedNetworkImage (disk c
 - **Verified end-to-end against the real DB** (2026-07-25): retried 3 real covers (One Piece, Tales of
   Demons and Gods) → `archived`; served with `image/png` + cache header; 404/401 correct; list
   `coverState` flipped to `archived`.
+
+## Cover storage profile — re-encoding (2026-07-31)
+
+Covers were the vault's real weight: **613 MB across 1,121 files** against 83 MB of Postgres, with
+JPEG averaging 661 KB, PNG averaging 1.8 MB and a 14 MB outlier at 2894×3858 — print resolution for
+something a phone draws at ~600 px in the grid and ~1,100 px on the details hero. This was
+[[deleted-titles]]'s "where the space actually goes" question, answered.
+
+**`cover.optimizer.ts`** owns the storage profile: **WebP q80, longest edge 1600 px, effort 4**, and
+it only replaces a file when the result is **under 90%** of the original. It runs in two places, which
+is why the profile lives in its own class rather than in either of them:
+
+- **On ingest** — `CoverService.encodeForStorage`, used by both the archive path and custom uploads,
+  so the archive can't re-accumulate full-resolution originals. Best-effort: anything it can't decode,
+  can't encode, or can't shrink is stored exactly as fetched. Archiving the cover at all matters far
+  more than archiving it small.
+- **`npm run covers:optimize`** (`scripts/optimize-covers.ts`) for the existing backlog. **Dry run by
+  default** — it is lossy and irreversible, so `--apply` is explicit and originals move to
+  `storage/covers-original/` unless `--no-backup`. Order is write-new → repoint row → retire old, so
+  `cover_path` never points at something absent. Path updates are batched 100 at a time under the
+  sync advisory lock ([[local-library-mirror]]).
+
+Env overrides: `COVER_MAX_EDGE`, `COVER_QUALITY`, `COVER_ENCODE_EFFORT` (`optimizerOptionsFromEnv`,
+shared by the module factory and the script so the two can't drift).
+
+### Result, applied to the real archive
+
+| source | files | before | after | saved |
+|---|---|---|---|---|
+| jpeg | 711 | 459 MB | 90.7 MB | 80% |
+| png | 55 | 97.4 MB | 5.8 MB | 94% |
+| webp | 353 | 48.3 MB | 27.1 MB | 44% |
+| gif | 2 | 8.3 MB | 2.7 MB | 67% |
+| **total** | **1,121** | **613 MB** | **126 MB** | **79.4%** |
+
+560 re-encoded, 561 left alone (310 already optimal, 249 not worth it). Verified afterwards: all
+1,121 `cover_path`s resolve to a real file. Before/after crops compared at native resolution were
+visually indistinguishable.
+
+### Gotchas found doing it
+
+- **Animated covers**: sharp must be given `{ animated: true }` on read *and* the encode, or it
+  silently writes only the first frame. Verified on a real 50-frame GIF (8.2 MB → 2.7 MB, 50 pages
+  kept). A synthetic 1×1 2-frame GIF is **not** a usable fixture — libvips flattens it — so the unit
+  test pins the metadata handling and the frame preservation was checked against real data.
+- **Frame-height reporting**: sharp presents an animated image as a vertically stacked strip, so
+  `metadata().height` is `frames × frameHeight`. Without using `pageHeight`, every animated cover
+  looks N× too tall and gets pointlessly resized.
+- **Two covers in the archive are corrupt** — truncated 1 KB files that no decoder can read:
+  `0f55442e-…jpg` (Monster Eater) and `530659d2-…png` (Regression of the Third Prince), both from
+  AllManga. They are `cover_state = 'archived'` but unrenderable. The optimizer left them untouched
+  (it never replaces what it can't decode); re-fetching those two titles is the fix.
+- Devices keep their cached copies until eviction — the archive shrank, the phones don't re-download.

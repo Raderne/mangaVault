@@ -152,6 +152,10 @@ widgets/progress_ring.dart         # the mockup's animated ring
 matters when the vault grows: on the 2,000-title library it is **613 MB of cover images against
 113 MB of database and 10 MB of archived backups**. Covers are 83% of everything.
 
+**Update (same day):** covers were re-encoded to the storage profile and that 613 MB became
+**126 MB** — the vault is now ~220 MB total, and the database is no longer the small half. See
+[[cover-fetching]] §Cover storage profile.
+
 `StatsService.vaultStorage()` now returns `VaultStorageDto { databaseBytes, coversBytes,
 backupsBytes, totalBytes }`; `vaultSizeBytes` is kept as `totalBytes` so nothing downstream broke.
 It rides `/sync/meta` alongside the total, is stored as three columns on the mirror's `sync_meta`

@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-31 23:30] session | Cover storage profile: 613 MB -> 126 MB
+Touched: cover-fetching, dashboard-stats
+
 ## [2026-07-31 22:40] session | Storage: measured the registry, fixed real bloat
 Touched: database, deleted-titles, dashboard-stats
 

@@ -26,6 +26,7 @@ import type {
   CoverResultDto,
 } from './cover.dto';
 import { CoverFetcher } from './cover.fetcher';
+import { CoverOptimizer } from './cover.optimizer';
 import { CoverJobStore } from './cover-job.store';
 import { extForMime, mimeForExt, sniffImage } from './image-sniff';
 
@@ -104,6 +105,7 @@ export class CoverService implements OnApplicationBootstrap {
     @InjectRepository(MangaEntity)
     private readonly mangaRepo: Repository<MangaEntity>,
     private readonly fetcher: CoverFetcher,
+    private readonly optimizer: CoverOptimizer,
     private readonly jobs: CoverJobStore,
     config: ConfigService,
   ) {
@@ -252,10 +254,11 @@ export class CoverService implements OnApplicationBootstrap {
     if (!sniffed) {
       throw new BadRequestException('uploaded file is not a recognised image');
     }
+    const stored = await this.encodeForStorage(bytes, sniffed.ext);
     const relPath = await this.writeCoverFile(
       mangaId,
-      bytes,
-      sniffed.ext,
+      stored.bytes,
+      stored.ext,
       m.coverPath,
     );
     await this.updateCover(mangaId, {
@@ -264,6 +267,35 @@ export class CoverService implements OnApplicationBootstrap {
       coverFailedAt: null,
     });
     return { mangaId, outcome: 'archived', coverState: 'archived' };
+  }
+
+  /**
+   * Shrink a cover to the storage profile before it lands on disk, so the
+   * archive never re-accumulates the 613 MB of full-resolution originals the
+   * `covers:optimize` script exists to clean up.
+   *
+   * Best-effort by design: anything the optimizer can't decode, can't encode,
+   * or can't make meaningfully smaller is stored exactly as fetched. Archiving
+   * the cover at all matters far more than archiving it small — for many titles
+   * this is the only copy that will ever exist.
+   */
+  private async encodeForStorage(
+    bytes: Buffer,
+    fallbackExt: string,
+  ): Promise<{ bytes: Buffer; ext: string }> {
+    try {
+      const result = await this.optimizer.optimize(bytes);
+      if (result.changed) {
+        return { bytes: result.bytes, ext: result.ext };
+      }
+    } catch (err) {
+      this.logger.debug(
+        `cover optimize skipped: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    return { bytes, ext: fallbackExt };
   }
 
   /**
@@ -429,11 +461,15 @@ export class CoverService implements OnApplicationBootstrap {
       return { mangaId: c.id, outcome: 'skipped', coverState: 'none' };
     }
     try {
-      const { bytes, mime } = await this.fetcher.fetch(url, hint);
+      const fetched = await this.fetcher.fetch(url, hint);
+      const stored = await this.encodeForStorage(
+        fetched.bytes,
+        extForMime(fetched.mime),
+      );
       const relPath = await this.writeCoverFile(
         c.id,
-        bytes,
-        extForMime(mime),
+        stored.bytes,
+        stored.ext,
         c.coverPath,
       );
       await this.updateCover(c.id, {
