@@ -130,10 +130,10 @@ describe('Deleted titles registry (e2e)', () => {
   }
 
   async function idOfTitle(title: string): Promise<string> {
-    const rows = (await ds.query(
+    const rows = await ds.query(
       `SELECT id FROM manga WHERE source_id = $1 AND title = $2`,
       [sourceId, title],
-    )) as { id: string }[];
+    );
     return rows[0].id;
   }
 
@@ -147,17 +147,18 @@ describe('Deleted titles registry (e2e)', () => {
     }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     ds = app.get(DataSource);
   });
 
   afterAll(async () => {
     if (ds?.isInitialized) {
-      const rows = (await ds.query(
-        `SELECT id FROM manga WHERE source_id = $1`,
-        [sourceId],
-      )) as { id: string }[];
+      const rows = await ds.query(`SELECT id FROM manga WHERE source_id = $1`, [
+        sourceId,
+      ]);
       await ds.query(`DELETE FROM manga WHERE source_id = $1`, [sourceId]);
       await ds.query(`DELETE FROM deleted_manga WHERE source_id = $1`, [
         sourceId,
@@ -217,9 +218,9 @@ describe('Deleted titles registry (e2e)', () => {
       titlesNew: 0,
       titlesSkipped: 1,
     });
-    expect(
-      staged.preview.find((p) => p.title === 'Doomed Title')?.action,
-    ).toBe('skipped');
+    expect(staged.preview.find((p) => p.title === 'Doomed Title')?.action).toBe(
+      'skipped',
+    );
 
     const events = await commit(staged.id);
     expect(events).toContainEqual(

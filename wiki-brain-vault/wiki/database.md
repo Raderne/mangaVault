@@ -3,7 +3,7 @@
 Created: 2026-07-30
 
 Related: [[index]] · [[backend]] · [[migration]] · [[library-api]] · [[import-pipeline]] ·
-[[dashboard-stats]] · [[local-library-mirror]]
+[[dashboard-stats]] · [[local-library-mirror]] · [[deleted-titles]] · [[cover-fetching]]
 
 Postgres 16 (alpine, Docker), published on host port **5433** (5432 is taken by `expensy-postgres`
 from another project; in-container networking still uses 5432). The schema is **migration-owned** —
@@ -16,6 +16,8 @@ and its two hard rules: never enable `synchronize`, never edit an applied migrat
 |---|---|
 | `1752600000000-initial-schema` | The 8 core tables, `pg_trgm`, the generated `search_tsv` column, GIN indexes |
 | `1753900000000-sync-row-version` | `manga.row_version` + stamping triggers, `sync_tombstone`, `sync_state` — see [[local-library-mirror]] |
+| `1754000000000-deleted-manga` | `deleted_manga` — the deletion registry / import block list, see [[deleted-titles]] |
+| `1754100000000-cover-jobs` | `cover_job` + `manga.cover_failed_at` — durable cover-archiving runs, see [[cover-fetching]] |
 
 Both are **hand-written SQL**, because they need things TypeORM cannot express: extensions, a
 `GENERATED ALWAYS AS … STORED` tsvector, GIN indexes, PL/pgSQL functions and statement-level triggers
@@ -31,6 +33,8 @@ manga ──┬─< chapter            (uq: manga_id + url)
 known_source        (PK source_id TEXT — not a uuid)
 sync_tombstone      (PK entity + entity_id)
 sync_state          (singleton: server_epoch)
+deleted_manga       (uq: source_id + manga_url)
+cover_job           (partial uq: status WHERE status = 'running')
 ```
 
 - `manga` is keyed by uuid but its **natural key is `UNIQUE (source_id, manga_url)`** — the Mihon
@@ -120,3 +124,19 @@ The deletion registry: a recycle bin that doubles as an import block list, keyed
 `UNIQUE (source_id, manga_url)` with a `snapshot` JSONB holding the whole record (manga scalars,
 chapters, tracking, category names, contributing import ids). Rationale, restore semantics and the
 import-side skip are in [[deleted-titles]].
+
+## `cover_job` (2026-07-31, migration 4)
+
+One row per bulk cover-archiving run, so a run that takes minutes-to-hours survives a restart and
+leaves a record. Counters (`total/done/archived/failed/skipped`) are **flushed on a throttle**, not
+per cover — the row is a checkpoint, not the live truth. `status` is
+`running | finished | cancelled | failed | interrupted`; `interrupted` can only be produced by the
+boot sweep finding a row whose process died.
+
+**`CREATE UNIQUE INDEX uq_cover_job_running ON cover_job (status) WHERE status = 'running'`** enforces
+one run at a time in the database itself: every running row carries the same `status` value, so a
+unique index over that column admits exactly one. A second concurrent run then fails loudly instead
+of silently double-fetching the whole library.
+
+`manga.cover_failed_at` (BIGINT, nullable) rides along — it lets a resumed run exclude covers the
+interrupted run already tried. Full rationale in [[cover-fetching]].

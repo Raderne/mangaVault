@@ -46,7 +46,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     // First run has an empty mirror and nothing to show, so fill it. A no-op
     // once a cursor exists — later syncs are import-driven or pull-to-refresh.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(syncControllerProvider.notifier).bootstrap();
+      if (!mounted) return;
+      ref.read(syncControllerProvider.notifier).bootstrap();
+      // Cover archiving is a server-side job that outlives this client, so one
+      // may already be running — after an import, or resumed after a server
+      // restart. Pick it up so covers land visibly instead of silently.
+      ref.read(coverArchiveControllerProvider.notifier).adopt();
     });
   }
 
@@ -978,34 +983,58 @@ class _CoverBanner extends ConsumerWidget {
     }
 
     if (s.phase == CoverArchivePhase.done) {
-      final summary = s.total == 0
-          ? 'All covers are already archived.'
-          : '${s.archived} archived'
-              '${s.failed > 0 ? ' · ${s.failed} failed' : ''}';
+      final counts = '${s.archived} archived'
+          '${s.failed > 0 ? ' · ${s.failed} failed' : ''}';
+      final summary = s.cancelled
+          ? 'Stopped · $counts'
+          : s.total == 0
+              ? 'All covers are already archived.'
+              : counts;
       return Row(
         children: [
-          Icon(Icons.check_circle_outline, size: 18, color: scheme.primary),
+          Icon(
+            s.cancelled ? Icons.stop_circle_outlined : Icons.check_circle_outline,
+            size: 18,
+            color: s.cancelled ? scheme.onSurfaceVariant : scheme.primary,
+          ),
           const SizedBox(width: AppDimens.unit),
           Expanded(
             child: Text(summary, style: theme.textTheme.bodyMedium),
           ),
+          if (s.cancelled)
+            TextButton(onPressed: controller.start, child: const Text('Resume')),
           _closeButton(controller),
         ],
       );
     }
 
-    // Running.
+    // Running. The run lives on the server, so it may have been started by an
+    // import or resumed after a restart rather than by a tap here — say so, and
+    // let it be stopped either way.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text('Downloading covers', style: theme.textTheme.titleSmall),
+            Text(
+              s.startedByServer ? 'Downloading new covers' : 'Downloading covers',
+              style: theme.textTheme.titleSmall,
+            ),
             const Spacer(),
             Text(
               s.total == 0 ? '…' : '${s.done} / ${s.total}',
               style: theme.textTheme.labelSmall!
                   .copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(width: AppDimens.unit),
+            TextButton(
+              onPressed: s.cancelling ? null : controller.cancel,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimens.unit, vertical: 0),
+              ),
+              child: Text(s.cancelling ? 'Stopping…' : 'Stop'),
             ),
           ],
         ),

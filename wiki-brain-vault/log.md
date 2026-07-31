@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-31 21:20] session | Cover archiving as a durable background job
+Touched: cover-fetching, database, import-pipeline, index
+
 ## [2026-07-31 20:45] session | Deletion registry: imports no longer resurrect deleted titles
 Touched: deleted-titles, library-api, import-pipeline, database, flutter-app, index
 

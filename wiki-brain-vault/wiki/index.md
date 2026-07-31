@@ -28,7 +28,8 @@ the first time substantial work happens on a topic.
 
 - [[tachibk-format]] — `.tachibk`/legacy-JSON parsing lib: pipeline, protobuf/int64/favorite gotchas.
 - [[cover-fetching]] — M4 cover archiving: `/covers/*`, the Mihon-style fetcher, concurrency, serve +
-  `Image.network` auth, and the app's archive banner / progressive reveal.
+  `Image.network` auth, the app's archive banner / progressive reveal, and the **durable `cover_job`**
+  (cancel, boot resume, post-import trigger).
 
 ## Meta
 

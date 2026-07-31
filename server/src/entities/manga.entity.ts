@@ -71,6 +71,20 @@ export class MangaEntity {
   @Column({ name: 'cover_state', type: 'text', default: 'none' })
   coverState: CoverState;
 
+  /**
+   * When the last cover fetch failed. Lets a resumed archive run skip covers it
+   * already tried in the interrupted run — the candidate set is re-derived from
+   * `cover_state`, which alone can't tell "failed just now" from "failed weeks
+   * ago". Null once a cover archives successfully.
+   */
+  @Column({
+    name: 'cover_failed_at',
+    type: 'bigint',
+    nullable: true,
+    transformer: bigIntToNumber,
+  })
+  coverFailedAt: number | null;
+
   @Column({ type: 'text', default: '' })
   notes: string;
 

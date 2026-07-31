@@ -15,6 +15,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { ImportJobRegistry } from './import-job.registry';
 
 import { acquireSyncLock } from '../../common/sync-lock';
+import { CoverService } from '../covers/cover.service';
 import {
   DeletedTitlesService,
   mangaKeyOf,
@@ -77,6 +78,7 @@ export class ImportService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly jobs: ImportJobRegistry,
     private readonly deleted: DeletedTitlesService,
+    private readonly covers: CoverService,
     config: ConfigService,
   ) {
     this.storageDir = config.get<string>('STORAGE_DIR') ?? './storage';
@@ -319,6 +321,19 @@ export class ImportService {
       const record = toRecordDto(importRecord!);
       this.jobs.emit(jobId, { type: 'done', record });
       this.staged.delete(stagedId);
+      // A title without its art isn't archived yet, so the covers follow the
+      // import automatically. Kicked off *after* `done` — it is a background
+      // job of its own, and a successful import must never be reported as
+      // failed because cover archiving couldn't start.
+      if (stats.titlesNew > 0 || stats.titlesMerged > 0) {
+        await this.covers.archiveAfterImport().catch((err: unknown) => {
+          this.logger.warn(
+            `could not start cover archiving after import: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
+      }
       this.logger.log(
         `import ${record.id}: ${stats.titlesNew} new, ${stats.titlesMerged} merged, ` +
           `${stats.titlesSkipped} skipped (deleted), ${stats.chaptersTotal} chapters`,

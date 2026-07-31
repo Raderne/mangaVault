@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ALL_ENTITIES } from '../../entities';
 import { CoverController } from './cover.controller';
 import { CoverFetcher, type CoverFetcherOptions } from './cover.fetcher';
-import { CoverJobRegistry } from './cover-job.registry';
+import { CoverJobStore } from './cover-job.store';
 import { CoverService } from './cover.service';
 
 /** Build fetcher overrides from env, leaving unset values at their defaults. */
@@ -27,7 +27,7 @@ function fetcherOptions(config: ConfigService): Partial<CoverFetcherOptions> {
   controllers: [CoverController],
   providers: [
     CoverService,
-    CoverJobRegistry,
+    CoverJobStore,
     {
       provide: CoverFetcher,
       useFactory: (config: ConfigService) =>

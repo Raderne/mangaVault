@@ -9,12 +9,19 @@ import 'package:mangavault/features/covers/cover_archive_controller.dart';
 
 /// Fake cover repo returning scripted job statuses, one per poll.
 class FakeCoverRepository extends CoverRepository {
-  FakeCoverRepository({required this.started, required this.statuses})
-      : super(Dio());
+  FakeCoverRepository({
+    required this.started,
+    required this.statuses,
+    this.active,
+  }) : super(Dio());
 
   final CoverArchiveStarted started;
   final List<CoverJobStatus> statuses;
+
+  /// What `GET /covers/jobs/active` reports — a run this client didn't start.
+  final CoverJobStatus? active;
   int polls = 0;
+  int cancels = 0;
 
   @override
   Future<CoverArchiveStarted> archiveMissing() async => started;
@@ -24,6 +31,15 @@ class FakeCoverRepository extends CoverRepository {
     final i = polls < statuses.length ? polls : statuses.length - 1;
     polls++;
     return statuses[i];
+  }
+
+  @override
+  Future<CoverJobStatus?> activeJob() async => active;
+
+  @override
+  Future<CoverJobStatus> cancelJob(String jobId) async {
+    cancels++;
+    return statuses.isEmpty ? _status(total: 0, done: 0, archived: 0) : statuses.last;
   }
 }
 
@@ -63,16 +79,23 @@ CoverJobStatus _status({
   required int total,
   required int done,
   required int archived,
-  required bool finished,
+  bool finished = false,
+  String status = 'running',
+  String trigger = 'manual',
+  bool cancelRequested = false,
 }) =>
     CoverJobStatus(
       jobId: 'job-1',
+      status: finished && status == 'running' ? 'finished' : status,
+      trigger: trigger,
       total: total,
       done: done,
       archived: archived,
       failed: 0,
       skipped: 0,
       finished: finished,
+      cancelRequested: cancelRequested,
+      error: null,
     );
 
 ProviderContainer _container(FakeCoverRepository cover) {
@@ -122,6 +145,84 @@ void main() {
     expect(state.isDone, isTrue);
     expect(state.archived, 3);
     expect(state.done, 3);
+  });
+
+  test('adopts a run the server already had in flight', () async {
+    // The server started this one itself (an import, or a resume after a
+    // restart) — the app has to show it without anyone tapping anything.
+    final repo = FakeCoverRepository(
+      started: const CoverArchiveStarted(
+          jobId: 'job-1', total: 0, alreadyRunning: false),
+      active: _status(total: 8, done: 2, archived: 2, trigger: 'import'),
+      statuses: [
+        _status(
+            total: 8, done: 8, archived: 8, trigger: 'import', finished: true),
+      ],
+    );
+    final container = _container(repo);
+
+    await container.read(coverArchiveControllerProvider.notifier).adopt();
+    var state = container.read(coverArchiveControllerProvider);
+    expect(state.isRunning, isTrue);
+    expect(state.total, 8);
+    expect(state.done, 2);
+    expect(state.startedByServer, isTrue);
+
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    state = container.read(coverArchiveControllerProvider);
+    expect(state.isDone, isTrue);
+    expect(state.archived, 8);
+  });
+
+  test('adopt is silent when no run is in flight', () async {
+    final repo = FakeCoverRepository(
+      started: const CoverArchiveStarted(
+          jobId: 'job-1', total: 0, alreadyRunning: false),
+      statuses: const [],
+    );
+    final container = _container(repo);
+
+    await container.read(coverArchiveControllerProvider.notifier).adopt();
+
+    expect(
+      container.read(coverArchiveControllerProvider).phase,
+      CoverArchivePhase.idle,
+    );
+    expect(repo.polls, 0);
+  });
+
+  test('cancel marks the banner stopping, then reports the run cancelled',
+      () async {
+    final repo = FakeCoverRepository(
+      started: const CoverArchiveStarted(
+          jobId: 'job-1', total: 5, alreadyRunning: false),
+      statuses: [
+        _status(
+          total: 5,
+          done: 2,
+          archived: 2,
+          status: 'cancelled',
+          cancelRequested: true,
+          finished: true,
+        ),
+      ],
+    );
+    final container = _container(repo);
+    final controller =
+        container.read(coverArchiveControllerProvider.notifier);
+
+    await controller.start();
+    await controller.cancel();
+    expect(repo.cancels, 1);
+    // Downloads in flight are still draining, so the banner says so.
+    expect(container.read(coverArchiveControllerProvider).cancelling, isTrue);
+
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    final state = container.read(coverArchiveControllerProvider);
+    expect(state.isDone, isTrue);
+    expect(state.cancelled, isTrue);
+    expect(state.cancelling, isFalse);
+    expect(state.archived, 2);
   });
 
   test('dismiss returns a finished banner to idle', () async {
