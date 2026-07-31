@@ -93,3 +93,11 @@ Since 2026-07-30, `commitAll()` also **runs a library sync** before emitting `Im
 newly imported titles land in the on-device mirror and the Library/Dashboard update immediately —
 the *Import Service → Library Sync service* hand-off. A sync failure never fails a successful
 import. See [[local-library-mirror]].
+
+## Deleted titles are skipped (2026-07-31)
+
+`upsertManga` keys on `(source_id, manga_url)`, so before this an import silently recreated anything
+the user had deleted. The commit and the staging preview now both consult the deletion registry:
+a blocked title previews as `action: 'skipped'`, counts into the new `titlesSkipped` stat, emits a
+`manga` event with `action: 'skipped'`, and has its `seen_count` bumped afterwards. Full design in
+[[deleted-titles]].

@@ -8,6 +8,8 @@ export interface ImportStats {
   titlesTotal: number;
   titlesNew: number;
   titlesMerged: number;
+  /** Left out because the title is in the deletion registry. */
+  titlesSkipped: number;
   chaptersTotal: number;
   categoriesTotal: number;
   warnings: string[];

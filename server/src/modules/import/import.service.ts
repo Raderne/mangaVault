@@ -16,6 +16,11 @@ import { ImportJobRegistry } from './import-job.registry';
 
 import { acquireSyncLock } from '../../common/sync-lock';
 import {
+  DeletedTitlesService,
+  mangaKeyOf,
+  type MangaKey,
+} from '../library/deleted-titles.service';
+import {
   CategoryEntity,
   ChapterEntity,
   ImportRecordEntity,
@@ -71,6 +76,7 @@ export class ImportService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly jobs: ImportJobRegistry,
+    private readonly deleted: DeletedTitlesService,
     config: ConfigService,
   ) {
     this.storageDir = config.get<string>('STORAGE_DIR') ?? './storage';
@@ -110,6 +116,7 @@ export class ImportService {
       titlesTotal: normalized.manga.length,
       titlesNew: preview.filter((p) => p.action === 'created').length,
       titlesMerged: preview.filter((p) => p.action === 'merged').length,
+      titlesSkipped: preview.filter((p) => p.action === 'skipped').length,
       chaptersTotal: normalized.manga.reduce(
         (n, m) => n + m.chapters.length,
         0,
@@ -194,14 +201,20 @@ export class ImportService {
       titlesTotal: total,
       titlesNew: 0,
       titlesMerged: 0,
+      titlesSkipped: 0,
       chaptersTotal: 0,
       categoriesTotal: entry.normalized.categories.length,
       warnings: entry.summary.warnings,
     };
     let processed = 0;
     let importRecord: ImportRecordEntity | undefined;
+    /** Deleted titles this backup offered again — recorded for the restore list. */
+    const seenAgain: MangaKey[] = [];
 
     try {
+      // Read once, up front: the registry only changes through explicit user
+      // action, and a commit must not re-query it per title.
+      const blocked = await this.deleted.blockedKeys();
       // File is safe regardless of DB outcome — archive it first.
       await this.archiveFile(entry.fileBytes, entry.fileMeta.sha256);
       this.jobs.emit(jobId, {
@@ -247,6 +260,21 @@ export class ImportService {
           // Keeps row_version order == commit order for the sync cursor.
           await acquireSyncLock(mgr);
           for (const m of batch) {
+            // The user deleted this title; a backup must not bring it back
+            // behind their back. It stays listed for an explicit restore.
+            if (blocked.has(mangaKeyOf(m.key.sourceId, m.key.mangaUrl))) {
+              stats.titlesSkipped++;
+              seenAgain.push(m.key);
+              processed++;
+              this.jobs.emit(jobId, {
+                type: 'manga',
+                title: m.title,
+                action: 'skipped',
+                processed,
+                total,
+              });
+              continue;
+            }
             const { mangaId, created } = await this.upsertManga(mgr, m);
             if (created) stats.titlesNew++;
             else stats.titlesMerged++;
@@ -276,12 +304,24 @@ export class ImportService {
         this.jobs.emit(jobId, { type: 'batch', committed: processed, total });
       }
 
+      // Stamp the registry so the restore list can say "a backup wanted this
+      // back". Outside the batch transactions: it touches no library row and
+      // must never be able to fail a committed import.
+      await this.deleted.noteSeen(seenAgain).catch((err: unknown) => {
+        this.logger.warn(
+          `could not stamp ${seenAgain.length} skipped titles: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+
       this.jobs.emit(jobId, { type: 'phase', phase: 'done' });
       const record = toRecordDto(importRecord!);
       this.jobs.emit(jobId, { type: 'done', record });
       this.staged.delete(stagedId);
       this.logger.log(
-        `import ${record.id}: ${stats.titlesNew} new, ${stats.titlesMerged} merged, ${stats.chaptersTotal} chapters`,
+        `import ${record.id}: ${stats.titlesNew} new, ${stats.titlesMerged} merged, ` +
+          `${stats.titlesSkipped} skipped (deleted), ${stats.chaptersTotal} chapters`,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'commit failed';
@@ -300,11 +340,27 @@ export class ImportService {
     normalized: NormalizedBackup,
   ): Promise<MergeResultDto[]> {
     const repo = this.dataSource.getRepository(MangaEntity);
+    // Deleted titles are shown as `skipped` in the review screen, so the user
+    // sees what this backup will *not* bring back before committing.
+    const blocked = await this.deleted.blockedKeys();
     const preview: MergeResultDto[] = [];
     for (const m of normalized.manga) {
       const existing = await repo.findOne({
         where: { sourceId: m.key.sourceId, mangaUrl: m.key.mangaUrl },
       });
+      if (
+        !existing &&
+        blocked.has(mangaKeyOf(m.key.sourceId, m.key.mangaUrl))
+      ) {
+        preview.push({
+          title: m.title,
+          sourceId: m.key.sourceId,
+          mangaUrl: m.key.mangaUrl,
+          action: 'skipped',
+          conflicts: [],
+        });
+        continue;
+      }
       if (!existing) {
         preview.push({
           title: m.title,

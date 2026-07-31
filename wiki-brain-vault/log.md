@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-31 20:45] session | Deletion registry: imports no longer resurrect deleted titles
+Touched: deleted-titles, library-api, import-pipeline, database, flutter-app, index
+
 ## [2026-07-31 15:40] session | Source filter, delete, multi-select, display options
 Touched: flutter-app, library-api, local-library-mirror, cover-fetching
 

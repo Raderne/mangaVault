@@ -7,6 +7,7 @@ import '../../data/covers/cover_repository.dart';
 import '../../data/library/library_repository.dart';
 import '../../data/library/library_write_repository.dart';
 import '../sync/sync_controller.dart';
+import 'deleted_titles_screen.dart' show deletedTitlesProvider;
 import 'library_controller.dart';
 
 /// Deletes titles from the vault and reconciles everything that renders them.
@@ -34,6 +35,9 @@ class TitleDeleter {
     // details and any other local reader re-read too.
     _ref.read(libraryControllerProvider.notifier).removeItems(ids.toSet());
     _ref.read(localRevisionProvider.notifier).bump();
+    // The titles just joined the deletion registry, so any open view of it is
+    // stale — and this is also what blocks the next import from re-adding them.
+    _ref.invalidate(deletedTitlesProvider);
 
     // The cover files are gone server-side, so drop any cached image before it
     // outlives the title. Deliberately **not** awaited: this is opportunistic

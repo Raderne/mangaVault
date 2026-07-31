@@ -15,6 +15,8 @@ the first time substantial work happens on a topic.
 - [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage.
 - [[library-api]] — `/library` query + `/library/:id` + `/categories`, and title **deletion**
   (tombstones, sync lock, cover cleanup); Flutter grid, Title Details, paging, animation language.
+- [[deleted-titles]] — the deletion registry: why a delete must survive the next backup import, the
+  snapshot/restore model, and the recycle-bin screen.
 - [[dashboard-stats]] — M5 dashboard: `/stats/*` aggregates, backup staleness, the bento grid,
   shelves, and the shared `core/format.dart` helpers.
 - [[local-library-mirror]] — on-device SQLite mirror + `/sync/*` delta feed: `row_version` triggers,

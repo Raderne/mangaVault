@@ -189,4 +189,62 @@ void main() {
     expect(find.text('MERGED'), findsOneWidget);
     expect(find.text('Commit import'), findsOneWidget);
   });
+
+  testWidgets('tapping a count chip filters the review list', (tester) async {
+    final staged = StagedImport(
+      id: 's1',
+      fileMeta: _staged().fileMeta,
+      summary: const ImportSummary(
+        titlesTotal: 3,
+        titlesNew: 1,
+        titlesMerged: 1,
+        titlesSkipped: 1,
+        chaptersTotal: 5,
+        categoriesTotal: 0,
+        warnings: [],
+      ),
+      preview: const [
+        MergeResult(title: 'Created One', action: 'created', conflicts: []),
+        MergeResult(title: 'Merged One', action: 'merged', conflicts: []),
+        MergeResult(title: 'Skipped One', action: 'skipped', conflicts: []),
+      ],
+      expiresAt: 0,
+    );
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        importRepositoryProvider.overrideWithValue(FakeImportRepository(const [])),
+        importControllerProvider.overrideWith(() => SeededController(ImportReview([staged]))),
+        appDatabaseProvider.overrideWithValue(_memoryDb()),
+        syncControllerProvider.overrideWith(RecordingSyncController.new),
+      ],
+      child: MaterialApp(theme: buildAppTheme(), home: const BackupsScreen()),
+    ));
+    await tester.pump();
+
+    expect(find.text('Created One'), findsOneWidget);
+    expect(find.text('Skipped One'), findsOneWidget);
+
+    await tester.tap(find.text('1 skipped'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Skipped One'), findsOneWidget);
+    expect(find.text('Created One'), findsNothing);
+    expect(find.text('Merged One'), findsNothing);
+    expect(find.text('Showing 1 of 3'), findsOneWidget);
+
+    // Tapping the active chip again clears the filter.
+    await tester.tap(find.text('1 skipped'));
+    await tester.pumpAndSettle();
+    expect(find.text('Created One'), findsOneWidget);
+    expect(find.text('Showing 1 of 3'), findsNothing);
+
+    // …as does "Show all".
+    await tester.tap(find.text('1 merged'));
+    await tester.pumpAndSettle();
+    expect(find.text('Created One'), findsNothing);
+    await tester.tap(find.text('Show all'));
+    await tester.pumpAndSettle();
+    expect(find.text('Created One'), findsOneWidget);
+  });
 }

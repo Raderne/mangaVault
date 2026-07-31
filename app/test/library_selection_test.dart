@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangavault/data/library/deleted_models.dart';
 import 'package:mangavault/data/library/library_models.dart';
 import 'package:mangavault/data/library/library_repository.dart';
 import 'package:mangavault/data/library/library_write_repository.dart';
@@ -62,6 +63,16 @@ class _FakeWrite implements LibraryWriteRepository {
     if (fails) throw Exception('server unreachable');
     return ids.length;
   }
+
+  @override
+  Future<List<DeletedTitle>> deletedTitles() async => const [];
+
+  @override
+  Future<RestoreResult> restore(List<String> ids) async =>
+      RestoreResult(restored: ids.length, skipped: 0);
+
+  @override
+  Future<int> purgeDeleted(List<String> ids) async => ids.length;
 }
 
 class _NoopSync extends SyncController {

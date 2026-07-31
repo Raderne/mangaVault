@@ -38,12 +38,17 @@ Registered in `app.module.ts`. Read-only until 2026-07-31, when **delete** lande
 | `GET /categories` | `CategoryDto[]` (id, name, sort, **count** of titles) |
 | `DELETE /library/:id` | 204; 404 when the title was already gone, 400 on a non-uuid |
 | `POST /library/delete` | `DeleteTitlesResultDto { deleted, coversRemoved }` — bulk, body `{ ids: string[] }` |
+| `GET /library/deleted` | `DeletedTitleDto[]` — the deletion registry ([[deleted-titles]]) |
+| `POST /library/deleted/restore` | `{ ids }` → `RestoreResultDto { restored, skipped }` |
+| `POST /library/deleted/purge` | `{ ids }` → `{ purged }` |
 
 ### Deleting titles (2026-07-31)
 
 `LibraryService.deleteMany(ids)` is the whole implementation, and it leans on work that was already
 in place:
 
+- The title is **snapshotted into the deletion registry** first, in the same transaction — otherwise
+  the next backup import recreates it. That is a feature of its own: see [[deleted-titles]].
 - Every child FK is `ON DELETE CASCADE`, so chapters, tracking and the category/import links go with
   the row — no manual cleanup.
 - The `AFTER DELETE` trigger on `manga` writes a `sync_tombstone`, so **every device mirror drops the

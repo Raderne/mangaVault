@@ -157,6 +157,11 @@ describe('Library queries (e2e)', () => {
       // manga delete cascades chapters, manga_category and manga_import rows.
       await ds.query(`DELETE FROM manga WHERE source_id = $1`, [sourceId]);
       await ds.query(`DELETE FROM import_record WHERE sha256 = $1`, [sha]);
+      // Deleting through the API registers the titles in the recycle bin, which
+      // would otherwise keep blocking this source's keys for good.
+      await ds.query(`DELETE FROM deleted_manga WHERE source_id = $1`, [
+        sourceId,
+      ]);
       await ds.query(`DELETE FROM category WHERE name = $1`, [catName]);
       // Every delete above (and in the delete tests) leaves a tombstone; drop
       // them, or this run's ids ride along in every future sync delta forever.

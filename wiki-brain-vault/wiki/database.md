@@ -113,3 +113,10 @@ makes restores safe automatically.
 
 Rotating `sync_state.server_epoch` by hand (`UPDATE sync_state SET server_epoch = gen_random_uuid()`)
 remains the blunt instrument for forcing every client to rebuild.
+
+## `deleted_manga` (2026-07-31, migration 3)
+
+The deletion registry: a recycle bin that doubles as an import block list, keyed
+`UNIQUE (source_id, manga_url)` with a `snapshot` JSONB holding the whole record (manga scalars,
+chapters, tracking, category names, contributing import ids). Rationale, restore semantics and the
+import-side skip are in [[deleted-titles]].

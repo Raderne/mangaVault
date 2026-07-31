@@ -39,6 +39,32 @@ export interface LibraryQueryDto {
   limit: number;
 }
 
+/**
+ * One entry in the deletion registry — the recycle bin the app lists so the
+ * user can choose what to bring back. The restore snapshot stays server-side.
+ */
+export interface DeletedTitleDto {
+  /** Registry row id — what restore/purge take, *not* the old manga id. */
+  id: string;
+  sourceId: string;
+  mangaUrl: string;
+  sourceName: string;
+  title: string;
+  chapterCount: number;
+  readCount: number;
+  deletedAt: number;
+  /** When an import last offered this title again (null = not since). */
+  lastSeenAt: number | null;
+  /** How many imports have been blocked from re-adding it. */
+  seenCount: number;
+}
+
+export interface RestoreResultDto {
+  restored: number;
+  /** Entries that couldn't be restored (already present again, or failed). */
+  skipped: number;
+}
+
 /** Outcome of a (bulk) title deletion. */
 export interface DeleteTitlesResultDto {
   /** Rows actually removed — ids that no longer existed are simply not counted. */

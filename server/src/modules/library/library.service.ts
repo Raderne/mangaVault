@@ -5,6 +5,7 @@ import { DataSource, Repository } from 'typeorm';
 import { withSyncLock } from '../../common/sync-lock';
 import { MangaEntity } from '../../entities';
 import { CoverService } from '../covers/cover.service';
+import { DeletedTitlesService } from './deleted-titles.service';
 import type {
   ArchiveEntryDto,
   CategoryDto,
@@ -69,6 +70,7 @@ export class LibraryService {
     @InjectRepository(MangaEntity)
     private readonly mangaRepo: Repository<MangaEntity>,
     private readonly covers: CoverService,
+    private readonly deleted: DeletedTitlesService,
   ) {}
 
   /** Paginated, filtered, sorted library slice for the archive grid. */
@@ -254,6 +256,11 @@ export class LibraryService {
    * Cover files are unlinked *after* the commit — `cover_path` is the only
    * pointer to them, but a rolled-back delete must not leave a surviving title
    * pointing at a file that is already gone.
+   *
+   * Each title is also **snapshotted into the deletion registry** first, in the
+   * same transaction: that is what stops the next backup import from silently
+   * recreating it, and what the user restores from later
+   * ({@link DeletedTitlesService}).
    */
   async deleteMany(ids: string[]): Promise<DeleteTitlesResultDto> {
     if (ids.length === 0) return { deleted: 0, coversRemoved: 0 };
@@ -267,6 +274,8 @@ export class LibraryService {
         `SELECT cover_path FROM manga WHERE id = ANY($1::uuid[])`,
         [ids],
       );
+      // Must run before the delete — it reads the very rows that cascade away.
+      await this.deleted.record(mgr, ids);
       await mgr.query(`DELETE FROM manga WHERE id = ANY($1::uuid[])`, [ids]);
       return rows;
     });

@@ -156,6 +156,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           onPressed: _toggleSearch,
           tooltip: _searchOpen ? 'Close search' : 'Search',
         ),
+        // Deleted titles are blocked from every future import, so the list has
+        // to be reachable — but it's a rare destination, hence the overflow.
+        PopupMenuButton<String>(
+          tooltip: 'More',
+          onSelected: (value) {
+            if (value == 'deleted') context.push('/library/deleted');
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: 'deleted',
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.delete_outline),
+                title: Text('Deleted titles'),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

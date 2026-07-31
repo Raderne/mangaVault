@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/import/import_models.dart';
 import '../../theme/app_dimens.dart';
@@ -137,7 +138,10 @@ class _ReviewCell extends ConsumerWidget {
         children: [
           const CellLabel('Review import'),
           const SizedBox(height: AppDimens.unit * 2),
-          for (final staged in queue) _StagedFileSection(staged: staged),
+          for (final staged in queue)
+            // Keyed by file: each section owns its own chip filter, and a
+            // reordered queue must not carry one file's filter to another.
+            _StagedFileSection(key: ValueKey(staged.id), staged: staged),
           const SizedBox(height: AppDimens.gutter),
           Row(
             children: [
@@ -159,14 +163,32 @@ class _ReviewCell extends ConsumerWidget {
   }
 }
 
-class _StagedFileSection extends StatelessWidget {
-  const _StagedFileSection({required this.staged});
+class _StagedFileSection extends StatefulWidget {
+  const _StagedFileSection({super.key, required this.staged});
   final StagedImport staged;
+
+  @override
+  State<_StagedFileSection> createState() => _StagedFileSectionState();
+}
+
+class _StagedFileSectionState extends State<_StagedFileSection> {
+  /// Active count-chip filter: the `MergeResult.action` to show, or null for
+  /// everything. Tapping the active chip again clears it.
+  String? _filter;
+
+  void _toggle(String action) => setState(
+        () => _filter = _filter == action ? null : action,
+      );
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final staged = widget.staged;
     final s = staged.summary;
+    final shown = _filter == null
+        ? staged.preview
+        : staged.preview.where((p) => p.action == _filter).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -176,8 +198,27 @@ class _StagedFileSection extends StatelessWidget {
           spacing: AppDimens.unit,
           runSpacing: AppDimens.unit,
           children: [
-            StatusChip('${s.titlesNew} new'),
-            StatusChip('${s.titlesMerged} merged', emphasized: true),
+            // The three outcome counts double as filters over the list below —
+            // on a 2,000-title backup, "which 3 were skipped?" is otherwise a
+            // long scroll. A zero count stays inert: nothing to show.
+            StatusChip(
+              '${s.titlesNew} new',
+              selected: _filter == 'created',
+              onTap: s.titlesNew == 0 ? null : () => _toggle('created'),
+            ),
+            StatusChip(
+              '${s.titlesMerged} merged',
+              selected: _filter == 'merged',
+              onTap: s.titlesMerged == 0 ? null : () => _toggle('merged'),
+            ),
+            // Deleted titles this backup will NOT bring back, stated before
+            // the user commits rather than discovered afterwards.
+            if (s.titlesSkipped > 0)
+              StatusChip(
+                '${s.titlesSkipped} skipped',
+                selected: _filter == 'skipped',
+                onTap: () => _toggle('skipped'),
+              ),
             StatusChip('${s.chaptersTotal} chapters'),
             if (staged.isDuplicate) StatusChip('Already imported'),
           ],
@@ -189,14 +230,36 @@ class _StagedFileSection extends StatelessWidget {
             style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error),
           ),
         ],
+        if (_filter != null) ...[
+          const SizedBox(height: AppDimens.unit),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Showing ${shown.length} of ${staged.preview.length}',
+                  style: theme.textTheme.labelSmall!
+                      .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _filter = null),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('Show all'),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: AppDimens.unit),
         // Builder-based, bounded height list — smooth at 1000+ titles.
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 260),
           child: ListView.builder(
             shrinkWrap: true,
-            itemCount: staged.preview.length,
-            itemBuilder: (context, i) => _MergeRow(result: staged.preview[i]),
+            itemCount: shown.length,
+            itemBuilder: (context, i) => _MergeRow(result: shown[i]),
           ),
         ),
         const Divider(height: AppDimens.gutter * 2),
@@ -212,7 +275,8 @@ class _MergeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final badge = StatusChip(result.isMerged ? 'MERGED' : 'NEW', emphasized: result.isMerged);
+    final badge = StatusChip(_actionLabel(result.action),
+        emphasized: result.isMerged);
     final title = Expanded(
       child: Text(result.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
     );
@@ -292,7 +356,7 @@ class _CommittingCell extends StatelessWidget {
                             maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
                       ),
                       const SizedBox(width: AppDimens.unit),
-                      StatusChip(m.isMerged ? 'MERGED' : 'NEW', emphasized: m.isMerged),
+                      StatusChip(_actionLabel(m.action), emphasized: m.isMerged),
                     ],
                   ),
                 );
@@ -313,6 +377,8 @@ class _DoneCell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final titlesNew = records.fold<int>(0, (n, r) => n + r.stats.titlesNew);
+    final titlesSkipped =
+        records.fold<int>(0, (n, r) => n + r.stats.titlesSkipped);
     final titlesMerged = records.fold<int>(0, (n, r) => n + r.stats.titlesMerged);
     return BentoCell(
       child: Column(
@@ -330,7 +396,9 @@ class _DoneCell extends ConsumerWidget {
                       Text('Import complete', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 2),
                       Text(
-                        '$titlesNew new · $titlesMerged merged across ${records.length} file(s).',
+                        '$titlesNew new · $titlesMerged merged'
+                        '${titlesSkipped > 0 ? ' · $titlesSkipped skipped' : ''} '
+                        'across ${records.length} file(s).',
                         style: theme.textTheme.bodyMedium!
                             .copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
@@ -340,6 +408,23 @@ class _DoneCell extends ConsumerWidget {
               ],
             ),
           ),
+          // Skipped titles are the one outcome that needs a decision, so the
+          // list is one tap away instead of buried under the Library tab.
+          if (titlesSkipped > 0) ...[
+            const SizedBox(height: AppDimens.unit),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => context.go('/library/deleted'),
+                icon: const Icon(Icons.restore, size: 18),
+                label: Text(
+                  titlesSkipped == 1
+                      ? 'Review 1 skipped title'
+                      : 'Review $titlesSkipped skipped titles',
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: AppDimens.gutter),
           PillButton(
             label: 'Import another',
@@ -452,7 +537,9 @@ class _HistoryRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 '${record.sourceApp.isEmpty ? 'unknown' : record.sourceApp} · '
-                '${s.titlesNew} new · ${s.titlesMerged} merged · ${_relativeDate(record.importedAt)}',
+                '${s.titlesNew} new · ${s.titlesMerged} merged'
+                '${s.titlesSkipped > 0 ? ' · ${s.titlesSkipped} skipped' : ''}'
+                ' · ${_relativeDate(record.importedAt)}',
                 style: theme.textTheme.labelSmall!.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
@@ -471,3 +558,10 @@ class _HistoryRow extends StatelessWidget {
     return '${diff.inDays}d ago';
   }
 }
+
+/// Badge text for a per-title import outcome.
+String _actionLabel(String action) => switch (action) {
+      'merged' => 'MERGED',
+      'skipped' => 'SKIPPED',
+      _ => 'NEW',
+    };

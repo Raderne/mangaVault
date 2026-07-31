@@ -13,14 +13,17 @@ import {
 } from '@nestjs/common';
 
 import type { PublicationStatus } from '../../entities/manga.entity';
+import { DeletedTitlesService } from './deleted-titles.service';
 import {
   LIBRARY_SORT_FIELDS,
   PUBLICATION_STATUSES,
   type CategoryDto,
+  type DeletedTitleDto,
   type DeleteTitlesResultDto,
   type LibraryPageDto,
   type LibraryQueryDto,
   type LibrarySortField,
+  type RestoreResultDto,
   type VaultMangaDto,
 } from './library.dto';
 import { LibraryService } from './library.service';
@@ -33,6 +36,28 @@ const MAX_DELETE_IDS = 1000;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Validate a `{ ids: [...] }` body into a uuid list.
+ *
+ * Validated here rather than left to Postgres: one malformed value would fail
+ * the whole `::uuid[]` cast (or an `In([...])`) with an opaque 500.
+ */
+function parseIdList(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new BadRequestException('ids must be a non-empty array');
+  }
+  if (raw.length > MAX_DELETE_IDS) {
+    throw new BadRequestException(`at most ${MAX_DELETE_IDS} ids per request`);
+  }
+  const ids = raw.filter(
+    (v): v is string => typeof v === 'string' && UUID_RE.test(v),
+  );
+  if (ids.length !== raw.length) {
+    throw new BadRequestException('ids must all be uuids');
+  }
+  return ids;
+}
 
 const csv = (value?: string): string[] =>
   value
@@ -94,11 +119,46 @@ function parseLibraryQuery(raw: Record<string, string>): LibraryQueryDto {
 
 @Controller()
 export class LibraryController {
-  constructor(private readonly library: LibraryService) {}
+  constructor(
+    private readonly library: LibraryService,
+    private readonly deletedTitles: DeletedTitlesService,
+  ) {}
 
   @Get('library')
   list(@Query() query: Record<string, string>): Promise<LibraryPageDto> {
     return this.library.query(parseLibraryQuery(query));
+  }
+
+  // ---- deletion registry (recycle bin / import block list) ----
+  //
+  // Declared **before** `library/:id`: Nest matches routes in declaration
+  // order, so a later `library/deleted` would be swallowed by the uuid param
+  // route and 400 on the ParseUUIDPipe.
+
+  /**
+   * Titles that were deleted and are therefore **skipped by every import**
+   * until they're restored or purged from here.
+   */
+  @Get('library/deleted')
+  deleted(): Promise<DeletedTitleDto[]> {
+    return this.deletedTitles.list();
+  }
+
+  /** Put deleted titles back (ids are *registry* ids, not old manga ids). */
+  @Post('library/deleted/restore')
+  @HttpCode(200)
+  restore(@Body() body: { ids?: unknown }): Promise<RestoreResultDto> {
+    return this.deletedTitles.restore(parseIdList(body?.ids));
+  }
+
+  /**
+   * Drop registry entries without restoring. The titles stay gone, but they are
+   * no longer blocked — a future backup import will add them again.
+   */
+  @Post('library/deleted/purge')
+  @HttpCode(200)
+  async purge(@Body() body: { ids?: unknown }): Promise<{ purged: number }> {
+    return { purged: await this.deletedTitles.purge(parseIdList(body?.ids)) };
   }
 
   @Get('library/:id')
@@ -128,27 +188,8 @@ export class LibraryController {
    */
   @Post('library/delete')
   @HttpCode(200)
-  removeMany(
-    @Body() body: { ids?: unknown },
-  ): Promise<DeleteTitlesResultDto> {
-    const raw = Array.isArray(body?.ids) ? body.ids : null;
-    if (!raw || raw.length === 0) {
-      throw new BadRequestException('ids must be a non-empty array');
-    }
-    if (raw.length > MAX_DELETE_IDS) {
-      throw new BadRequestException(
-        `at most ${MAX_DELETE_IDS} ids per request`,
-      );
-    }
-    // Validated here, not by Postgres: a single malformed value would fail the
-    // whole ::uuid[] cast with an opaque 500.
-    const ids = raw.filter(
-      (v): v is string => typeof v === 'string' && UUID_RE.test(v),
-    );
-    if (ids.length !== raw.length) {
-      throw new BadRequestException('ids must all be uuids');
-    }
-    return this.library.deleteMany(ids);
+  removeMany(@Body() body: { ids?: unknown }): Promise<DeleteTitlesResultDto> {
+    return this.library.deleteMany(parseIdList(body?.ids));
   }
 
   @Get('categories')
