@@ -31,6 +31,7 @@ class ImportSummary {
     required this.titlesTotal,
     required this.titlesNew,
     required this.titlesMerged,
+    this.titlesSkipped = 0,
     required this.chaptersTotal,
     required this.categoriesTotal,
     required this.warnings,
@@ -39,6 +40,10 @@ class ImportSummary {
   final int titlesTotal;
   final int titlesNew;
   final int titlesMerged;
+
+  /// Left out because the title is in the deletion registry — the user deleted
+  /// it, so a backup must not silently bring it back.
+  final int titlesSkipped;
   final int chaptersTotal;
   final int categoriesTotal;
   final List<String> warnings;
@@ -47,6 +52,7 @@ class ImportSummary {
         titlesTotal: (j['titlesTotal'] as num?)?.toInt() ?? 0,
         titlesNew: (j['titlesNew'] as num?)?.toInt() ?? 0,
         titlesMerged: (j['titlesMerged'] as num?)?.toInt() ?? 0,
+        titlesSkipped: (j['titlesSkipped'] as num?)?.toInt() ?? 0,
         chaptersTotal: (j['chaptersTotal'] as num?)?.toInt() ?? 0,
         categoriesTotal: (j['categoriesTotal'] as num?)?.toInt() ?? 0,
         warnings: ((j['warnings'] as List?) ?? const []).map((e) => e as String).toList(),
@@ -76,11 +82,12 @@ class MergeResult {
 
   final String title;
 
-  /// 'created' or 'merged'.
+  /// 'created', 'merged', or 'skipped' (blocked by the deletion registry).
   final String action;
   final List<FieldConflict> conflicts;
 
   bool get isMerged => action == 'merged';
+  bool get isSkipped => action == 'skipped';
 
   factory MergeResult.fromJson(Map<String, dynamic> j) => MergeResult(
         title: (j['title'] as String?) ?? '',
@@ -215,11 +222,12 @@ class MangaEvent extends ImportEvent {
     required this.total,
   });
   final String title;
-  final String action; // 'created' | 'merged'
+  final String action; // 'created' | 'merged' | 'skipped'
   final int processed;
   final int total;
 
   bool get isMerged => action == 'merged';
+  bool get isSkipped => action == 'skipped';
 }
 
 class BatchEvent extends ImportEvent {

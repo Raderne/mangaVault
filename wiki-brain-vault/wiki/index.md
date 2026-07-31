@@ -13,8 +13,10 @@ the first time substantial work happens on a topic.
 
 - [[migration]] — DB migration workflow, rules (never `synchronize`, never edit applied migrations).
 - [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage.
-- [[library-api]] — M3 read side: `/library` query + `/library/:id` + `/categories`; Flutter grid,
-  Title Details, paging, and the shared animation language.
+- [[library-api]] — `/library` query + `/library/:id` + `/categories`, and title **deletion**
+  (tombstones, sync lock, cover cleanup); Flutter grid, Title Details, paging, animation language.
+- [[deleted-titles]] — the deletion registry: why a delete must survive the next backup import, the
+  snapshot/restore model, and the recycle-bin screen.
 - [[dashboard-stats]] — M5 dashboard: `/stats/*` aggregates, backup staleness, the bento grid,
   shelves, and the shared `core/format.dart` helpers.
 - [[local-library-mirror]] — on-device SQLite mirror + `/sync/*` delta feed: `row_version` triggers,
@@ -26,7 +28,8 @@ the first time substantial work happens on a topic.
 
 - [[tachibk-format]] — `.tachibk`/legacy-JSON parsing lib: pipeline, protobuf/int64/favorite gotchas.
 - [[cover-fetching]] — M4 cover archiving: `/covers/*`, the Mihon-style fetcher, concurrency, serve +
-  `Image.network` auth, and the app's archive banner / progressive reveal.
+  `Image.network` auth, the app's archive banner / progressive reveal, and the **durable `cover_job`**
+  (cancel, boot resume, post-import trigger).
 
 ## Meta
 

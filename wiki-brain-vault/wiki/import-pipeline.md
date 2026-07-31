@@ -2,7 +2,8 @@
 
 Created: 2026-07-18 (M2)
 
-Related: [[index]] · [[backend]] · [[tachibk-format]] · [[database]] · [[local-library-mirror]]
+Related: [[index]] · [[backend]] · [[tachibk-format]] · [[database]] · [[local-library-mirror]] ·
+[[cover-fetching]] · [[deleted-titles]]
 
 NestJS module that turns an uploaded backup into library rows. `server/src/modules/import/`.
 Consumes the pure [[tachibk-format]] lib; owns the DB writes and file archiving.
@@ -93,3 +94,23 @@ Since 2026-07-30, `commitAll()` also **runs a library sync** before emitting `Im
 newly imported titles land in the on-device mirror and the Library/Dashboard update immediately —
 the *Import Service → Library Sync service* hand-off. A sync failure never fails a successful
 import. See [[local-library-mirror]].
+
+## Covers follow the import (2026-07-31)
+
+A title without its art isn't archived yet, so a successful commit calls
+`CoverService.archiveAfterImport()` — **after** the `done` event, and wrapped so that a cover run
+failing to start can never turn a committed import into a failed one. `ImportModule` imports
+`CoverModule` for it (no cycle: `LibraryModule` already did).
+
+The run is scoped to covers **never tried** (`retryFailed: false`), so a source that can't be fetched
+at all isn't re-hammered on every import; the user's manual run is what retries those. If a run was
+already in flight its candidate list predates these titles, so a follow-up pass is queued instead of
+joining it. Details and the trigger table in [[cover-fetching]].
+
+## Deleted titles are skipped (2026-07-31)
+
+`upsertManga` keys on `(source_id, manga_url)`, so before this an import silently recreated anything
+the user had deleted. The commit and the staging preview now both consult the deletion registry:
+a blocked title previews as `action: 'skipped'`, counts into the new `titlesSkipped` stat, emits a
+`manga` event with `action: 'skipped'`, and has its `seen_count` bumped afterwards. Full design in
+[[deleted-titles]].

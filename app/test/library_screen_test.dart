@@ -32,6 +32,12 @@ class FakeLibraryRepository extends LibraryRepository {
 
   @override
   Future<List<Category>> categories() async => const [];
+
+  @override
+  Future<List<SourceOption>> sources() async => const [];
+
+  @override
+  Future<void> forgetTitles(List<String> ids) async {}
 }
 
 MangaListItem _item(String title) => MangaListItem(

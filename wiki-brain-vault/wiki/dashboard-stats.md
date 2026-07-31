@@ -145,3 +145,22 @@ widgets/progress_ring.dart         # the mockup's animated ring
   [[cover-fetching]]; the dashboard now makes that visible, but per-source hints are still the fix.
 - Storage **breakdown** and integrity checking (`/storage/*`) stay in M6; `vaultSizeBytes` here is a
   single rolled-up figure.
+
+## Vault storage breakdown (2026-07-31)
+
+`vaultSizeBytes` summed Postgres + covers + backups into one number, which hid the only fact that
+matters when the vault grows: on the 2,000-title library it is **613 MB of cover images against
+113 MB of database and 10 MB of archived backups**. Covers are 83% of everything.
+
+**Update (same day):** covers were re-encoded to the storage profile and that 613 MB became
+**126 MB** — the vault is now ~220 MB total, and the database is no longer the small half. See
+[[cover-fetching]] §Cover storage profile.
+
+`StatsService.vaultStorage()` now returns `VaultStorageDto { databaseBytes, coversBytes,
+backupsBytes, totalBytes }`; `vaultSizeBytes` is kept as `totalBytes` so nothing downstream broke.
+It rides `/sync/meta` alongside the total, is stored as three columns on the mirror's `sync_meta`
+(**drift `schemaVersion` 1 → 2**, so first launch after the update does a full re-pull — by design,
+see [[local-library-mirror]]), and the dashboard's vault cell renders a proportional bar + legend.
+
+An e2e assertion pins the invariant: the three parts must sum to `totalBytes`, and `totalBytes` must
+equal `vaultSizeBytes`.

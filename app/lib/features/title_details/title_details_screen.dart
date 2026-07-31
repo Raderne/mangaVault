@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
 import '../../data/covers/cover_cache.dart';
@@ -13,6 +14,7 @@ import '../../widgets/glow_progress_bar.dart';
 import '../../widgets/status_chip.dart';
 import '../library/library_controller.dart';
 import '../library/library_screen.dart' show labelForStatus;
+import '../library/library_selection.dart' show titleDeleterProvider;
 
 /// Title Details: a stacked bento view fed from `GET /library/:id`. Cells fade
 /// up in sequence, and the cover shares a Hero transition with the grid card.
@@ -37,6 +39,12 @@ class TitleDetailsScreen extends ConsumerWidget {
             tooltip: 'Re-fetch cover',
             onPressed: () => _refetchCover(ref, context),
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Delete title',
+            onPressed: () =>
+                _confirmDelete(ref, context, async.asData?.value.title),
+          ),
         ],
       ),
       body: async.when(
@@ -47,6 +55,59 @@ class TitleDetailsScreen extends ConsumerWidget {
         data: (manga) => _DetailsBody(manga: manga),
       ),
     );
+  }
+
+  /// Delete this title from the vault, then leave the (now empty) screen.
+  ///
+  /// The same irreversible operation as the grid's bulk delete, so it asks the
+  /// same question first.
+  Future<void> _confirmDelete(
+    WidgetRef ref,
+    BuildContext context,
+    String? title,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          title: const Text('Delete this title?'),
+          content: Text(
+            '${title ?? 'This title'} — its chapters, reading progress and '
+            'archived cover are removed from the vault. This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: scheme.error),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(titleDeleterProvider).delete([titleId]);
+      // Pop first: this screen reads the title that no longer exists.
+      if (router.canPop()) router.pop();
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(const SnackBar(content: Text('Title deleted')));
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          "Couldn't delete — ${e.toString().replaceFirst('Exception: ', '').split('\n').first}",
+        ),
+      ));
+    }
   }
 
   /// Ask the server to (re)archive this title's cover, then refresh the view.
@@ -256,7 +317,9 @@ class _MetadataCell extends StatelessWidget {
           _MetaRow(
             icon: Icons.account_tree_outlined,
             label: 'Source',
-            value: manga.sourceName.isNotEmpty ? manga.sourceName : 'Unknown',
+            // Backups from some forks carry no source name; the numeric id is
+            // the only identifier left, and it beats showing "Unknown".
+            value: sourceLabel(manga.sourceName, manga.sourceId),
           ),
         ],
       ),

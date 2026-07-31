@@ -21,7 +21,9 @@
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "db:maintenance": "node scripts/db-maintenance.mjs",
+    "covers:optimize": "ts-node -T scripts/optimize-covers.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -36,6 +38,7 @@
     "protobufjs": "^7.6.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.3",
     "typeorm": "^1.1.0",
     "uuid": "^14.0.1"
   },

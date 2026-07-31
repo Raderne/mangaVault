@@ -11,7 +11,11 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 
 import { AppModule } from '../src/app.module';
-import type { CoverResultDto } from '../src/modules/covers/cover.dto';
+import type {
+  CoverJobDto,
+  CoverResultDto,
+} from '../src/modules/covers/cover.dto';
+import { CoverJobStore } from '../src/modules/covers/cover-job.store';
 
 const idOf = (rows: unknown): string => (rows as Array<{ id: string }>)[0].id;
 
@@ -27,7 +31,10 @@ const PNG = Buffer.concat([
  * the fetch → archive → serve path is exercised end-to-end without hitting the
  * internet. Deliberately does NOT call `archive-missing` (which would scan the
  * whole DB and try to fetch every real cover); single-title `retry`/`custom`
- * are scoped to the seeded rows. Uses a temp STORAGE_DIR and cleans up.
+ * are scoped to the seeded rows, and the durable-job endpoints are driven
+ * through {@link CoverJobStore} so the `cover_job` table, the DTO mapping and
+ * the routes are all real without a download in sight. Uses a temp STORAGE_DIR
+ * and cleans up.
  */
 describe('Covers (e2e)', () => {
   let app: INestApplication<App>;
@@ -35,6 +42,9 @@ describe('Covers (e2e)', () => {
   let cdn: Server;
   let cdnBase: string;
   let storageDir: string;
+  let jobs: CoverJobStore;
+  /** Job rows this spec created, so it deletes exactly its own. */
+  const createdJobIds: string[] = [];
 
   const token = 'e2e-token';
   const auth = `Bearer ${token}`;
@@ -52,6 +62,9 @@ describe('Covers (e2e)', () => {
       'postgres://mangavault:mangavault@localhost:5433/mangavault';
     storageDir = await mkdtemp(join(tmpdir(), 'mv-e2e-covers-'));
     process.env.STORAGE_DIR = storageDir;
+    // Automatic runs are already off for every e2e (test/setup-e2e.ts); asserted
+    // here because this suite is the one that would notice if that regressed.
+    expect(process.env.COVER_AUTO_ARCHIVE).toBe('false');
 
     // Stand-in source CDN.
     cdn = createServer((req, res) => {
@@ -75,6 +88,7 @@ describe('Covers (e2e)', () => {
     );
     await app.init();
     ds = app.get(DataSource);
+    jobs = app.get(CoverJobStore);
 
     const insert = async (title: string, thumb: string): Promise<string> =>
       idOf(
@@ -94,6 +108,13 @@ describe('Covers (e2e)', () => {
   afterAll(async () => {
     if (ds?.isInitialized) {
       await ds.query(`DELETE FROM manga WHERE source_id = $1`, [sourceId]);
+      // Leaving a `running` row behind would make the *next* AppModule boot
+      // resume it — i.e. archive the whole dev library off the internet.
+      if (createdJobIds.length) {
+        await ds.query(`DELETE FROM cover_job WHERE id = ANY($1::uuid[])`, [
+          createdJobIds,
+        ]);
+      }
     }
     await app?.close();
     await new Promise<void>((resolve) => cdn.close(() => resolve()));
@@ -176,6 +197,109 @@ describe('Covers (e2e)', () => {
         contentType: 'text/html',
       })
       .expect(400);
+  });
+
+  describe('durable jobs', () => {
+    // The run is created through the store rather than POST /archive-missing:
+    // that endpoint scans the whole library and downloads every missing cover.
+    // Everything under test here — the table, the DTOs, the routes, cancel —
+    // is the real thing.
+    const get = (path: string) =>
+      request(app.getHttpServer()).get(path).set('Authorization', auth);
+
+    it('reports no active run when nothing is going', async () => {
+      const res = await get('/api/v1/covers/jobs/active').expect(200);
+      // `null` serializes to an empty body.
+      expect(res.body).toEqual({});
+    });
+
+    it('exposes a running job, cancels it, and keeps it in history', async () => {
+      const started = await jobs.start({
+        total: 5,
+        trigger: 'manual',
+        retryFailed: true,
+      });
+      createdJobIds.push(started.jobId);
+
+      // It survives as a row, not just in memory.
+      const rows = await ds.query<
+        { status: string; trigger: string; total: number }[]
+      >(`SELECT status, trigger, total FROM cover_job WHERE id = $1`, [
+        started.jobId,
+      ]);
+      expect(rows[0]).toMatchObject({
+        status: 'running',
+        trigger: 'manual',
+        total: 5,
+      });
+
+      const active = await get('/api/v1/covers/jobs/active').expect(200);
+      expect(active.body as CoverJobDto).toMatchObject({
+        jobId: started.jobId,
+        status: 'running',
+        finished: false,
+      });
+
+      const status = await get(`/api/v1/covers/jobs/${started.jobId}`).expect(
+        200,
+      );
+      expect((status.body as CoverJobDto).total).toBe(5);
+
+      const cancelled = await request(app.getHttpServer())
+        .post(`/api/v1/covers/jobs/${started.jobId}/cancel`)
+        .set('Authorization', auth)
+        .expect(201);
+      expect(cancelled.body as CoverJobDto).toMatchObject({
+        cancelRequested: true,
+      });
+
+      // No pool is running here, so close the run out as the runner would.
+      await jobs.finish(started.jobId, 'cancelled');
+
+      const history = await get('/api/v1/covers/jobs').expect(200);
+      const entry = (history.body as CoverJobDto[]).find(
+        (j) => j.jobId === started.jobId,
+      );
+      expect(entry).toMatchObject({
+        status: 'cancelled',
+        finished: true,
+        cancelRequested: true,
+      });
+      expect(entry!.finishedAt).toEqual(expect.any(Number));
+
+      // The slot is free again.
+      const after = await get('/api/v1/covers/jobs/active').expect(200);
+      expect(after.body).toEqual({});
+    });
+
+    it('reclaims a job whose process died as interrupted', async () => {
+      const inserted = await ds.query<{ id: string }[]>(
+        `INSERT INTO cover_job (status, trigger, total, done, started_at, updated_at)
+         VALUES ('running', 'manual', 9, 4, $1, $1) RETURNING id`,
+        [Date.now()],
+      );
+      const orphanId = inserted[0].id;
+      createdJobIds.push(orphanId);
+
+      const reclaimed = await jobs.reclaimInterrupted();
+      expect(reclaimed.map((j) => j.id)).toContain(orphanId);
+
+      const after = await get(`/api/v1/covers/jobs/${orphanId}`).expect(200);
+      expect(after.body as CoverJobDto).toMatchObject({
+        status: 'interrupted',
+        finished: true,
+        done: 4,
+      });
+    });
+
+    it('404s an unknown job and requires auth', async () => {
+      await get(
+        '/api/v1/covers/jobs/00000000-0000-0000-0000-000000000000',
+      ).expect(404);
+      await request(app.getHttpServer())
+        .get('/api/v1/covers/jobs/active')
+        .expect(401);
+    });
   });
 
   it('404s an unknown id and 400s a non-uuid id', async () => {

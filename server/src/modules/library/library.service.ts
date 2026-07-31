@@ -2,11 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
+import { withSyncLock } from '../../common/sync-lock';
 import { MangaEntity } from '../../entities';
+import { CoverService } from '../covers/cover.service';
+import { DeletedTitlesService } from './deleted-titles.service';
 import type {
   ArchiveEntryDto,
   CategoryDto,
   ChapterRefDto,
+  DeleteTitlesResultDto,
   LibraryPageDto,
   LibraryQueryDto,
   LibrarySortField,
@@ -65,6 +69,8 @@ export class LibraryService {
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(MangaEntity)
     private readonly mangaRepo: Repository<MangaEntity>,
+    private readonly covers: CoverService,
+    private readonly deleted: DeletedTitlesService,
   ) {}
 
   /** Paginated, filtered, sorted library slice for the archive grid. */
@@ -232,6 +238,54 @@ export class LibraryService {
         }))
         .sort((a, b) => b.importedAt - a.importedAt),
     };
+  }
+
+  /**
+   * Permanently remove titles from the vault.
+   *
+   * Chapters, tracking rows and the category/import links all disappear with
+   * the row (every child FK is `ON DELETE CASCADE`), and the `AFTER DELETE`
+   * trigger writes a `sync_tombstone` — so the next delta removes the title
+   * from every device mirror with no protocol change.
+   *
+   * The transaction takes the sync lock because that tombstone draws its
+   * `row_version` from the shared sequence: without it a concurrent cover write
+   * could commit a higher version first and a client would advance its cursor
+   * straight past this deletion.
+   *
+   * Cover files are unlinked *after* the commit — `cover_path` is the only
+   * pointer to them, but a rolled-back delete must not leave a surviving title
+   * pointing at a file that is already gone.
+   *
+   * Each title is also **snapshotted into the deletion registry** first, in the
+   * same transaction: that is what stops the next backup import from silently
+   * recreating it, and what the user restores from later
+   * ({@link DeletedTitlesService}).
+   */
+  async deleteMany(ids: string[]): Promise<DeleteTitlesResultDto> {
+    if (ids.length === 0) return { deleted: 0, coversRemoved: 0 };
+
+    // Read the paths and delete in one transaction. Deliberately two
+    // statements rather than `DELETE … RETURNING`: TypeORM hands back
+    // `[rows, affectedCount]` for a returning DELETE, and a plain SELECT keeps
+    // the row shape unambiguous.
+    const removed = await withSyncLock(this.dataSource, async (mgr) => {
+      const rows = await mgr.query<{ cover_path: string | null }[]>(
+        `SELECT cover_path FROM manga WHERE id = ANY($1::uuid[])`,
+        [ids],
+      );
+      // Must run before the delete — it reads the very rows that cascade away.
+      await this.deleted.record(mgr, ids);
+      await mgr.query(`DELETE FROM manga WHERE id = ANY($1::uuid[])`, [ids]);
+      return rows;
+    });
+
+    const coversRemoved = await this.covers.deleteCoverFiles(
+      removed
+        .map((r) => r.cover_path)
+        .filter((p): p is string => p !== null && p.length > 0),
+    );
+    return { deleted: removed.length, coversRemoved };
   }
 
   /** Categories with title counts, ordered by their configured sort. */

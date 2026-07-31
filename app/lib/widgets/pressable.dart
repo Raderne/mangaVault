@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Wraps a tappable surface with a subtle press-in scale — the design's
 /// `active:scale-95` micro-interaction. Keeps taps snappy (fast scale-down,
@@ -8,11 +9,16 @@ class Pressable extends StatefulWidget {
     super.key,
     required this.child,
     this.onTap,
+    this.onLongPress,
     this.pressedScale = 0.97,
   });
 
   final Widget child;
   final VoidCallback? onTap;
+
+  /// Secondary gesture (entering the library's selection mode, for one). Fires
+  /// haptic feedback, since a long-press has no visual "it worked" of its own.
+  final VoidCallback? onLongPress;
   final double pressedScale;
 
   @override
@@ -34,6 +40,13 @@ class _PressableState extends State<Pressable> {
       onTapUp: (_) => _setPressed(false),
       onTapCancel: () => _setPressed(false),
       onTap: widget.onTap,
+      onLongPress: widget.onLongPress == null
+          ? null
+          : () {
+              _setPressed(false);
+              HapticFeedback.selectionClick();
+              widget.onLongPress!();
+            },
       child: AnimatedScale(
         scale: _pressed ? widget.pressedScale : 1.0,
         duration: Duration(milliseconds: _pressed ? 90 : 180),

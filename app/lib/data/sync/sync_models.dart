@@ -3,6 +3,7 @@
 // the library, import and stats models — no codegen outside the drift layer.
 
 import '../library/library_models.dart';
+import '../stats/stats_models.dart';
 
 /// One mirrored title: the union of what the grid and details screens render.
 /// Chapters are not included — only the aggregates and the two chapter refs.
@@ -172,6 +173,7 @@ class SyncMetaSnapshot {
     required this.categories,
     required this.imports,
     required this.vaultSizeBytes,
+    this.vaultStorage = const VaultStorage(),
   });
 
   final String serverEpoch;
@@ -180,6 +182,10 @@ class SyncMetaSnapshot {
   final List<Category> categories;
   final List<SyncImportRecord> imports;
   final int vaultSizeBytes;
+
+  /// Database / covers / backups split — the mirror stores the parts so the
+  /// dashboard can show where the space went while offline.
+  final VaultStorage vaultStorage;
 
   factory SyncMetaSnapshot.fromJson(Map<String, dynamic> j) => SyncMetaSnapshot(
         serverEpoch: (j['serverEpoch'] as String?) ?? '',
@@ -192,6 +198,9 @@ class SyncMetaSnapshot {
             .map((e) => SyncImportRecord.fromJson(e as Map<String, dynamic>))
             .toList(),
         vaultSizeBytes: (j['vaultSizeBytes'] as num?)?.toInt() ?? 0,
+        vaultStorage: VaultStorage.fromJson(
+          (j['vaultStorage'] as Map<String, dynamic>?) ?? const {},
+        ),
       );
 }
 

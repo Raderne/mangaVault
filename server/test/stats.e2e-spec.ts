@@ -152,6 +152,14 @@ describe('Dashboard stats (e2e)', () => {
     expect(s.importCount).toBeGreaterThanOrEqual(1);
     // Postgres always reports a database size, so the vault is never 0 bytes.
     expect(s.vaultSizeBytes).toBeGreaterThan(0);
+    // The breakdown must account for the whole total — it is what tells the
+    // user that covers, not the database, are what grows.
+    const st = s.vaultStorage;
+    expect(st.databaseBytes).toBeGreaterThan(0);
+    expect(st.databaseBytes + st.coversBytes + st.backupsBytes).toBe(
+      st.totalBytes,
+    );
+    expect(st.totalBytes).toBe(s.vaultSizeBytes);
 
     expect(s.bySourceApp[sourceApp]).toBe(3);
     // Every status band is present, even the empty ones.

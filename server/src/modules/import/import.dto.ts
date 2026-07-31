@@ -6,7 +6,11 @@ export interface MergeResultDto {
   title: string;
   sourceId: string;
   mangaUrl: string;
-  action: 'created' | 'merged';
+  /**
+   * `skipped` = the title is in the deletion registry, so the import will leave
+   * it out rather than recreating what the user deleted.
+   */
+  action: 'created' | 'merged' | 'skipped';
   conflicts: FieldConflict[];
 }
 
@@ -22,6 +26,8 @@ export interface ImportSummaryDto {
   titlesTotal: number;
   titlesNew: number;
   titlesMerged: number;
+  /** Titles left out because they are in the deletion registry. */
+  titlesSkipped: number;
   chaptersTotal: number;
   categoriesTotal: number;
   warnings: string[];
@@ -74,7 +80,7 @@ export type ImportEvent =
   | {
       type: 'manga';
       title: string;
-      action: 'created' | 'merged';
+      action: 'created' | 'merged' | 'skipped';
       processed: number;
       total: number;
     }

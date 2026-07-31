@@ -664,42 +664,121 @@ class _VaultCell extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final last = stats.lastImportAt;
+    final storage = stats.vaultStorage;
     return BentoCell(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const CellLabel('Vault on disk'),
-                const SizedBox(height: 2),
-                Text(
-                  formatBytes(stats.vaultSizeBytes),
-                  style: theme.textTheme.titleMedium,
-                ),
-                const SizedBox(height: 2),
-                Row(
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.cloud_done_outlined,
-                        size: 14, color: scheme.onSurfaceVariant),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        last == null
-                            ? 'Nothing imported yet'
-                            : 'Last import ${relativeDate(last)}',
-                        style: theme.textTheme.bodyMedium!
-                            .copyWith(color: scheme.onSurfaceVariant),
-                      ),
+                    const CellLabel('Vault on disk'),
+                    const SizedBox(height: 2),
+                    Text(
+                      formatBytes(stats.vaultSizeBytes),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.cloud_done_outlined,
+                            size: 14, color: scheme.onSurfaceVariant),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            last == null
+                                ? 'Nothing imported yet'
+                                : 'Last import ${relativeDate(last)}',
+                            style: theme.textTheme.bodyMedium!
+                                .copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+              ),
+              const AccentIconWell(icon: Icons.storage),
+            ],
+          ),
+          // Where the bytes actually are. Covers dominate by an order of
+          // magnitude, which one combined number hid completely.
+          if (!storage.isEmpty) ...[
+            const SizedBox(height: AppDimens.unit * 1.5),
+            _StorageBar(storage: storage),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Proportional bar + legend for the vault's three storage areas.
+class _StorageBar extends StatelessWidget {
+  const _StorageBar({required this.storage});
+
+  final VaultStorage storage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final parts = <(String, int, Color)>[
+      ('Covers', storage.coversBytes, scheme.primary),
+      ('Database', storage.databaseBytes, scheme.secondary),
+      ('Backups', storage.backupsBytes, scheme.onSurfaceVariant),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: SizedBox(
+            height: 6,
+            child: Row(
+              children: [
+                for (final (_, bytes, color) in parts)
+                  // `flex` needs whole numbers, and a segment that rounds to
+                  // zero simply disappears — which is the right outcome.
+                  if (bytes > 0)
+                    Expanded(
+                      flex: bytes,
+                      child: ColoredBox(color: color),
+                    ),
               ],
             ),
           ),
-          const AccentIconWell(icon: Icons.storage),
-        ],
-      ),
+        ),
+        const SizedBox(height: AppDimens.unit),
+        Wrap(
+          spacing: AppDimens.unit * 1.5,
+          runSpacing: 4,
+          children: [
+            for (final (label, bytes, color) in parts)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration:
+                        BoxDecoration(color: color, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '$label ${formatBytes(bytes)}',
+                    style: theme.textTheme.labelSmall!
+                        .copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

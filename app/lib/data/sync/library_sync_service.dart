@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../library/library_models.dart';
+import '../stats/stats_models.dart';
 import '../local/app_database.dart';
 import 'sync_models.dart';
 import 'sync_repository.dart';
@@ -130,6 +131,7 @@ class LibrarySyncService {
         cursor: cursor,
         epoch: meta.serverEpoch,
         vaultSizeBytes: meta.vaultSizeBytes,
+        storage: meta.vaultStorage,
         syncedAt: DateTime.now().millisecondsSinceEpoch,
       );
       await _bumpRevision();
@@ -259,6 +261,7 @@ class LibrarySyncService {
     String? cursor,
     String? epoch,
     int? vaultSizeBytes,
+    VaultStorage? storage,
     int? syncedAt,
   }) async {
     await (_db.update(_db.syncMeta)..where((t) => t.id.equals(0))).write(
@@ -268,6 +271,14 @@ class LibrarySyncService {
         vaultSizeBytes: vaultSizeBytes == null
             ? const Value.absent()
             : Value(vaultSizeBytes),
+        vaultDatabaseBytes: storage == null
+            ? const Value.absent()
+            : Value(storage.databaseBytes),
+        vaultCoversBytes:
+            storage == null ? const Value.absent() : Value(storage.coversBytes),
+        vaultBackupsBytes: storage == null
+            ? const Value.absent()
+            : Value(storage.backupsBytes),
         lastSyncedAt:
             syncedAt == null ? const Value.absent() : Value(syncedAt),
       ),

@@ -186,11 +186,25 @@ staleness visible. That line replaced the inline filter bar, which overflowed on
 joined it — filters now live in a bottom sheet (see [[flutter-app]] §Filters moved to a bottom
 sheet).
 
-## Seam for deletes (designed, not built)
+## Deletes (built 2026-07-31)
 
-Server→device already works: a future `DELETE /library/:id` drops the row, the `AFTER DELETE` trigger
-writes a tombstone, and the next sync removes it locally — no protocol change. For device→server,
-add a `LocalPendingOp` table the sync service drains *before* pulling.
+The seam held: `DELETE /library/:id` and `POST /library/delete` drop the rows, the `AFTER DELETE`
+trigger writes tombstones, and the next delta removes them locally — **no protocol change**, and the
+sync service needed no edit at all. Endpoint details in [[library-api]].
+
+Two things did change on the device:
+
+- **The sync service is no longer the only writer to the mirror.** `LocalLibraryDao.deleteTitles(ids)`
+  removes the rows and their junction entries the moment the server confirms a delete, so the grid
+  updates without waiting for a delta. It is deliberately **idempotent** — the tombstone arrives later
+  and deletes the same, already-absent rows. `localRevisionProvider` stays a plain in-process
+  `Notifier` because this second writer also runs in the app isolate.
+- `TitleDeleter` (`features/library/library_selection.dart`) is the one place that orchestrates it:
+  server → mirror → `LibraryController.removeItems` → revision bump → cover-cache eviction. Nothing is
+  removed locally unless the server confirmed it.
+
+For device→server *edits* (notes, categories), the original plan still stands: a `LocalPendingOp`
+table the sync service drains *before* pulling.
 
 ## Verified (2026-07-30, against the real 2,000-title DB)
 

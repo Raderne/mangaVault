@@ -7,6 +7,7 @@ import type {
   PublicationStatus,
 } from '../../entities/manga.entity';
 import type { CategoryDto, ChapterRefDto } from '../library/library.dto';
+import type { VaultStorageDto } from '../stats/stats.dto';
 
 /** Default titles per delta page (override with `?limit=`). */
 export const SYNC_DEFAULT_LIMIT = 500;
@@ -75,6 +76,8 @@ export interface SyncMetaDto {
   imports: SyncImportRecordDto[];
   /** Postgres + archived backups + cover files, in bytes (server-only). */
   vaultSizeBytes: number;
+  /** The same total split by database / covers / backups (server-only). */
+  vaultStorage: VaultStorageDto;
 }
 
 export interface SyncImportRecordDto {

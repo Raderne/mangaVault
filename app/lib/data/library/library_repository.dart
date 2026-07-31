@@ -29,6 +29,12 @@ abstract class LibraryRepository {
 
   /// Categories with title counts, for the filter chips.
   Future<List<Category>> categories();
+
+  /// Sources present in the library, with title counts, for the source filter.
+  Future<List<SourceOption>> sources();
+
+  /// Remove titles from the local mirror after the server has deleted them.
+  Future<void> forgetTitles(List<String> ids);
 }
 
 /// Reads the library from the **on-device mirror**, not the network.
@@ -69,6 +75,12 @@ class LocalLibraryRepository implements LibraryRepository {
 
   @override
   Future<List<Category>> categories() => _dao.categories();
+
+  @override
+  Future<List<SourceOption>> sources() => _dao.sources();
+
+  @override
+  Future<void> forgetTitles(List<String> ids) => _dao.deleteTitles(ids);
 }
 
 final libraryRepositoryProvider = Provider<LibraryRepository>(

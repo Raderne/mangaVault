@@ -16,12 +16,19 @@ class FakeLibraryRepository extends LibraryRepository {
   @override
   Future<List<Category>> categories() async => const [];
 
+  @override
+  Future<List<SourceOption>> sources() async => const [];
+
+  @override
+  Future<void> forgetTitles(List<String> ids) async {}
+
   final List<MangaListItem> all;
 
   /// Ids treated as favorites. When null, every item is a favorite (DB default).
   final Set<String>? favorites;
   int queries = 0;
   bool? lastFavorite;
+  List<String> lastSourceIds = const [];
 
   @override
   Future<LibraryPage> query({
@@ -37,6 +44,7 @@ class FakeLibraryRepository extends LibraryRepository {
   }) async {
     queries++;
     lastFavorite = favorite;
+    lastSourceIds = sourceIds;
     var filtered = all;
     if (status.isNotEmpty) {
       filtered = filtered.where((m) => status.contains(m.status)).toList();
@@ -148,6 +156,60 @@ void main() {
     expect(repo.lastFavorite, isFalse);
     expect(state.total, 1);
     expect(state.items.single.id, 'id-3');
+  });
+
+  test('toggleSource adds and removes, and re-queries each time', () async {
+    final repo = FakeLibraryRepository([_item(1), _item(2)]);
+    final container = _containerWith(repo);
+    final controller = container.read(libraryControllerProvider.notifier);
+
+    await controller.refresh();
+    controller.toggleSource('s1');
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.lastSourceIds, ['s1']);
+
+    controller.toggleSource('s2');
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.lastSourceIds, ['s1', 's2']);
+
+    controller.toggleSource('s1');
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.lastSourceIds, ['s2']);
+
+    // Re-selecting the same set is a no-op rather than a redundant round trip.
+    final before = repo.queries;
+    controller.setSources(['s2']);
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.queries, before);
+  });
+
+  test('setSort reverses the direction when the field is already active',
+      () async {
+    final repo = FakeLibraryRepository([_item(1)]);
+    final container = _containerWith(repo);
+    final controller = container.read(libraryControllerProvider.notifier);
+
+    await controller.refresh();
+    controller.setSort(kLibrarySorts.firstWhere((s) => s.by == 'chapterCount'));
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(libraryControllerProvider).filters.sortDir, 'desc');
+
+    controller.setSort(kLibrarySorts.firstWhere((s) => s.by == 'chapterCount'));
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(libraryControllerProvider).filters.sortDir, 'asc');
+  });
+
+  test('removeItems drops deleted titles and adjusts the total', () async {
+    final repo = FakeLibraryRepository(List.generate(3, _item.call));
+    final container = _containerWith(repo);
+    final controller = container.read(libraryControllerProvider.notifier);
+
+    await controller.refresh();
+    controller.removeItems({'id-0', 'id-2'});
+    final state = container.read(libraryControllerProvider);
+
+    expect(state.items.map((i) => i.id), ['id-1']);
+    expect(state.total, 1);
   });
 
   test('an empty result surfaces as isEmpty, not loading', () async {

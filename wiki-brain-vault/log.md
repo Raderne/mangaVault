@@ -5,6 +5,27 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-31 23:30] session | Cover storage profile: 613 MB -> 126 MB
+Touched: cover-fetching, dashboard-stats
+
+## [2026-07-31 22:40] session | Storage: measured the registry, fixed real bloat
+Touched: database, deleted-titles, dashboard-stats
+
+## [2026-07-31 21:20] session | Cover archiving as a durable background job
+Touched: cover-fetching, database, import-pipeline, index
+
+## [2026-07-31 20:45] session | Deletion registry: imports no longer resurrect deleted titles
+Touched: deleted-titles, library-api, import-pipeline, database, flutter-app, index
+
+## [2026-07-31 15:40] session | Source filter, delete, multi-select, display options
+Touched: flutter-app, library-api, local-library-mirror, cover-fetching
+
+## [2026-07-31 14:05] session | How Mihon extensions factor into cover fetching
+Touched: cover-fetching
+
+## [2026-07-31 12:30] session | Claude Code health check; CLAUDE.md trimmed + split per-subdir
+Touched: none
+
 ## [2026-07-30 18:30] session | Library filters → bottom sheet (fixes filter-bar overflow)
 Touched: flutter-app, local-library-mirror
 

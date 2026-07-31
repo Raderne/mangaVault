@@ -26,6 +26,25 @@ class CoverRepository {
     return CoverJobStatus.fromJson(res.data!);
   }
 
+  /// The run in progress on the server, or null. Archiving runs outlive this
+  /// client, so one may already be going when the app opens — started by an
+  /// import or resumed after a server restart.
+  Future<CoverJobStatus?> activeJob() async {
+    final res = await _dio.get<dynamic>('/covers/jobs/active');
+    final data = res.data;
+    return data is Map<String, dynamic>
+        ? CoverJobStatus.fromJson(data)
+        : null;
+  }
+
+  /// Ask a running job to stop. Downloads in flight finish first, so the run
+  /// reports `cancelled` a moment later.
+  Future<CoverJobStatus> cancelJob(String jobId) async {
+    final res =
+        await _dio.post<Map<String, dynamic>>('/covers/jobs/$jobId/cancel');
+    return CoverJobStatus.fromJson(res.data!);
+  }
+
   /// Retry archiving one title's cover.
   Future<CoverResult> retry(String mangaId) async {
     final res =

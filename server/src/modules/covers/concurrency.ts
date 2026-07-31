@@ -12,6 +12,13 @@ export interface PoolOptions<T> {
   perKeyLimit: number;
   /** Bucket key for an item (e.g. the URL host). */
   keyOf: (item: T) => string;
+  /**
+   * Stop dispatching new items when aborted. Work already in flight is left to
+   * finish rather than torn down — a cover download that is mid-write should
+   * complete or fail on its own terms, not leave a truncated file behind — so
+   * the returned promise settles once the pool has drained.
+   */
+  signal?: AbortSignal;
 }
 
 export async function runPool<T>(
@@ -37,11 +44,19 @@ export async function runPool<T>(
   let remaining = items.length;
 
   return new Promise<void>((resolve) => {
+    const aborted = () => opts.signal?.aborted === true;
+
     const settle = (key: string) => {
       active--;
       inFlight.set(key, (inFlight.get(key) ?? 1) - 1);
       remaining--;
       if (remaining === 0) {
+        resolve();
+        return;
+      }
+      // Cancelled: the queue is abandoned, so the pool is done once the last
+      // in-flight item has landed.
+      if (aborted() && active === 0) {
         resolve();
         return;
       }
@@ -65,6 +80,7 @@ export async function runPool<T>(
     };
 
     const pump = (): void => {
+      if (aborted()) return;
       while (active < globalLimit) {
         const key = nextKey();
         if (key === undefined) break;
@@ -81,5 +97,19 @@ export async function runPool<T>(
     };
 
     pump();
+
+    // `settle` only sees an abort that arrives while work is in flight. An
+    // already-aborted signal, or one that fires with an idle pool, settles here.
+    if (aborted()) {
+      if (active === 0) resolve();
+    } else {
+      opts.signal?.addEventListener(
+        'abort',
+        () => {
+          if (active === 0) resolve();
+        },
+        { once: true },
+      );
+    }
   });
 }

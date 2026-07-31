@@ -44,6 +44,52 @@ describe('runPool', () => {
     for (const n of maxPerHost.values()) expect(n).toBeLessThanOrEqual(2);
   });
 
+  it('stops dispatching when aborted but lets in-flight work finish', async () => {
+    const items = Array.from({ length: 20 }, (_, i) => i);
+    const controller = new AbortController();
+    const started: number[] = [];
+    const finished: number[] = [];
+
+    await runPool(
+      items,
+      {
+        globalLimit: 3,
+        perKeyLimit: 3,
+        keyOf: () => 'x',
+        signal: controller.signal,
+      },
+      async (n) => {
+        started.push(n);
+        if (started.length === 3) controller.abort();
+        await tick(5);
+        finished.push(n);
+      },
+    );
+
+    // Exactly the first wave ran, and every item that started also completed —
+    // a cancelled cover download is never abandoned half-written.
+    expect(started).toHaveLength(3);
+    expect(finished.sort()).toEqual(started.sort());
+  });
+
+  it('does nothing at all when the signal is already aborted', async () => {
+    const seen: number[] = [];
+    await runPool(
+      [1, 2, 3],
+      {
+        globalLimit: 2,
+        perKeyLimit: 2,
+        keyOf: () => 'x',
+        signal: AbortSignal.abort(),
+      },
+      async (n) => {
+        await Promise.resolve();
+        seen.push(n);
+      },
+    );
+    expect(seen).toEqual([]);
+  });
+
   it('finishes even when a worker throws', async () => {
     const items = [1, 2, 3, 4];
     const done: number[] = [];

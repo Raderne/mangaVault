@@ -240,6 +240,51 @@ void main() {
     expect(cats.last.count, 0);
   });
 
+  group('sources', () {
+    test('are grouped with counts, busiest first', () async {
+      await seed(db, id: 'a', title: 'Alpha', sourceId: 's1', sourceName: 'MangaDex');
+      await seed(db, id: 'b', title: 'Beta', sourceId: 's1', sourceName: 'MangaDex');
+      await seed(db, id: 'c', title: 'Gamma', sourceId: 's2', sourceName: 'Comick');
+
+      final sources = await dao.sources();
+      expect(sources.map((s) => s.id), ['s1', 's2']);
+      expect(sources.first.count, 2);
+      expect(sources.last.label, 'Comick');
+    });
+
+    test('an unnamed source falls back to its id, and any name wins over ""',
+        () async {
+      // The same source recorded with and without a name across two backups.
+      await seed(db, id: 'a', title: 'Alpha', sourceId: 's1', sourceName: '');
+      await seed(db, id: 'b', title: 'Beta', sourceId: 's1', sourceName: 'Comick');
+      await seed(db, id: 'c', title: 'Gamma', sourceId: '982606170401027267',
+          sourceName: '');
+
+      final byId = {for (final s in await dao.sources()) s.id: s};
+      expect(byId['s1']!.label, 'Comick');
+      expect(byId['982606170401027267']!.label, '982606170401027267');
+    });
+  });
+
+  test('deleteTitles removes the row and its links', () async {
+    await seed(db, id: 'a', title: 'Alpha');
+    await seed(db, id: 'b', title: 'Beta');
+    await db.into(db.localCategory).insert(
+          LocalCategoryCompanion.insert(id: 'c1', name: 'Seinen'),
+        );
+    await db.into(db.localMangaCategory).insert(
+          LocalMangaCategoryCompanion.insert(mangaId: 'a', categoryId: 'c1'),
+        );
+
+    await dao.deleteTitles(['a']);
+
+    expect((await dao.queryPage()).items.map((i) => i.id), ['b']);
+    expect(await dao.categories().then((c) => c.first.count), 0);
+    // Idempotent: the tombstone for the same id arrives on the next sync.
+    await dao.deleteTitles(['a']);
+    expect((await dao.queryPage()).total, 1);
+  });
+
   group('dashboard aggregates', () {
     setUp(() async {
       await seed(db,

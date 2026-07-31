@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'features/backups/backups_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
+import 'features/library/deleted_titles_screen.dart';
 import 'features/library/library_screen.dart';
 import 'features/title_details/title_details_screen.dart';
 import 'widgets/entrance_fade.dart';
@@ -23,6 +24,10 @@ final router = GoRouter(
             path: '/library',
             builder: (_, _) => const LibraryScreen(),
             routes: [
+              GoRoute(
+                path: 'deleted',
+                builder: (_, _) => const DeletedTitlesScreen(),
+              ),
               GoRoute(
                 path: 'title/:id',
                 pageBuilder: (context, state) => CustomTransitionPage<void>(

@@ -9,7 +9,13 @@ class LibrarySort {
   const LibrarySort(this.label, this.by, this.dir);
   final String label;
   final String by;
+
+  /// Direction applied when this option is first chosen; the user can then
+  /// reverse it without leaving the field.
   final String dir;
+
+  /// This field is the one the grid is sorted by, whichever way round.
+  bool isActive(LibraryFilters f) => f.sortBy == by;
 
   bool matches(LibraryFilters f) => f.sortBy == by && f.sortDir == dir;
 }
@@ -37,6 +43,7 @@ class LibraryFilters {
   const LibraryFilters({
     this.text = '',
     this.status = '',
+    this.sourceIds = const [],
     this.favorite = true,
     this.sortBy = 'title',
     this.sortDir = 'asc',
@@ -46,6 +53,9 @@ class LibraryFilters {
 
   /// A single status value, or '' for all.
   final String status;
+
+  /// Selected Mihon source ids; empty means every source.
+  final List<String> sourceIds;
 
   /// `true` = library favorites (default); `false` = non-favorites.
   final bool favorite;
@@ -57,6 +67,7 @@ class LibraryFilters {
   LibraryFilters copyWith({
     String? text,
     String? status,
+    List<String>? sourceIds,
     bool? favorite,
     String? sortBy,
     String? sortDir,
@@ -64,6 +75,7 @@ class LibraryFilters {
       LibraryFilters(
         text: text ?? this.text,
         status: status ?? this.status,
+        sourceIds: sourceIds ?? this.sourceIds,
         favorite: favorite ?? this.favorite,
         sortBy: sortBy ?? this.sortBy,
         sortDir: sortDir ?? this.sortDir,
@@ -143,6 +155,7 @@ class LibraryController extends Notifier<LibraryState> {
       final page = await _repo.query(
         text: f.text,
         status: f.statusList,
+        sourceIds: f.sourceIds,
         favorite: f.favorite,
         sortBy: f.sortBy,
         sortDir: f.sortDir,
@@ -176,10 +189,30 @@ class LibraryController extends Notifier<LibraryState> {
     _fetch(reset: true);
   }
 
+  /// Choose a sort field, or — when it is already the active one — reverse it.
+  /// Titles read A–Z and counts/dates read newest-or-most first, so each option
+  /// carries its own natural first direction.
   void setSort(LibrarySort sort) {
-    if (sort.matches(state.filters)) return;
+    final f = state.filters;
+    final next = sort.isActive(f)
+        ? f.copyWith(sortDir: f.sortDir == 'asc' ? 'desc' : 'asc')
+        : f.copyWith(sortBy: sort.by, sortDir: sort.dir);
+    state = state.copyWith(filters: next);
+    _fetch(reset: true);
+  }
+
+  /// Add or remove one source from the source filter (multi-select).
+  void toggleSource(String sourceId) {
+    final next = [...state.filters.sourceIds];
+    if (!next.remove(sourceId)) next.add(sourceId);
+    setSources(next);
+  }
+
+  /// Replace the source filter wholesale; an empty list means "all sources".
+  void setSources(List<String> sourceIds) {
+    if (_sameIds(sourceIds, state.filters.sourceIds)) return;
     state = state.copyWith(
-      filters: state.filters.copyWith(sortBy: sort.by, sortDir: sort.dir),
+      filters: state.filters.copyWith(sourceIds: List.unmodifiable(sourceIds)),
     );
     _fetch(reset: true);
   }
@@ -221,6 +254,7 @@ class LibraryController extends Notifier<LibraryState> {
       final pageData = await _repo.query(
         text: f.text,
         status: f.statusList,
+        sourceIds: f.sourceIds,
         favorite: f.favorite,
         sortBy: f.sortBy,
         sortDir: f.sortDir,
@@ -249,12 +283,36 @@ class LibraryController extends Notifier<LibraryState> {
     }
   }
 
+  /// Drop titles from the grid without a round trip — used the moment a delete
+  /// is confirmed, so the cards disappear instead of lingering until the next
+  /// re-read. [total] is decremented by however many were actually showing.
+  void removeItems(Set<String> ids) {
+    if (ids.isEmpty || state.items.isEmpty) return;
+    final kept = state.items.where((i) => !ids.contains(i.id)).toList();
+    final dropped = state.items.length - kept.length;
+    if (dropped == 0) return;
+    state = state.copyWith(
+      items: kept,
+      total: (state.total - dropped).clamp(0, state.total),
+    );
+  }
+
   bool _sameFilters(LibraryFilters a, LibraryFilters b) =>
       a.text == b.text &&
       a.status == b.status &&
       a.favorite == b.favorite &&
       a.sortBy == b.sortBy &&
-      a.sortDir == b.sortDir;
+      a.sortDir == b.sortDir &&
+      _sameIds(a.sourceIds, b.sourceIds);
+
+  static bool _sameIds(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 }
 
 final libraryControllerProvider =
@@ -264,6 +322,15 @@ final libraryControllerProvider =
 final categoriesProvider = FutureProvider<List<Category>>((ref) {
   ref.watch(localRevisionProvider);
   return ref.watch(libraryRepositoryProvider).categories();
+});
+
+/// Sources that actually have titles in the library, for the source filter.
+///
+/// Counts are whole-library — they don't narrow as you pick a status or flip to
+/// non-favorites, so the list stays stable while you're choosing from it.
+final librarySourcesProvider = FutureProvider<List<SourceOption>>((ref) {
+  ref.watch(localRevisionProvider);
+  return ref.watch(libraryRepositoryProvider).sources();
 });
 
 /// Full details for one title, keyed by id (Title Details screen).
