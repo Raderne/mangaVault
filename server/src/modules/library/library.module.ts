@@ -2,11 +2,15 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ALL_ENTITIES } from '../../entities';
+import { CoverModule } from '../covers/cover.module';
 import { LibraryController } from './library.controller';
 import { LibraryService } from './library.service';
 
+// CoverModule is imported for CoverService.deleteCoverFiles — deleting a title
+// must take its archived cover with it. Safe from a cycle: covers never import
+// the library.
 @Module({
-  imports: [TypeOrmModule.forFeature(ALL_ENTITIES)],
+  imports: [TypeOrmModule.forFeature(ALL_ENTITIES), CoverModule],
   controllers: [LibraryController],
   providers: [LibraryService],
   exports: [LibraryService],

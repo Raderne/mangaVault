@@ -6,6 +6,7 @@ import 'package:mangavault/data/library/library_models.dart';
 import 'package:mangavault/data/library/library_repository.dart';
 import 'package:mangavault/data/local/app_database.dart';
 import 'package:mangavault/features/library/library_controller.dart';
+import 'package:mangavault/features/library/library_display.dart';
 import 'package:mangavault/features/library/library_screen.dart';
 import 'package:mangavault/features/sync/sync_controller.dart';
 import 'package:mangavault/theme/app_theme.dart';
@@ -33,6 +34,17 @@ class _FakeRepo implements LibraryRepository {
 
   @override
   Future<List<Category>> categories() async => const [];
+
+  @override
+  Future<List<SourceOption>> sources() async => const [
+        SourceOption(id: '2499283573021220255', name: 'MangaDex', count: 12),
+        // A source whose backup carried no name — the UI must fall back to the
+        // numeric id rather than showing a blank row.
+        SourceOption(id: '3215387755256146567', name: '', count: 4),
+      ];
+
+  @override
+  Future<void> forgetTitles(List<String> ids) async {}
 }
 
 /// Stub sync so the screen's bootstrap never touches the network.
@@ -148,15 +160,38 @@ void main() {
     expect(find.textContaining('1,234 favorites'), findsOneWidget);
   });
 
-  testWidgets('the tune action opens the filter sheet', (tester) async {
+  testWidgets('the tune action opens the sheet on the filter tab',
+      (tester) async {
     await _pumpLibrary(tester, width: 400);
 
     await tester.tap(find.byIcon(Icons.tune));
     await tester.pumpAndSettle();
 
-    expect(find.text('Filter & sort'), findsOneWidget);
+    expect(find.text('Library view'), findsOneWidget);
+    for (final tab in ['FILTER', 'SORT', 'DISPLAY']) {
+      expect(find.text(tab), findsOneWidget);
+    }
     expect(find.text('ONGOING'), findsOneWidget);
-    expect(find.text('Title A–Z'), findsOneWidget);
+  });
+
+  testWidgets('the source list names sources and falls back to the id',
+      (tester) async {
+    final container = await _pumpLibrary(tester, width: 400);
+
+    await tester.tap(find.byIcon(Icons.tune));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MangaDex'), findsOneWidget);
+    // The unnamed source is identified by its raw Mihon source id.
+    expect(find.text('3215387755256146567'), findsOneWidget);
+
+    await tester.tap(find.text('MangaDex'));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(libraryControllerProvider).filters.sourceIds,
+      ['2499283573021220255'],
+    );
   });
 
   testWidgets('choosing a sort in the sheet updates the grid', (tester) async {
@@ -164,12 +199,34 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.tune));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('SORT'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Most chapters'));
     await tester.pumpAndSettle();
 
     final filters = container.read(libraryControllerProvider).filters;
     expect(filters.sortBy, 'chapterCount');
     expect(filters.sortDir, 'desc');
+
+    // Tapping the active sort reverses it instead of re-applying it.
+    await tester.tap(find.text('Most chapters'));
+    await tester.pumpAndSettle();
+    expect(container.read(libraryControllerProvider).filters.sortDir, 'asc');
+  });
+
+  testWidgets('the display tab switches the grid layout', (tester) async {
+    final container = await _pumpLibrary(tester, width: 400);
+
+    await tester.tap(find.byIcon(Icons.tune));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DISPLAY'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('LIST'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(libraryDisplayProvider).layout, LibraryLayout.list);
+    // Columns only apply to a grid, so the option disappears in list mode.
+    expect(find.text('Columns'.toUpperCase()), findsNothing);
   });
 
   testWidgets('reset returns the sheet to defaults', (tester) async {

@@ -39,6 +39,14 @@ export interface LibraryQueryDto {
   limit: number;
 }
 
+/** Outcome of a (bulk) title deletion. */
+export interface DeleteTitlesResultDto {
+  /** Rows actually removed — ids that no longer existed are simply not counted. */
+  deleted: number;
+  /** Archived cover files unlinked along with them. */
+  coversRemoved: number;
+}
+
 /** Slim projection for the virtualized library grid. */
 export interface MangaListItemDto {
   id: string;

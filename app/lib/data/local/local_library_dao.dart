@@ -130,6 +130,7 @@ class LocalLibraryDao extends DatabaseAccessor<AppDatabase>
 
     return VaultManga(
       id: row.id,
+      sourceId: row.sourceId,
       sourceName: row.sourceName,
       title: row.title,
       author: row.author,
@@ -180,6 +181,48 @@ class LocalLibraryDao extends DatabaseAccessor<AppDatabase>
         count: r.read(count) ?? 0,
       );
     }).toList();
+  }
+
+  /// Every source that has at least one title in the mirror, most titles first.
+  ///
+  /// The server's `known_source` table lists sources we've *seen*; this lists
+  /// the ones you can actually filter by. `MAX(source_name)` because the name
+  /// is denormalized onto each title and older backups may have left it blank —
+  /// any non-empty spelling wins over `''`.
+  Future<List<SourceOption>> sources() async {
+    final rows = await customSelect(
+      '''
+      SELECT source_id            AS source_id,
+             MAX(source_name)     AS source_name,
+             COUNT(*)             AS n
+        FROM local_manga
+       GROUP BY source_id
+       ORDER BY n DESC, source_name ASC
+      ''',
+      readsFrom: {localManga},
+    ).get();
+
+    return rows
+        .map((r) => SourceOption(
+              id: r.read<String>('source_id'),
+              name: r.read<String?>('source_name') ?? '',
+              count: r.read<int>('n'),
+            ))
+        .toList();
+  }
+
+  /// Drop titles from the mirror, with their category and import links.
+  ///
+  /// Called after the server confirms a delete, so the grid updates without
+  /// waiting for the next delta. The tombstone still arrives later and deletes
+  /// the same (already absent) rows — deliberately idempotent.
+  Future<void> deleteTitles(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await transaction(() async {
+      await (delete(localManga)..where((t) => t.id.isIn(ids))).go();
+      await (delete(localMangaCategory)..where((t) => t.mangaId.isIn(ids))).go();
+      await (delete(localMangaImport)..where((t) => t.mangaId.isIn(ids))).go();
+    });
   }
 
   // ---- dashboard aggregates --------------------------------------------

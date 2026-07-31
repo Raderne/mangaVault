@@ -5,6 +5,15 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-07-31 15:40] session | Source filter, delete, multi-select, display options
+Touched: flutter-app, library-api, local-library-mirror, cover-fetching
+
+## [2026-07-31 14:05] session | How Mihon extensions factor into cover fetching
+Touched: cover-fetching
+
+## [2026-07-31 12:30] session | Claude Code health check; CLAUDE.md trimmed + split per-subdir
+Touched: none
+
 ## [2026-07-30 18:30] session | Library filters → bottom sheet (fixes filter-bar overflow)
 Touched: flutter-app, local-library-mirror
 

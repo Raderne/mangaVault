@@ -1,9 +1,14 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Post,
   Query,
 } from '@nestjs/common';
 
@@ -12,6 +17,7 @@ import {
   LIBRARY_SORT_FIELDS,
   PUBLICATION_STATUSES,
   type CategoryDto,
+  type DeleteTitlesResultDto,
   type LibraryPageDto,
   type LibraryQueryDto,
   type LibrarySortField,
@@ -21,6 +27,12 @@ import { LibraryService } from './library.service';
 
 const DEFAULT_LIMIT = 40;
 const MAX_LIMIT = 100;
+
+/** Ceiling on one bulk delete; clients chunk larger selections. */
+const MAX_DELETE_IDS = 1000;
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const csv = (value?: string): string[] =>
   value
@@ -94,6 +106,49 @@ export class LibraryController {
     const manga = await this.library.get(id);
     if (!manga) throw new NotFoundException(`manga ${id} not found`);
     return manga;
+  }
+
+  /** Permanently remove one title. 404 when it was already gone. */
+  @Delete('library/:id')
+  @HttpCode(204)
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    const { deleted } = await this.library.deleteMany([id]);
+    if (deleted === 0) throw new NotFoundException(`manga ${id} not found`);
+  }
+
+  /**
+   * Bulk delete, for the grid's multi-select.
+   *
+   * A `POST` rather than `DELETE /library` with a body: request bodies on
+   * DELETE are inconsistently supported across clients and proxies, and this
+   * one carries a screenful of ids.
+   *
+   * Unknown ids are ignored rather than rejected — a selection can race a sync,
+   * and the caller only cares that the titles are gone.
+   */
+  @Post('library/delete')
+  @HttpCode(200)
+  removeMany(
+    @Body() body: { ids?: unknown },
+  ): Promise<DeleteTitlesResultDto> {
+    const raw = Array.isArray(body?.ids) ? body.ids : null;
+    if (!raw || raw.length === 0) {
+      throw new BadRequestException('ids must be a non-empty array');
+    }
+    if (raw.length > MAX_DELETE_IDS) {
+      throw new BadRequestException(
+        `at most ${MAX_DELETE_IDS} ids per request`,
+      );
+    }
+    // Validated here, not by Postgres: a single malformed value would fail the
+    // whole ::uuid[] cast with an opaque 500.
+    const ids = raw.filter(
+      (v): v is string => typeof v === 'string' && UUID_RE.test(v),
+    );
+    if (ids.length !== raw.length) {
+      throw new BadRequestException('ids must all be uuids');
+    }
+    return this.library.deleteMany(ids);
   }
 
   @Get('categories')

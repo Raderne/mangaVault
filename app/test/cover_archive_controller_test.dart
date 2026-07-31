@@ -51,6 +51,12 @@ class FakeLibraryRepository extends LibraryRepository {
 
   @override
   Future<List<Category>> categories() async => const [];
+
+  @override
+  Future<List<SourceOption>> sources() async => const [];
+
+  @override
+  Future<void> forgetTitles(List<String> ids) async {}
 }
 
 CoverJobStatus _status({

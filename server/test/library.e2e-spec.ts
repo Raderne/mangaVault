@@ -1,5 +1,8 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -36,6 +39,23 @@ describe('Library queries (e2e)', () => {
   let alphaId = '';
   let betaId = '';
   let gammaId = '';
+  let storageDir = '';
+
+  /** Ids seeded by the destructive tests, so their tombstones can be cleared. */
+  const disposableIds: string[] = [];
+
+  /** Insert a throwaway title for the destructive tests. */
+  async function seedDisposable(title: string): Promise<string> {
+    const id = idOf(
+      await ds.query(
+        `INSERT INTO manga (source_id, manga_url, source_name, title, status, updated_at, date_added)
+         VALUES ($1, $2, 'MangaVaultTest', $3, 'ongoing', $4, $4) RETURNING id`,
+        [sourceId, `/del/${title}`, title, runId],
+      ),
+    );
+    disposableIds.push(id);
+    return id;
+  }
 
   /** Shorthand: fetch a library page scoped to this run's source. */
   async function page(qs: string): Promise<LibraryPageDto> {
@@ -50,6 +70,10 @@ describe('Library queries (e2e)', () => {
     process.env.API_TOKEN = token;
     process.env.DATABASE_URL ??=
       'postgres://mangavault:mangavault@localhost:5433/mangavault';
+    // Deleting a title unlinks its archived cover, so the destructive tests
+    // need a storage dir of their own — never the real vault.
+    storageDir = await mkdtemp(join(tmpdir(), 'mv-e2e-library-'));
+    process.env.STORAGE_DIR = storageDir;
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -134,7 +158,15 @@ describe('Library queries (e2e)', () => {
       await ds.query(`DELETE FROM manga WHERE source_id = $1`, [sourceId]);
       await ds.query(`DELETE FROM import_record WHERE sha256 = $1`, [sha]);
       await ds.query(`DELETE FROM category WHERE name = $1`, [catName]);
+      // Every delete above (and in the delete tests) leaves a tombstone; drop
+      // them, or this run's ids ride along in every future sync delta forever.
+      for (const id of [alphaId, betaId, gammaId, ...disposableIds].filter(
+        Boolean,
+      )) {
+        await ds.query(`DELETE FROM sync_tombstone WHERE entity_id = $1`, [id]);
+      }
     }
+    await rm(storageDir, { recursive: true, force: true });
     await app?.close();
   });
 
@@ -236,5 +268,98 @@ describe('Library queries (e2e)', () => {
   // Silence unused-var lint for the id captured only for symmetry.
   it('seeded three titles', () => {
     expect([alphaId, betaId, gammaId].every(Boolean)).toBe(true);
+  });
+
+  // ---- deletion (destructive: seeds and removes its own throwaway rows) ----
+
+  it('deletes a title with its chapters, cover file and a tombstone', async () => {
+    const id = await seedDisposable('Doomed One');
+    await ds.query(
+      `INSERT INTO chapter (manga_id, url, name, chapter_number, read)
+       VALUES ($1, '/c/1', 'Chapter 1', 1, false)`,
+      [id],
+    );
+    // A stand-in for an archived cover, stored exactly as CoverService does.
+    const rel = `covers/${id}.png`;
+    await mkdir(join(storageDir, 'covers'), { recursive: true });
+    await writeFile(join(storageDir, rel), Buffer.from([0x89, 0x50]));
+    await ds.query(
+      `UPDATE manga SET cover_path = $2, cover_state = 'archived' WHERE id = $1`,
+      [id, rel],
+    );
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/library/${id}`)
+      .set('Authorization', auth)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/library/${id}`)
+      .set('Authorization', auth)
+      .expect(404);
+
+    const chapters = (await ds.query(
+      `SELECT COUNT(*)::int AS n FROM chapter WHERE manga_id = $1`,
+      [id],
+    )) as { n: number }[];
+    expect(chapters[0].n).toBe(0);
+
+    // The tombstone is what carries the delete to every device mirror.
+    const tombs = (await ds.query(
+      `SELECT COUNT(*)::int AS n FROM sync_tombstone
+        WHERE entity = 'manga' AND entity_id = $1`,
+      [id],
+    )) as { n: number }[];
+    expect(tombs[0].n).toBe(1);
+
+    await expect(stat(join(storageDir, rel))).rejects.toThrow();
+  });
+
+  it('404s deleting an unknown id and 400s a non-uuid', async () => {
+    await request(app.getHttpServer())
+      .delete('/api/v1/library/00000000-0000-0000-0000-000000000000')
+      .set('Authorization', auth)
+      .expect(404);
+    await request(app.getHttpServer())
+      .delete('/api/v1/library/not-a-uuid')
+      .set('Authorization', auth)
+      .expect(400);
+  });
+
+  it('bulk-deletes, tolerating ids that are already gone', async () => {
+    const first = await seedDisposable('Doomed Two');
+    const second = await seedDisposable('Doomed Three');
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/library/delete')
+      .set('Authorization', auth)
+      .send({
+        ids: [first, second, '00000000-0000-0000-0000-000000000000'],
+      })
+      .expect(200);
+    expect(res.body).toMatchObject({ deleted: 2, coversRemoved: 0 });
+
+    const left = (await ds.query(
+      `SELECT COUNT(*)::int AS n FROM manga WHERE id = ANY($1::uuid[])`,
+      [[first, second]],
+    )) as { n: number }[];
+    expect(left[0].n).toBe(0);
+  });
+
+  it('rejects an empty or malformed bulk delete, and requires auth', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/library/delete')
+      .set('Authorization', auth)
+      .send({ ids: [] })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/v1/library/delete')
+      .set('Authorization', auth)
+      .send({ ids: ['not-a-uuid'] })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/v1/library/delete')
+      .send({ ids: [alphaId] })
+      .expect(401);
   });
 });

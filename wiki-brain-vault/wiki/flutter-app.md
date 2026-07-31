@@ -245,6 +245,57 @@ lib/features/library/library_filter_sheet.dart
   use `update().write()` (the service's own path); `insertOnConflictUpdate` against the seeded
   singleton silently does not persist the field.
 
+## Library options, sources, display & delete (2026-07-31)
+
+The filter sheet grew into the library's whole control surface, and the grid gained multi-select with
+a destructive action. Server side of the delete is in [[library-api]]; the mirror side in
+[[local-library-mirror]].
+
+```
+lib/features/library/
+  library_filter_sheet.dart   # LibraryOptionsSheet — FILTER · SORT · DISPLAY tabs
+  library_display.dart        # LibraryDisplay + LibraryDisplayController (shared_preferences)
+  library_selection.dart      # LibrarySelection(+Controller) + TitleDeleter
+lib/data/library/library_write_repository.dart   # the app's ONLY vault mutation path
+```
+
+- **Three tabs, not one column.** A single scrolling sheet worked for status+sort, but a 25-row source
+  list would bury the sort options under it. `TabBarView` over a **fixed** body height
+  (`0.55 × screen`, clamped 300–520) so the sheet doesn't resize as you switch tabs.
+- **Source filter** (`LibraryFilters.sourceIds`, multi-select) comes from
+  `LocalLibraryDao.sources()` — `GROUP BY source_id` over the mirror, busiest first, with counts.
+  Deliberately *not* the server's `known_source` registry: the filter should only offer sources you
+  actually hold titles from. Counts are whole-library, so the list doesn't shift while you pick from
+  it. A filter box appears past 8 sources.
+  **Unnamed sources show their numeric id** (`sourceLabel(name, id)` in `library_models.dart`, used by
+  the card, the list row, the source picker and Title Details) — several backups carry
+  `source_name = ''`, and a blank chip is unusable. `MAX(source_name)` in the group-by means any
+  non-empty spelling wins over `''` for the same id. `VaultManga` gained `sourceId` for this.
+- **Sort now reverses**: tapping the *active* field flips `sortDir` instead of re-applying it, so
+  `LibrarySort.isActive` (field only) drives the UI while `matches` (field+dir) stays for exact checks.
+- **Display options** — layout (`comfortable` / `compact` / `list`), column count per grid layout
+  (2–3 comfortable, 3–5 compact), unread badge, source name. Persisted in **`shared_preferences`**,
+  re-added as a dependency for this: these are device-local UI prefs and CLAUDE.md forbids putting
+  anything the server doesn't own into the mirror. Load and save are best-effort (a missing plugin
+  leaves the defaults, which is also why widget tests need no stub).
+- **Multi-select**: long-press enters (with `HapticFeedback` — `Pressable` gained `onLongPress`), tap
+  toggles while active, a contextual `AppBar` replaces the normal one with the count, select-all/none
+  over the *loaded* items, and `PopScope` makes back exit the selection instead of the screen.
+  `clear()` keeps selection mode; only `exit()` leaves it, so deselecting the last card doesn't yank
+  the toolbar away mid-gesture.
+- **Delete** is confirmed in a dialog (irreversible: chapters, progress and covers), disables its own
+  button while in flight, and reports the outcome in a SnackBar. Also on Title Details for one title
+  (pops the route first — the screen reads a record that no longer exists).
+- **Gotcha:** `CoverCache.evict` **never completes under `flutter_test`** (flutter_cache_manager's
+  store waits on a platform channel), so awaiting it inside the delete hung `pumpAndSettle` forever.
+  Eviction is now fire-and-forget (`unawaited(... .catchError(...))`) — correct in production too:
+  opportunistic local cleanup must not hold up a delete the server already committed.
+- Tests: `library_selection_test.dart` (controller + widget: long-press, toggle, select-none, confirm
+  →delete→card gone→SnackBar, failure keeps the selection), sheet tests in `library_filter_bar_test`
+  (tabs, source names/id fallback, sort reversal, layout switch), `local_library_dao_test`
+  (`sources()` grouping + id fallback, `deleteTitles` idempotence), `library_controller_test`
+  (`toggleSource`, sort reversal, `removeItems`).
+
 ## Animations (M3) — subtle, design-aligned
 
 The mockups define the motion language (bento cells fade-up staggered on `cubic-bezier(0.22,1,0.36,1)`,

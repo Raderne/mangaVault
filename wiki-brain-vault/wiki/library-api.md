@@ -20,13 +20,14 @@ rest.
 ```
 library.dto.ts        # LibraryQueryDto, MangaListItemDto, LibraryPageDto,
                       # VaultMangaDto, CategoryDto, ChapterRefDto, ArchiveEntryDto …
-library.service.ts    # LibraryService: query / get / listCategories
-library.controller.ts # GET /library, GET /library/:id, GET /categories
-library.module.ts     # TypeOrmModule.forFeature(ALL_ENTITIES)
+library.service.ts    # LibraryService: query / get / listCategories / deleteMany
+library.controller.ts # GET /library, GET /library/:id, GET /categories,
+                      # DELETE /library/:id, POST /library/delete
+library.module.ts     # TypeOrmModule.forFeature(ALL_ENTITIES) + CoverModule
 ```
 
-Registered in `app.module.ts`. Read-only in M3 — mutations from the interface spec
-(`updateNotes`, `setCategories`, `remove`) are deferred (the mockups are display-only).
+Registered in `app.module.ts`. Read-only until 2026-07-31, when **delete** landed (below);
+`updateNotes` / `setCategories` are still deferred.
 
 ### Endpoints
 
@@ -35,6 +36,31 @@ Registered in `app.module.ts`. Read-only in M3 — mutations from the interface 
 | `GET /library?…` | `LibraryPageDto { items: MangaListItemDto[]; total; offset; limit }` |
 | `GET /library/:id` | `VaultMangaDto` (full record + progress + archive history), 404 if unknown, 400 if id not a uuid |
 | `GET /categories` | `CategoryDto[]` (id, name, sort, **count** of titles) |
+| `DELETE /library/:id` | 204; 404 when the title was already gone, 400 on a non-uuid |
+| `POST /library/delete` | `DeleteTitlesResultDto { deleted, coversRemoved }` — bulk, body `{ ids: string[] }` |
+
+### Deleting titles (2026-07-31)
+
+`LibraryService.deleteMany(ids)` is the whole implementation, and it leans on work that was already
+in place:
+
+- Every child FK is `ON DELETE CASCADE`, so chapters, tracking and the category/import links go with
+  the row — no manual cleanup.
+- The `AFTER DELETE` trigger on `manga` writes a `sync_tombstone`, so **every device mirror drops the
+  title on its next delta with no protocol change** ([[local-library-mirror]] built this seam).
+- The transaction takes **`withSyncLock`** — the tombstone draws its `row_version` from the shared
+  sequence, so without it a concurrent cover write could commit a higher version first and a client
+  would advance its cursor straight past the deletion.
+- Cover files are unlinked **after** the commit via the new `CoverService.deleteCoverFiles(relPaths)`
+  ([[cover-fetching]]); `manga.cover_path` is the only pointer to them, but a rolled-back delete must
+  not leave a surviving title pointing at a file that is already gone. Hence `LibraryModule` now
+  imports `CoverModule` (no cycle: covers never import the library).
+- **Bulk is a `POST /library/delete`, not `DELETE` with a body** — request bodies on DELETE are
+  inconsistently supported across clients/proxies. Ids are uuid-validated in the controller (one
+  malformed value would otherwise fail the whole `::uuid[]` cast with an opaque 500), capped at 1000
+  per request, and unknown ids are ignored rather than rejected (a selection can race a sync).
+- Gotcha found the hard way: TypeORM returns **`[rows, affectedCount]`** for a `DELETE … RETURNING`,
+  not rows — the service does a `SELECT` then a `DELETE` in the same transaction instead.
 
 ### `GET /library` query params (parsed in the controller, all optional)
 

@@ -66,6 +66,22 @@ and no per-source extension**, so those covers stay `failed` and render the plac
 ever matters: seed a `fetch_hint` for a source that just needs a specific header, or (heavy, out of
 scope) route hard sources through a headless browser / FlareSolverr-style solver.
 
+### What Mihon's *extensions* contribute to a cover fetch (2026-07-31, read from the clone)
+
+Confirmed in `MangaCoverFetcher.kt`: the cover **URL** never comes from the extension at render time —
+it's `manga.thumbnail_url`, i.e. exactly what `.tachibk` carries ([[tachibk-format]]). But the
+**request** rides the extension: `sourceManager.get(manga.source) as? HttpSource` supplies both the
+OkHttp `client` (:173) and `headers` (:186). That gives Mihon per-site `Referer`/UA/auth from the
+extension's `headersBuilder()`, its interceptors (rate limit, image-proxy rewrites that read `#fragments`
+off the thumbnail URL), and the `NetworkHelper.client` chain (`CloudflareInterceptor` + cookie jar +
+Brotli + DoH). With the extension **not installed** the cast yields null and even Mihon falls back to a
+plain headerless client. Extensions also refresh a rotted `thumbnail_url` via `getMangaDetails()`
+(`UpdateManga.kt:57,69`) — we can't, so ours is frozen at backup time.
+
+Consequences for us: `fetch_hint` is our manual stand-in for `headersBuilder()`; our fragment stripping
+is safe but makes fragment-encoded proxy URLs unrecoverable; and the Cloudflare ceiling above is
+structural, not a header we haven't guessed yet.
+
 ## Orchestration (`cover.service.ts`)
 
 - **`archiveMissing`** selects `cover_state IN ('none','failed')` with a non-empty `thumbnail_url`
@@ -80,6 +96,10 @@ scope) route hard sources through a headless browser / FlareSolverr-style solver
   run / by retry.
 - **`resolveCoverFile`** (for serving) returns the abs path + mime only when `archived` and the file
   `stat`s; otherwise the controller 404s.
+- **`deleteCoverFiles(relPaths)`** (added 2026-07-31) unlinks archived covers when their titles are
+  deleted — `manga.cover_path` is the only pointer to the file, so it has to go with the row. Missing
+  files are not an error. Called by `LibraryService.deleteMany` ([[library-api]]), which is why
+  `LibraryModule` imports `CoverModule`.
 - **Job registry** (`cover-job.registry.ts`) is **poll-based** (counters only — no SSE like the import
   pipeline), TTL-evicted 10 min after finishing.
 - `cover_state` enum is `none|pending|archived|failed`; **`pending` is intentionally unused** — rows

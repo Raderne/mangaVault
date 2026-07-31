@@ -69,6 +69,34 @@ class LibraryPage {
       );
 }
 
+/// One Mihon source present in the library, with how many titles came from it.
+///
+/// Derived from the mirror rather than the server's `known_source` registry:
+/// the filter should only offer sources you actually have titles from.
+class SourceOption {
+  const SourceOption({
+    required this.id,
+    required this.name,
+    required this.count,
+  });
+
+  final String id;
+
+  /// Display name as recorded in the backup — often empty (a fork that didn't
+  /// write `backupSources`, or a source that was uninstalled before export).
+  final String name;
+  final int count;
+
+  /// What to show in the UI. Backups from some forks carry no source name at
+  /// all, and a blank chip is unusable — fall back to the numeric source id,
+  /// which is at least stable and greppable.
+  String get label => sourceLabel(name, id);
+}
+
+/// Display name for a source: its name, or the raw id when the name is blank.
+String sourceLabel(String name, String id) =>
+    name.trim().isNotEmpty ? name.trim() : (id.isNotEmpty ? id : 'Unknown');
+
 /// A category with the number of titles assigned to it (filter chips).
 class Category {
   const Category({
@@ -146,6 +174,7 @@ class ArchiveEntry {
 class VaultManga {
   const VaultManga({
     required this.id,
+    required this.sourceId,
     required this.sourceName,
     required this.title,
     required this.author,
@@ -167,6 +196,7 @@ class VaultManga {
   });
 
   final String id;
+  final String sourceId;
   final String sourceName;
   final String title;
   final String? author;
@@ -192,6 +222,7 @@ class VaultManga {
 
   factory VaultManga.fromJson(Map<String, dynamic> j) => VaultManga(
         id: j['id'] as String,
+        sourceId: (j['sourceId'] as String?) ?? '',
         sourceName: (j['sourceName'] as String?) ?? '',
         title: (j['title'] as String?) ?? '',
         author: j['author'] as String?,

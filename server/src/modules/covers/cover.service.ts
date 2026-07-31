@@ -163,6 +163,27 @@ export class CoverService {
     return { absPath, mime: mimeForExt(extname(m.coverPath).slice(1)) };
   }
 
+  /**
+   * Remove archived cover files by their stored relative paths — used when
+   * titles are deleted, since `manga.cover_path` is the only pointer to the
+   * file and the row is about to go. Returns how many files were actually
+   * unlinked; a missing file is not an error (the goal is that nothing is left
+   * behind, not that every path resolved).
+   */
+  async deleteCoverFiles(relPaths: readonly string[]): Promise<number> {
+    let removed = 0;
+    for (const rel of relPaths) {
+      if (!rel) continue;
+      try {
+        await unlink(join(this.storageDir, rel));
+        removed += 1;
+      } catch {
+        // Already gone, or never written — nothing to clean up.
+      }
+    }
+    return removed;
+  }
+
   jobStatus(jobId: string): CoverJobStatusDto {
     return this.jobs.status(jobId);
   }
