@@ -296,6 +296,29 @@ lib/data/library/library_write_repository.dart   # the app's ONLY vault mutation
   (`sources()` grouping + id fallback, `deleteTitles` idempotence), `library_controller_test`
   (`toggleSource`, sort reversal, `removeItems`).
 
+## Backup source apps (2026-08-02)
+
+Which reading app each backup came from — shown at import, and a library filter. Full design in
+[[backup-apps]]; the app-side essentials:
+
+```
+lib/data/backup_apps/        # backup_app_models.dart (+ backupAppLabel) + backup_apps_repository.dart
+lib/features/backups/source_app_sheet.dart   # showSourceAppSheet → Future<String?>
+lib/widgets/selectable_chip.dart             # SelectableChip, promoted out of the filter sheet
+```
+
+- **`ImportNeedsApp{queue, index}`** is a new `ImportState`, not a callback — the controller is a
+  `Notifier` with no `BuildContext` and the screen already renders from the sealed union.
+  `_NeedsAppCell` auto-opens the sheet once per staged id (post-frame guard); dismissing leaves the
+  cell with a "Choose app" button so a back-swipe can't strand the import.
+- **Routing resumes at `index + 1`.** Skipping tags the file `''`, so rescanning the queue from the
+  start would re-ask it forever. Pinned by a test.
+- `backupAppsProvider` reads the **network** (the picker offers apps you hold no titles from yet);
+  `libraryAppsProvider` / `backupAppNamesProvider` read the **mirror**, so the filter and every place
+  a backup's app is displayed work offline.
+- Filter sheet gained a **FROM APP** chip section; `LibraryFilters.sourceApps` had to be threaded
+  through all five lockstep sites, `_sameFilters` included.
+
 ## Animations (M3) — subtle, design-aligned
 
 The mockups define the motion language (bento cells fade-up staggered on `cubic-bezier(0.22,1,0.36,1)`,

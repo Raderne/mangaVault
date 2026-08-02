@@ -6,6 +6,7 @@ import type {
   CoverState,
   PublicationStatus,
 } from '../../entities/manga.entity';
+import type { BackupAppDto } from '../backup-apps/backup-apps.dto';
 import type { CategoryDto, ChapterRefDto } from '../library/library.dto';
 import type { VaultStorageDto } from '../stats/stats.dto';
 
@@ -74,6 +75,13 @@ export interface SyncMetaDto {
   totalTitles: number;
   categories: CategoryDto[];
   imports: SyncImportRecordDto[];
+  /**
+   * The backup-app registry. The device can already resolve a title to its apps
+   * through `importIds` → `imports[].sourceApp`; this is what gives those ids
+   * display names, so the filter chips read "Mihon" rather than "app.mihon"
+   * with the server unreachable.
+   */
+  backupApps: BackupAppDto[];
   /** Postgres + archived backups + cover files, in bytes (server-only). */
   vaultSizeBytes: number;
   /** The same total split by database / covers / backups (server-only). */

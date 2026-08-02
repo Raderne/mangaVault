@@ -5,6 +5,13 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-02 17:20] session | Backup source apps: registry, picker, library filter
+Touched: backup-apps (new), index, import-pipeline, library-api, database, local-library-mirror,
+flutter-app, dashboard-stats, tachibk-format
+Note: the dev Postgres volume and `server/storage/` (2,000 titles, 1,121 covers, 147 archived
+backups) were **destroyed** on the user's explicit instruction — "just delete everything" — instead
+of building a backfill UI for the old untagged import. The vault is now empty.
+
 ## [2026-07-31 23:30] session | Cover storage profile: 613 MB -> 126 MB
 Touched: cover-fetching, dashboard-stats
 

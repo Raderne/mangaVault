@@ -35,6 +35,33 @@ describe('BackupParser', () => {
     expect(result.wire.backupManga![0].title).toBe('X');
   });
 
+  describe('source-app extraction from the filename', () => {
+    // The prefix is the only identifier of the producing fork, and forks vary
+    // the timestamp tail — so the match is anchored on the ISO date, not on
+    // Mihon's exact `_yyyy-MM-dd_HH-mm`.
+    const cases: [name: string, expected: string][] = [
+      ['app.mihon_2026-07-16.tachibk', 'app.mihon'], // date only
+      ['app.mihon_2026-07-16_10-30.tachibk', 'app.mihon'], // Mihon's own format
+      ['app.komikku_2026-07-16_10-30-15.tachibk', 'app.komikku'], // with seconds
+      ['eu.kanade.tachiyomi_2026-07-16_10-30.tachibk', 'eu.kanade.tachiyomi'],
+      ['tachiyomi_2026-01-01.json', 'tachiyomi'], // legacy JSON carries it too
+      ['APP.MIHON_2026-07-16.TACHIBK', 'app.mihon'], // normalized to lower case
+      ['/sdcard/backups/app.mihon_2026-07-16.tachibk', 'app.mihon'], // path stripped
+      ['weird.tachibk', ''], // no date to anchor on
+      ['library-backup.tachibk', ''],
+      ['my library_2026-07-16.tachibk', ''], // prefix can't be an application id
+      ['_2026-07-16.tachibk', ''], // empty prefix
+    ];
+
+    it.each(cases)('%s → "%s"', async (fileName, expected) => {
+      const bytes = encodeBackupGzip({
+        backupManga: [{ source: '1', url: '/a', title: 'A' }],
+      });
+      const result = await parser.parse(bytes, fileName);
+      expect(result.sourceApp).toBe(expected);
+    });
+  });
+
   it('tracks favorite presence: absent stays undefined, explicit false is preserved', async () => {
     const bytes = encodeBackup({
       backupManga: [

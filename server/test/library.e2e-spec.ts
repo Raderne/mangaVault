@@ -150,13 +150,42 @@ describe('Library queries (e2e)', () => {
       `INSERT INTO manga_import (manga_id, import_id) VALUES ($1, $2)`,
       [alphaId, importId],
     );
+
+    // Two more imports so the source-app filter has something to separate:
+    // Komikku contributed Alpha *and* Beta (Alpha therefore came from two apps
+    // and must match either), and one backup was never identified.
+    const komikkuId = idOf(
+      await ds.query(
+        `INSERT INTO import_record (file_name, file_size, sha256, source_app, container, imported_at, stats)
+         VALUES ($1, 1, $2, 'app.komikku', 'gzip-proto', $3, '{}') RETURNING id`,
+        [`app.komikku_lib_${runId}.tachibk`, `${sha}-komikku`, runId],
+      ),
+    );
+    await ds.query(
+      `INSERT INTO manga_import (manga_id, import_id) VALUES ($1, $3), ($2, $3)`,
+      [alphaId, betaId, komikkuId],
+    );
+
+    const untaggedId = idOf(
+      await ds.query(
+        `INSERT INTO import_record (file_name, file_size, sha256, source_app, container, imported_at, stats)
+         VALUES ($1, 1, $2, '', 'gzip-proto', $3, '{}') RETURNING id`,
+        [`untagged_lib_${runId}.tachibk`, `${sha}-untagged`, runId],
+      ),
+    );
+    await ds.query(
+      `INSERT INTO manga_import (manga_id, import_id) VALUES ($1, $2)`,
+      [gammaId, untaggedId],
+    );
   });
 
   afterAll(async () => {
     if (ds?.isInitialized) {
       // manga delete cascades chapters, manga_category and manga_import rows.
       await ds.query(`DELETE FROM manga WHERE source_id = $1`, [sourceId]);
-      await ds.query(`DELETE FROM import_record WHERE sha256 = $1`, [sha]);
+      await ds.query(`DELETE FROM import_record WHERE sha256 = ANY($1)`, [
+        [sha, `${sha}-komikku`, `${sha}-untagged`],
+      ]);
       // Deleting through the API registers the titles in the recycle bin, which
       // would otherwise keep blocking this source's keys for good.
       await ds.query(`DELETE FROM deleted_manga WHERE source_id = $1`, [
@@ -212,6 +241,41 @@ describe('Library queries (e2e)', () => {
     expect(unfav.items[0].title).toBe('Gamma Chronicle');
   });
 
+  describe('filters by source app', () => {
+    // Attribution is multi-valued and derived through manga_import: a title
+    // merged from two apps' backups belongs to both.
+    it('matches a title through any contributing import', async () => {
+      const mihon = await page('sourceApps=app.mihon');
+      expect(mihon.items.map((i) => i.title)).toEqual(['Alpha Archivist']);
+
+      const komikku = await page('sourceApps=app.komikku&sortBy=title');
+      expect(komikku.items.map((i) => i.title)).toEqual([
+        'Alpha Archivist',
+        'Beta Compendium',
+      ]);
+    });
+
+    it('counts a title once when several selected apps contributed it', async () => {
+      const both = await page('sourceApps=app.mihon,app.komikku&sortBy=title');
+      expect(both.total).toBe(2);
+      expect(both.items.map((i) => i.title)).toEqual([
+        'Alpha Archivist',
+        'Beta Compendium',
+      ]);
+    });
+
+    it('buckets unidentified backups under "unknown"', async () => {
+      // Gamma is not a favorite, so the filter must not be narrowed by default.
+      const p = await page('sourceApps=unknown');
+      expect(p.items.map((i) => i.title)).toEqual(['Gamma Chronicle']);
+    });
+
+    it('is case-insensitive and ignores an unknown app id', async () => {
+      expect((await page('sourceApps=APP.MIHON')).total).toBe(1);
+      expect((await page('sourceApps=app.nonexistent')).total).toBe(0);
+    });
+  });
+
   it('full-text searches the title', async () => {
     const p = await page('text=Chronicle');
     expect(p.total).toBe(1);
@@ -245,8 +309,14 @@ describe('Library queries (e2e)', () => {
     expect(m.lastReadChapter).toMatchObject({ name: 'Chapter 2', number: 2 });
     expect(m.nextChapter).toMatchObject({ name: 'Chapter 3', number: 3 });
     expect(m.categories.map((c) => c.name)).toContain(catName);
-    expect(m.archive).toHaveLength(1);
-    expect(m.archive[0]).toMatchObject({ fileName, sourceApp: 'app.mihon' });
+    // Alpha was contributed by two backups from two different apps — the case
+    // the source-app filter exists for. The archive lists both, newest first.
+    expect(m.archive).toHaveLength(2);
+    expect(m.archive.map((a) => a.sourceApp).sort()).toEqual([
+      'app.komikku',
+      'app.mihon',
+    ]);
+    expect(m.archive.some((a) => a.fileName === fileName)).toBe(true);
   });
 
   it('404s an unknown id and 400s a non-uuid id', async () => {

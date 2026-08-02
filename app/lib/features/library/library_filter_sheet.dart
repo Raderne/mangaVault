@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../data/library/library_models.dart';
 import '../../theme/app_dimens.dart';
 import '../../widgets/bento_cell.dart';
+import '../../widgets/selectable_chip.dart';
 import 'library_controller.dart';
 import 'library_display.dart';
 
@@ -40,6 +41,7 @@ Future<void> showLibraryFilterSheet(BuildContext context) {
 bool hasActiveFilters(LibraryFilters f) =>
     f.status.isNotEmpty ||
     f.sourceIds.isNotEmpty ||
+    f.sourceApps.isNotEmpty ||
     !f.favorite ||
     f.sortBy != 'title' ||
     f.sortDir != 'asc';
@@ -161,6 +163,7 @@ class _FilterTab extends ConsumerWidget {
     final filters = ref.watch(libraryControllerProvider).filters;
     final controller = ref.read(libraryControllerProvider.notifier);
     final sources = ref.watch(librarySourcesProvider);
+    final apps = ref.watch(libraryAppsProvider);
 
     return ListView(
       padding: _tabPadding,
@@ -200,6 +203,54 @@ class _FilterTab extends ConsumerWidget {
               onTap: () => controller.setFavorite(false),
             ),
           ],
+        ),
+        const SizedBox(height: AppDimens.unit * 2.5),
+
+        // Which reading app a title came from. Chips rather than the searchable
+        // source list: there are a handful of apps against 25+ sources. A title
+        // merged from two apps' backups appears under both.
+        Row(
+          children: [
+            const Expanded(child: CellLabel('From app')),
+            if (filters.sourceApps.isNotEmpty)
+              TextButton(
+                onPressed: () => controller.setSourceApps(const []),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: Text('Clear (${filters.sourceApps.length})'),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppDimens.unit),
+        apps.when(
+          loading: () => const SizedBox(height: AppDimens.unit * 4),
+          error: (_, _) => Text(
+            "Couldn't read backup apps",
+            style: theme.textTheme.bodySmall!
+                .copyWith(color: theme.colorScheme.error),
+          ),
+          data: (all) => all.isEmpty
+              ? Text(
+                  'Nothing imported yet.',
+                  style: theme.textTheme.bodySmall!.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                )
+              : Wrap(
+                  spacing: AppDimens.unit,
+                  runSpacing: AppDimens.unit,
+                  children: [
+                    for (final app in all)
+                      _SheetChip(
+                        label: app.label,
+                        trailing: groupedNumber(app.count),
+                        selected: filters.sourceApps.contains(app.id),
+                        onTap: () => controller.toggleSourceApp(app.id),
+                      ),
+                  ],
+                ),
         ),
         const SizedBox(height: AppDimens.unit * 2.5),
 
@@ -558,48 +609,6 @@ class _ToggleRow extends StatelessWidget {
   }
 }
 
-/// Pill used for the sheet's chip-style options.
-class _SheetChip extends StatelessWidget {
-  const _SheetChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
-    return Material(
-      color: selected ? scheme.secondaryContainer : scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: fg),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label.toUpperCase(),
-                style:
-                    Theme.of(context).textTheme.labelSmall!.copyWith(color: fg),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+/// The sheet's chip-style option. Moved to `widgets/selectable_chip.dart` so
+/// the import flow's source-app picker renders the same control.
+typedef _SheetChip = SelectableChip;

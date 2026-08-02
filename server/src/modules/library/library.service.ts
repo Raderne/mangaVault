@@ -101,6 +101,19 @@ export class LibraryService {
                    AND mc.category_id = ANY(${bind(q.categoryIds)}::uuid[]))`,
       );
     }
+    if (q.sourceApps.length) {
+      // "Which reading app did this title come from" is derived, not stored: a
+      // title merged from a Komikku backup and a Mihon one belongs to both, so
+      // the filter matches on ANY contributing import. `COALESCE(NULLIF(...))`
+      // mirrors the stats queries and makes 'unknown' a selectable bucket.
+      conds.push(
+        `EXISTS (SELECT 1 FROM manga_import mi
+                   JOIN import_record ir ON ir.id = mi.import_id
+                 WHERE mi.manga_id = m.id
+                   AND COALESCE(NULLIF(ir.source_app, ''), 'unknown')
+                       = ANY(${bind(q.sourceApps)}))`,
+      );
+    }
     if (q.favorite !== undefined) {
       conds.push(`m.favorite = ${bind(q.favorite)}`);
     }

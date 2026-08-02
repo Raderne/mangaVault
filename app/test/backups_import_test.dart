@@ -27,6 +27,15 @@ class FakeImportRepository extends ImportRepository {
 
   @override
   Future<void> discard(String stagedId) async {}
+
+  /// Ids the source-app PATCH was called for, and what it was tagged with.
+  final tagged = <String, String>{};
+
+  @override
+  Future<StagedImport> setSourceApp(String stagedId, String sourceApp) async {
+    tagged[stagedId] = sourceApp;
+    return _stagedNamed(stagedId, sourceApp: sourceApp);
+  }
 }
 
 /// Controller seeded into a given state (bypasses file_picker).
@@ -77,6 +86,29 @@ ImportRecord _record() => ImportRecord(
       ),
     );
 
+/// A staged file with a chosen id and source-app tag; `''` is the "the filename
+/// didn't say which app" case the picker exists for.
+StagedImport _stagedNamed(String id, {String sourceApp = ''}) => StagedImport(
+      id: id,
+      fileMeta: ImportFileMeta(
+        fileName: '$id.tachibk',
+        fileSize: 1,
+        sha256: id,
+        sourceApp: sourceApp,
+        container: 'gzip-proto',
+      ),
+      summary: const ImportSummary(
+        titlesTotal: 1,
+        titlesNew: 1,
+        titlesMerged: 0,
+        chaptersTotal: 0,
+        categoriesTotal: 0,
+        warnings: [],
+      ),
+      preview: const [],
+      expiresAt: 0,
+    );
+
 StagedImport _staged() => StagedImport(
       id: 's1',
       fileMeta: const ImportFileMeta(
@@ -99,6 +131,105 @@ StagedImport _staged() => StagedImport(
     );
 
 void main() {
+  group('source app attribution', () {
+    ProviderContainer containerFor(
+      ImportState seed,
+      FakeImportRepository repo,
+    ) {
+      final container = ProviderContainer(overrides: [
+        importRepositoryProvider.overrideWithValue(repo),
+        importControllerProvider.overrideWith(() => SeededController(seed)),
+        appDatabaseProvider.overrideWithValue(_memoryDb()),
+        syncControllerProvider.overrideWith(RecordingSyncController.new),
+      ]);
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('tagging the last unidentified file moves on to review', () async {
+      final repo = FakeImportRepository(const []);
+      final container = containerFor(
+        ImportNeedsApp(queue: [_stagedNamed('s1')], index: 0),
+        repo,
+      );
+
+      await container
+          .read(importControllerProvider.notifier)
+          .setSourceApp('s1', 'app.komikku');
+
+      expect(repo.tagged, {'s1': 'app.komikku'});
+      final state = container.read(importControllerProvider);
+      expect(state, isA<ImportReview>());
+      expect((state as ImportReview).queue.single.fileMeta.sourceApp,
+          'app.komikku');
+    });
+
+    test('asks about each unidentified file in turn, skipping tagged ones',
+        () async {
+      final repo = FakeImportRepository(const []);
+      // Middle file already carries an app id from its filename.
+      final container = containerFor(
+        ImportNeedsApp(
+          queue: [
+            _stagedNamed('s1'),
+            _stagedNamed('s2', sourceApp: 'app.mihon'),
+            _stagedNamed('s3'),
+          ],
+          index: 0,
+        ),
+        repo,
+      );
+      final controller = container.read(importControllerProvider.notifier);
+
+      await controller.setSourceApp('s1', 'app.komikku');
+      final next = container.read(importControllerProvider);
+      expect(next, isA<ImportNeedsApp>());
+      expect((next as ImportNeedsApp).current.id, 's3');
+
+      await controller.setSourceApp('s3', 'app.komikku');
+      expect(container.read(importControllerProvider), isA<ImportReview>());
+    });
+
+    test('skipping does not re-ask the same file', () async {
+      final repo = FakeImportRepository(const []);
+      final container = containerFor(
+        ImportNeedsApp(
+          queue: [_stagedNamed('s1'), _stagedNamed('s2')],
+          index: 0,
+        ),
+        repo,
+      );
+      final controller = container.read(importControllerProvider.notifier);
+
+      // An empty tag means "leave it unknown" — the file stays untagged, so a
+      // routing pass that rescanned from the start would ask about it forever.
+      await controller.setSourceApp('s1', '');
+      final next = container.read(importControllerProvider);
+      expect((next as ImportNeedsApp).current.id, 's2');
+
+      await controller.setSourceApp('s2', '');
+      final done = container.read(importControllerProvider);
+      expect(done, isA<ImportReview>());
+      expect((done as ImportReview).queue.map((s) => s.fileMeta.sourceApp),
+          ['', '']);
+    });
+
+    test('retagStaged replaces the app on an already-reviewed file', () async {
+      final repo = FakeImportRepository(const []);
+      final container = containerFor(
+        ImportReview([_stagedNamed('s1', sourceApp: 'app.mihon')]),
+        repo,
+      );
+
+      await container
+          .read(importControllerProvider.notifier)
+          .retagStaged('s1', 'app.komikku');
+
+      final state = container.read(importControllerProvider) as ImportReview;
+      expect(state.queue.single.fileMeta.sourceApp, 'app.komikku');
+    });
+  });
+
   test('commitAll folds streamed events and ends in ImportDone', () async {
     final record = _record();
     final repo = FakeImportRepository([

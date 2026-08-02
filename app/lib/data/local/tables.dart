@@ -99,6 +99,25 @@ class LocalMangaImport extends Table {
   Set<Column> get primaryKey => {mangaId, importId};
 }
 
+/// Mirrors the server's `backup_app` registry — the reading apps a backup can
+/// come from. A title's apps are derived (manga → [LocalMangaImport] →
+/// [LocalImportRecord.sourceApp]); this is only what turns `app.mihon` into
+/// "Mihon" for the filter chips and the import picker, offline included.
+class LocalBackupApp extends Table {
+  /// Android application id, e.g. `app.mihon`.
+  TextColumn get id => text()();
+  TextColumn get displayName => text()();
+
+  /// Hex accent for the app's chip; null falls back to the theme.
+  TextColumn get accent => text().nullable()();
+
+  /// Shipped by the server rather than added by the user.
+  BoolColumn get curated => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Single-row table (`id` is always 0) holding sync bookkeeping.
 class SyncMeta extends Table {
   IntColumn get id => integer().withDefault(const Constant(0))();

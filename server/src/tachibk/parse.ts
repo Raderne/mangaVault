@@ -4,13 +4,23 @@ import * as protobuf from 'protobufjs';
 
 import { BACKUP_PROTO } from './backup.proto';
 import { ContainerDetector } from './detect';
-import type { BackupContainerKind, ParsedBackup } from './domain';
+import type { ParsedBackup } from './domain';
 import { BackupParseError } from './errors';
 import { parseLegacyJson } from './legacy-json';
 import type { WireBackup } from './wire';
 
-/** `<applicationId>_yyyy-MM-dd_HH-mm.tachibk` — group 1 is the app id. */
-const TACHIBK_NAME_RE = /^(.+)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.tachibk$/i;
+/**
+ * `<applicationId>_<timestamp>.tachibk` — group 1 is the app id.
+ *
+ * Anchored on the ISO **date** rather than a fixed time format. Mihon writes
+ * `_yyyy-MM-dd_HH-mm` (`BackupCreator.getFilename()`), but forks vary the tail
+ * (date only, seconds, a suffix) and only the prefix identifies the producing
+ * app. Non-greedy so the *first* date in the name ends the prefix.
+ */
+const BACKUP_NAME_RE = /^(.+?)_(?:\d{4}-\d{2}-\d{2}.*)\.(?:tachibk|json)$/i;
+
+/** Longer than any real Android application id — a longer capture is noise. */
+const MAX_SOURCE_APP_LEN = 100;
 
 /**
  * Decodes a `.tachibk` (gzip+protobuf or raw protobuf) or legacy `.json` backup
@@ -43,7 +53,7 @@ export class BackupParser {
       return {
         wire,
         container,
-        sourceApp: extractSourceApp(fileName, container),
+        sourceApp: extractSourceApp(fileName),
         warnings,
       };
     }
@@ -85,18 +95,24 @@ export class BackupParser {
     return {
       wire,
       container,
-      sourceApp: extractSourceApp(fileName, container),
+      sourceApp: extractSourceApp(fileName),
       warnings,
     };
   }
 }
 
-function extractSourceApp(
-  fileName: string,
-  container: BackupContainerKind,
-): string {
-  const base = fileName.split(/[\\/]/).pop() ?? fileName;
-  if (container === 'legacy-json') return '';
-  const m = TACHIBK_NAME_RE.exec(base);
-  return m ? m[1] : '';
+/**
+ * The producing app's id from the backup filename, `''` when the name doesn't
+ * follow the convention. `''` is the signal the import UI uses to ask the user
+ * which app the backup came from, so a wrong guess is worse than none: a prefix
+ * that can't be an application id is rejected rather than stored.
+ */
+function extractSourceApp(fileName: string): string {
+  const base = (fileName.split(/[\\/]/).pop() ?? fileName).trim();
+  const m = BACKUP_NAME_RE.exec(base);
+  if (!m) return '';
+
+  const app = m[1].trim().toLowerCase();
+  if (!app || app.length > MAX_SOURCE_APP_LEN || /\s/.test(app)) return '';
+  return app;
 }

@@ -23,6 +23,7 @@ part 'app_database.g.dart';
     LocalMangaCategory,
     LocalImportRecord,
     LocalMangaImport,
+    LocalBackupApp,
     SyncMeta,
   ],
 )
@@ -33,8 +34,9 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   /// 2 (2026-07-31): `sync_meta` gained the vault storage breakdown.
+  /// 3 (2026-08-02): added `local_backup_app` — the backup-app registry.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

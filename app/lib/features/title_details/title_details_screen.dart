@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
+import '../../data/backup_apps/backup_app_models.dart';
+import '../../data/backup_apps/backup_apps_repository.dart';
 import '../../data/covers/cover_cache.dart';
 import '../../data/covers/cover_repository.dart';
 import '../../data/library/library_models.dart';
@@ -501,14 +503,15 @@ class _ArchiveCell extends StatelessWidget {
   }
 }
 
-class _ArchiveRow extends StatelessWidget {
+class _ArchiveRow extends ConsumerWidget {
   const _ArchiveRow({required this.entry});
   final ArchiveEntry entry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final names = ref.watch(backupAppNamesProvider).value ?? const {};
     return Container(
       padding: const EdgeInsets.all(AppDimens.unit + 4),
       decoration: BoxDecoration(
@@ -542,7 +545,11 @@ class _ArchiveRow extends StatelessWidget {
                 ),
                 Text(
                   [
-                    if (entry.sourceApp.isNotEmpty) entry.sourceApp,
+                    if (entry.sourceApp.isNotEmpty)
+                      backupAppLabel(
+                        entry.sourceApp,
+                        displayName: names[entry.sourceApp],
+                      ),
                     relativeDate(entry.importedAt),
                   ].where((s) => s.isNotEmpty).join(' • '),
                   style: theme.textTheme.labelSmall!

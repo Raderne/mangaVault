@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
+import '../../data/backup_apps/backup_app_models.dart';
 import '../../data/library/library_models.dart';
 import '../../theme/app_dimens.dart';
 import '../../widgets/archived_cover.dart';
@@ -820,6 +821,7 @@ class _MetaLine extends ConsumerWidget {
     final theme = Theme.of(context);
     final syncedAt = ref.watch(lastSyncedAtProvider).value;
     final sources = state.filters.sourceIds.length;
+    final apps = state.filters.sourceApps;
 
     final parts = <String>[
       if (state.status == LibraryStatus.ready)
@@ -827,6 +829,11 @@ class _MetaLine extends ConsumerWidget {
             '${state.filters.favorite ? 'favorites' : 'others'}',
       if (state.filters.status.isNotEmpty)
         labelForStatus(state.filters.status).toLowerCase(),
+      // A single app reads better by name than as "1 app"; past that, a count.
+      if (apps.length == 1)
+        backupAppLabel(apps.first).toLowerCase()
+      else if (apps.length > 1)
+        '${apps.length} apps',
       if (sources > 0) sources == 1 ? '1 source' : '$sources sources',
       if (syncedAt != null) 'synced ${relativeDate(syncedAt)}',
     ];

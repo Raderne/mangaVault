@@ -3,7 +3,7 @@
 Created: 2026-07-18 (M2)
 
 Related: [[index]] · [[backend]] · [[tachibk-format]] · [[database]] · [[local-library-mirror]] ·
-[[cover-fetching]] · [[deleted-titles]]
+[[cover-fetching]] · [[deleted-titles]] · [[backup-apps]]
 
 NestJS module that turns an uploaded backup into library rows. `server/src/modules/import/`.
 Consumes the pure [[tachibk-format]] lib; owns the DB writes and file archiving.
@@ -35,6 +35,9 @@ Two-phase so the app can show a **review screen** before anything is written.
 4. **`GET /api/v1/imports/jobs/:jobId`** → point-in-time snapshot (reconnect / polling fallback).
 5. **`DELETE /api/v1/imports/stage/:id`** → `discard` (drop from cache, 204).
 6. **`GET /api/v1/imports`** → history, newest first.
+7. **`PATCH /api/v1/imports/stage/:id`** (2026-08-02) → `{ sourceApp }` re-tags which **reading app**
+   the backup came from, before commit. Returns the updated `StagedImportDto`. `''` = unknown.
+   `runCommit` also `ensure()`s the tag in the app registry. See [[backup-apps]].
 
 All routes require the bearer token (global guard); none are `@Public()`.
 

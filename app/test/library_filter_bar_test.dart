@@ -2,11 +2,13 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangavault/data/backup_apps/backup_app_models.dart';
 import 'package:mangavault/data/library/library_models.dart';
 import 'package:mangavault/data/library/library_repository.dart';
 import 'package:mangavault/data/local/app_database.dart';
 import 'package:mangavault/features/library/library_controller.dart';
 import 'package:mangavault/features/library/library_display.dart';
+import 'package:mangavault/features/library/library_filter_sheet.dart';
 import 'package:mangavault/features/library/library_screen.dart';
 import 'package:mangavault/features/sync/sync_controller.dart';
 import 'package:mangavault/theme/app_theme.dart';
@@ -21,6 +23,7 @@ class _FakeRepo implements LibraryRepository {
     List<String> status = const [],
     List<String> categoryIds = const [],
     List<String> sourceIds = const [],
+    List<String> sourceApps = const [],
     bool? favorite,
     String sortBy = 'title',
     String sortDir = 'asc',
@@ -42,6 +45,17 @@ class _FakeRepo implements LibraryRepository {
         // numeric id rather than showing a blank row.
         SourceOption(id: '3215387755256146567', name: '', count: 4),
       ];
+
+  @override
+  Future<List<SourceAppOption>> sourceApps() async => const [
+        SourceAppOption(id: 'app.mihon', label: 'Mihon', count: 10),
+        // A backup nothing identified — it still has to be filterable.
+        SourceAppOption(id: 'unknown', label: 'Unknown app', count: 6),
+      ];
+
+  @override
+  Future<Map<String, String>> backupAppNames() async =>
+      const {'app.mihon': 'Mihon'};
 
   @override
   Future<void> forgetTitles(List<String> ids) async {}
@@ -191,6 +205,44 @@ void main() {
     expect(
       container.read(libraryControllerProvider).filters.sourceIds,
       ['2499283573021220255'],
+    );
+  });
+
+  testWidgets('the from-app section filters by the app a backup came from',
+      (tester) async {
+    final container = await _pumpLibrary(tester, width: 400);
+
+    await tester.tap(find.byIcon(Icons.tune));
+    await tester.pumpAndSettle();
+
+    expect(find.text('FROM APP'), findsOneWidget);
+    expect(find.text('MIHON'), findsOneWidget);
+    // Backups nothing identified stay selectable rather than disappearing.
+    expect(find.text('UNKNOWN APP'), findsOneWidget);
+
+    await tester.tap(find.text('MIHON'));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(libraryControllerProvider).filters.sourceApps,
+      ['app.mihon'],
+    );
+  });
+
+  testWidgets('an app filter names the app on the meta line and badges the tune '
+      'action', (tester) async {
+    final container = await _pumpLibrary(tester, width: 400);
+    container
+        .read(libraryControllerProvider.notifier)
+        .toggleSourceApp('app.mihon');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.textContaining('app.mihon'), findsOneWidget);
+    _expectNoHorizontalOverflow(tester);
+    expect(
+      hasActiveFilters(container.read(libraryControllerProvider).filters),
+      isTrue,
     );
   });
 

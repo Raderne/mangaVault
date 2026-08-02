@@ -18,6 +18,8 @@ and its two hard rules: never enable `synchronize`, never edit an applied migrat
 | `1753900000000-sync-row-version` | `manga.row_version` + stamping triggers, `sync_tombstone`, `sync_state` — see [[local-library-mirror]] |
 | `1754000000000-deleted-manga` | `deleted_manga` — the deletion registry / import block list, see [[deleted-titles]] |
 | `1754100000000-cover-jobs` | `cover_job` + `manga.cover_failed_at` — durable cover-archiving runs, see [[cover-fetching]] |
+| `1754200000000-storage-tuning` | `fillfactor` on `chapter`/`manga`; dropped the two unused GIN indexes (below) |
+| `1754300000000-backup-apps` | `backup_app` registry + `idx_import_record_source_app` + `idx_manga_import_import`, see [[backup-apps]] |
 
 Both are **hand-written SQL**, because they need things TypeORM cannot express: extensions, a
 `GENERATED ALWAYS AS … STORED` tsvector, GIN indexes, PL/pgSQL functions and statement-level triggers
@@ -35,6 +37,7 @@ sync_tombstone      (PK entity + entity_id)
 sync_state          (singleton: server_epoch)
 deleted_manga       (uq: source_id + manga_url)
 cover_job           (partial uq: status WHERE status = 'running')
+backup_app          (PK id TEXT — the application id, e.g. 'app.mihon')
 ```
 
 - `manga` is keyed by uuid but its **natural key is `UNIQUE (source_id, manga_url)`** — the Mihon
@@ -91,7 +94,18 @@ likewise derived per query from a single grouped scan over `chapter` (~182k rows
 denormalized onto `manga` — the one place they *are* denormalized is the on-device mirror, which is a
 disposable cache rebuilt from these queries.
 
-## Scale (measured 2026-07-30)
+## `backup_app` (2026-08-02, migration 6)
+
+The registry of reading apps a backup can come from — what gives `import_record.source_app` a display
+name and the library a "from app" filter. Curated rows are seeded **on boot** from
+`curated-apps.ts`, not by the migration, so adding a fork needs no migration. Deliberately no FK from
+`import_record.source_app`. Full rationale in [[backup-apps]].
+
+## Scale
+
+> **The dev database was destroyed and recreated empty on 2026-08-02** at the user's instruction (see
+> `../log.md`), so the figures below describe the *old* 2,000-title vault and are kept only as a
+> reference point for query cost. The live database currently holds no titles.
 
 2,000 titles · 182,016 chapters · 75,997 read · 1,061 covers archived / 939 failed · 2 imports ·
 `pg_database_size` + `storage/` ≈ 681 MB. Warm query latency: `/stats/library` ~67 ms,

@@ -27,6 +27,8 @@ the first time substantial work happens on a topic.
 ## Domain
 
 - [[tachibk-format]] — `.tachibk`/legacy-JSON parsing lib: pipeline, protobuf/int64/favorite gotchas.
+- [[backup-apps]] — which reading app a backup came from: filename parsing, the `backup_app`
+  registry, the import picker, the library's "from app" filter, and the auto-backup groundwork.
 - [[cover-fetching]] — M4 cover archiving: `/covers/*`, the Mihon-style fetcher, concurrency, serve +
   `Image.network` auth, the app's archive banner / progressive reveal, and the **durable `cover_job`**
   (cancel, boot resume, post-import trigger).

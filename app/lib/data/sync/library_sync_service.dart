@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../backup_apps/backup_app_models.dart';
 import '../library/library_models.dart';
 import '../stats/stats_models.dart';
 import '../local/app_database.dart';
@@ -122,11 +123,12 @@ class LibrarySyncService {
       if (!result.hasMore) break;
     }
 
-    // Categories and imports are small and append-only, so they are replaced
-    // wholesale rather than versioned.
+    // Categories, imports and the backup-app registry are small and effectively
+    // append-only, so they are replaced wholesale rather than versioned.
     await _db.transaction(() async {
       await _replaceCategories(meta.categories);
       await _replaceImports(meta.imports);
+      await _replaceBackupApps(meta.backupApps);
       await _writeMeta(
         cursor: cursor,
         epoch: meta.serverEpoch,
@@ -224,6 +226,7 @@ class LibrarySyncService {
     await _db.delete(_db.localManga).go();
     await _db.delete(_db.localCategory).go();
     await _db.delete(_db.localImportRecord).go();
+    await _db.delete(_db.localBackupApp).go();
   }
 
   Future<void> _replaceCategories(List<Category> categories) async {
@@ -252,6 +255,20 @@ class LibrarySyncService {
               container: Value(i.container),
               importedAt: Value(i.importedAt),
               statsJson: Value(jsonEncode(i.stats)),
+            ),
+          );
+    }
+  }
+
+  Future<void> _replaceBackupApps(List<BackupApp> apps) async {
+    await _db.delete(_db.localBackupApp).go();
+    for (final a in apps) {
+      await _db.into(_db.localBackupApp).insertOnConflictUpdate(
+            LocalBackupAppCompanion.insert(
+              id: a.id,
+              displayName: a.displayName,
+              accent: Value(a.accent),
+              curated: Value(a.curated),
             ),
           );
     }

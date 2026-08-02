@@ -168,6 +168,10 @@ describe('Library sync (e2e)', () => {
     expect(m.vaultSizeBytes).toBeGreaterThan(0);
     expect(m.categories.some((c) => c.name === catName)).toBe(true);
     expect(m.imports.some((i) => i.sha256 === sha)).toBe(true);
+    // The registry rides along so the device can name an app id offline.
+    expect(m.backupApps.some((a) => a.id === 'app.mihon' && a.curated)).toBe(
+      true,
+    );
   });
 
   it('a full sync from 0 delivers the seeded titles with their projections', async () => {

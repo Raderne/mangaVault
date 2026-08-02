@@ -93,6 +93,12 @@ complete. A full page of changes at v1..v500 alongside a tombstone at v700 must 
 past 500, or v501..v699 are lost forever. Rows above the safe cursor are trimmed and re-delivered on
 the next page.
 
+**2026-08-02:** `/sync/meta` also carries `backupApps` — the [[backup-apps]] registry, replaced
+wholesale like the other two. A title's *apps* need no protocol change (they're derivable from
+`importIds` → `imports[].sourceApp`); only the display names had to ship, so filter chips read
+"Mihon" rather than "app.mihon" offline. `LocalBackupApp` joined the drift schema —
+**`schemaVersion` 2 → 3**, so the first launch after the update does a full re-pull, by design.
+
 `/sync/meta` carries categories and import records **whole** (both are small and append-only, so
 they're replaced rather than versioned) plus `vaultSizeBytes` — the one dashboard figure the device
 cannot derive, so `StatsService.vaultSizeBytes()` became public and `StatsModule` now exports itself.

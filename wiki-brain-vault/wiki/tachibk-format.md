@@ -2,7 +2,7 @@
 
 Created: 2026-07-18 (M2)
 
-Related: [[index]] · [[backend]] · [[import-pipeline]]
+Related: [[index]] · [[backend]] · [[import-pipeline]] · [[backup-apps]]
 
 Implementation of the `.tachibk` / legacy-JSON parsing library. Pure TypeScript, **zero
 Nest/TypeORM imports**, fully unit-tested. Lives in `server/src/tachibk/`. Extends the schema
@@ -43,6 +43,11 @@ reference in `docs/phase-1-data-structures.md` §1 with what was actually learne
   `source` id in JSON is already mangled by `JSON.parse` (JS number, > 2^53) before we see it — it
   only survives if the export quoted the id. We emit a warning when we detect an unsafe numeric
   source id. Protobuf is the primary path; the user's Mihon produces protobuf, not legacy JSON.
+- **The filename is the only source of app identity.** The `Backup` message carries no
+  producer/version field, and `backupPreferences` / `backupSourcePreferences` / `backupExtensionRepo`
+  (which *could* hint at a fork) are decoded but deliberately not surfaced. So `extractSourceApp`
+  parses the name, anchored on the ISO date rather than Mihon's exact time format, and returns `''`
+  rather than guessing — see [[backup-apps]].
 - **`PreferenceValue` (polymorphic prefs)** — decoded into the wire model but **not surfaced** to
   the domain layer in v1 (per phase-3 "low priority; don't crash"). No app preferences are imported.
 

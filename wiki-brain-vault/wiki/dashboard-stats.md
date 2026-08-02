@@ -52,8 +52,9 @@ loose query strings.
   empty), so the client renders a full breakdown without null checks.
 - **`bySourceApp` counts titles per backup app** via `import_record ⋈ manga_import`, with
   `COUNT(DISTINCT manga_id)` (a title merged from several backups must not be double-counted). Blank
-  `source_app` values collapse to `'unknown'` — the first real import has one, since its filename
-  carried no app-id prefix.
+  `source_app` values collapse to `'unknown'`. Since 2026-08-02 these ids resolve to display names
+  through the `backup_app` registry, and far fewer of them are blank — the filename regex used to
+  reject a date-only name. See [[backup-apps]].
 - **`vaultSizeBytes` = `pg_database_size()` + `storage/imports/` + `storage/covers/`.** "How big is
   my vault" spans both Postgres and disk. The two directories are flat, so a `readdir` + per-file
   `stat` is enough; every part degrades to 0 on error rather than failing the whole dashboard.

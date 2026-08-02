@@ -2703,6 +2703,327 @@ class LocalMangaImportCompanion extends UpdateCompanion<LocalMangaImportData> {
   }
 }
 
+class $LocalBackupAppTable extends LocalBackupApp
+    with TableInfo<$LocalBackupAppTable, LocalBackupAppData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalBackupAppTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _accentMeta = const VerificationMeta('accent');
+  @override
+  late final GeneratedColumn<String> accent = GeneratedColumn<String>(
+    'accent',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _curatedMeta = const VerificationMeta(
+    'curated',
+  );
+  @override
+  late final GeneratedColumn<bool> curated = GeneratedColumn<bool>(
+    'curated',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("curated" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, displayName, accent, curated];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_backup_app';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalBackupAppData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('accent')) {
+      context.handle(
+        _accentMeta,
+        accent.isAcceptableOrUnknown(data['accent']!, _accentMeta),
+      );
+    }
+    if (data.containsKey('curated')) {
+      context.handle(
+        _curatedMeta,
+        curated.isAcceptableOrUnknown(data['curated']!, _curatedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalBackupAppData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalBackupAppData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      accent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}accent'],
+      ),
+      curated: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}curated'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalBackupAppTable createAlias(String alias) {
+    return $LocalBackupAppTable(attachedDatabase, alias);
+  }
+}
+
+class LocalBackupAppData extends DataClass
+    implements Insertable<LocalBackupAppData> {
+  /// Android application id, e.g. `app.mihon`.
+  final String id;
+  final String displayName;
+
+  /// Hex accent for the app's chip; null falls back to the theme.
+  final String? accent;
+
+  /// Shipped by the server rather than added by the user.
+  final bool curated;
+  const LocalBackupAppData({
+    required this.id,
+    required this.displayName,
+    this.accent,
+    required this.curated,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['display_name'] = Variable<String>(displayName);
+    if (!nullToAbsent || accent != null) {
+      map['accent'] = Variable<String>(accent);
+    }
+    map['curated'] = Variable<bool>(curated);
+    return map;
+  }
+
+  LocalBackupAppCompanion toCompanion(bool nullToAbsent) {
+    return LocalBackupAppCompanion(
+      id: Value(id),
+      displayName: Value(displayName),
+      accent: accent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accent),
+      curated: Value(curated),
+    );
+  }
+
+  factory LocalBackupAppData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalBackupAppData(
+      id: serializer.fromJson<String>(json['id']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      accent: serializer.fromJson<String?>(json['accent']),
+      curated: serializer.fromJson<bool>(json['curated']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'displayName': serializer.toJson<String>(displayName),
+      'accent': serializer.toJson<String?>(accent),
+      'curated': serializer.toJson<bool>(curated),
+    };
+  }
+
+  LocalBackupAppData copyWith({
+    String? id,
+    String? displayName,
+    Value<String?> accent = const Value.absent(),
+    bool? curated,
+  }) => LocalBackupAppData(
+    id: id ?? this.id,
+    displayName: displayName ?? this.displayName,
+    accent: accent.present ? accent.value : this.accent,
+    curated: curated ?? this.curated,
+  );
+  LocalBackupAppData copyWithCompanion(LocalBackupAppCompanion data) {
+    return LocalBackupAppData(
+      id: data.id.present ? data.id.value : this.id,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      accent: data.accent.present ? data.accent.value : this.accent,
+      curated: data.curated.present ? data.curated.value : this.curated,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalBackupAppData(')
+          ..write('id: $id, ')
+          ..write('displayName: $displayName, ')
+          ..write('accent: $accent, ')
+          ..write('curated: $curated')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, displayName, accent, curated);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalBackupAppData &&
+          other.id == this.id &&
+          other.displayName == this.displayName &&
+          other.accent == this.accent &&
+          other.curated == this.curated);
+}
+
+class LocalBackupAppCompanion extends UpdateCompanion<LocalBackupAppData> {
+  final Value<String> id;
+  final Value<String> displayName;
+  final Value<String?> accent;
+  final Value<bool> curated;
+  final Value<int> rowid;
+  const LocalBackupAppCompanion({
+    this.id = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.accent = const Value.absent(),
+    this.curated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalBackupAppCompanion.insert({
+    required String id,
+    required String displayName,
+    this.accent = const Value.absent(),
+    this.curated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       displayName = Value(displayName);
+  static Insertable<LocalBackupAppData> custom({
+    Expression<String>? id,
+    Expression<String>? displayName,
+    Expression<String>? accent,
+    Expression<bool>? curated,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (displayName != null) 'display_name': displayName,
+      if (accent != null) 'accent': accent,
+      if (curated != null) 'curated': curated,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalBackupAppCompanion copyWith({
+    Value<String>? id,
+    Value<String>? displayName,
+    Value<String?>? accent,
+    Value<bool>? curated,
+    Value<int>? rowid,
+  }) {
+    return LocalBackupAppCompanion(
+      id: id ?? this.id,
+      displayName: displayName ?? this.displayName,
+      accent: accent ?? this.accent,
+      curated: curated ?? this.curated,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (accent.present) {
+      map['accent'] = Variable<String>(accent.value);
+    }
+    if (curated.present) {
+      map['curated'] = Variable<bool>(curated.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalBackupAppCompanion(')
+          ..write('id: $id, ')
+          ..write('displayName: $displayName, ')
+          ..write('accent: $accent, ')
+          ..write('curated: $curated, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SyncMetaTable extends SyncMeta
     with TableInfo<$SyncMetaTable, SyncMetaData> {
   @override
@@ -3302,6 +3623,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalMangaImportTable localMangaImport = $LocalMangaImportTable(
     this,
   );
+  late final $LocalBackupAppTable localBackupApp = $LocalBackupAppTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -3313,6 +3635,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localMangaCategory,
     localImportRecord,
     localMangaImport,
+    localBackupApp,
     syncMeta,
   ];
 }
@@ -4714,6 +5037,195 @@ typedef $$LocalMangaImportTableProcessedTableManager =
       LocalMangaImportData,
       PrefetchHooks Function()
     >;
+typedef $$LocalBackupAppTableCreateCompanionBuilder =
+    LocalBackupAppCompanion Function({
+      required String id,
+      required String displayName,
+      Value<String?> accent,
+      Value<bool> curated,
+      Value<int> rowid,
+    });
+typedef $$LocalBackupAppTableUpdateCompanionBuilder =
+    LocalBackupAppCompanion Function({
+      Value<String> id,
+      Value<String> displayName,
+      Value<String?> accent,
+      Value<bool> curated,
+      Value<int> rowid,
+    });
+
+class $$LocalBackupAppTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalBackupAppTable> {
+  $$LocalBackupAppTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accent => $composableBuilder(
+    column: $table.accent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get curated => $composableBuilder(
+    column: $table.curated,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalBackupAppTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalBackupAppTable> {
+  $$LocalBackupAppTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accent => $composableBuilder(
+    column: $table.accent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get curated => $composableBuilder(
+    column: $table.curated,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalBackupAppTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalBackupAppTable> {
+  $$LocalBackupAppTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get accent =>
+      $composableBuilder(column: $table.accent, builder: (column) => column);
+
+  GeneratedColumn<bool> get curated =>
+      $composableBuilder(column: $table.curated, builder: (column) => column);
+}
+
+class $$LocalBackupAppTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalBackupAppTable,
+          LocalBackupAppData,
+          $$LocalBackupAppTableFilterComposer,
+          $$LocalBackupAppTableOrderingComposer,
+          $$LocalBackupAppTableAnnotationComposer,
+          $$LocalBackupAppTableCreateCompanionBuilder,
+          $$LocalBackupAppTableUpdateCompanionBuilder,
+          (
+            LocalBackupAppData,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalBackupAppTable,
+              LocalBackupAppData
+            >,
+          ),
+          LocalBackupAppData,
+          PrefetchHooks Function()
+        > {
+  $$LocalBackupAppTableTableManager(
+    _$AppDatabase db,
+    $LocalBackupAppTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalBackupAppTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalBackupAppTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalBackupAppTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<String?> accent = const Value.absent(),
+                Value<bool> curated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalBackupAppCompanion(
+                id: id,
+                displayName: displayName,
+                accent: accent,
+                curated: curated,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String displayName,
+                Value<String?> accent = const Value.absent(),
+                Value<bool> curated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalBackupAppCompanion.insert(
+                id: id,
+                displayName: displayName,
+                accent: accent,
+                curated: curated,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalBackupAppTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalBackupAppTable,
+      LocalBackupAppData,
+      $$LocalBackupAppTableFilterComposer,
+      $$LocalBackupAppTableOrderingComposer,
+      $$LocalBackupAppTableAnnotationComposer,
+      $$LocalBackupAppTableCreateCompanionBuilder,
+      $$LocalBackupAppTableUpdateCompanionBuilder,
+      (
+        LocalBackupAppData,
+        BaseReferences<_$AppDatabase, $LocalBackupAppTable, LocalBackupAppData>,
+      ),
+      LocalBackupAppData,
+      PrefetchHooks Function()
+    >;
 typedef $$SyncMetaTableCreateCompanionBuilder =
     SyncMetaCompanion Function({
       Value<int> id,
@@ -5012,6 +5524,8 @@ class $AppDatabaseManager {
       $$LocalImportRecordTableTableManager(_db, _db.localImportRecord);
   $$LocalMangaImportTableTableManager get localMangaImport =>
       $$LocalMangaImportTableTableManager(_db, _db.localMangaImport);
+  $$LocalBackupAppTableTableManager get localBackupApp =>
+      $$LocalBackupAppTableTableManager(_db, _db.localBackupApp);
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
 }

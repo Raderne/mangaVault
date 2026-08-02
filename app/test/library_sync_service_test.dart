@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangavault/data/backup_apps/backup_app_models.dart';
 import 'package:mangavault/data/library/library_models.dart';
 import 'package:mangavault/data/local/app_database.dart';
 import 'package:mangavault/data/local/local_library_dao.dart';
@@ -65,6 +66,7 @@ class FakeSyncRepository implements SyncRepository {
     this.epoch = 'epoch-1',
     this.categories = const [],
     this.imports = const [],
+    this.backupApps = const [],
     this.totalTitles = 0,
     this.vaultSizeBytes = 0,
     this.failOnPage,
@@ -80,6 +82,7 @@ class FakeSyncRepository implements SyncRepository {
   final String epoch;
   final List<Category> categories;
   final List<SyncImportRecord> imports;
+  final List<BackupApp> backupApps;
   final int totalTitles;
   final int vaultSizeBytes;
 
@@ -105,6 +108,7 @@ class FakeSyncRepository implements SyncRepository {
       totalTitles: totalTitles,
       categories: categories,
       imports: imports,
+      backupApps: backupApps,
       vaultSizeBytes: vaultSizeBytes,
     );
   }
@@ -391,6 +395,30 @@ void main() {
     )).sync();
 
     expect((await dao.categories()).map((c) => c.name), ['Seinen']);
+  });
+
+  test('the backup-app registry is mirrored and replaced wholesale', () async {
+    // Names live only in the registry; without it every filter chip and history
+    // row would have to read `app.mihon` instead of "Mihon" while offline.
+    await serviceWith(FakeSyncRepository(
+      backupApps: const [
+        BackupApp(id: 'app.mihon', displayName: 'Mihon', curated: true),
+        BackupApp(id: 'my.reader', displayName: 'My Reader'),
+      ],
+      pages: {'0': _page(cursor: '0')},
+    )).sync();
+
+    expect(await dao.backupAppNames(),
+        {'app.mihon': 'Mihon', 'my.reader': 'My Reader'});
+
+    await serviceWith(FakeSyncRepository(
+      backupApps: const [
+        BackupApp(id: 'app.mihon', displayName: 'Mihon', curated: true),
+      ],
+      pages: {'0': _page(cursor: '0')},
+    )).sync();
+
+    expect(await dao.backupAppNames(), {'app.mihon': 'Mihon'});
   });
 
   test('a concurrent sync joins the running one instead of double-pulling',

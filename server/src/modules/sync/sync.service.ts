@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
+import { BackupAppsService } from '../backup-apps/backup-apps.service';
 import type { ChapterRefDto } from '../library/library.dto';
 import { LibraryService } from '../library/library.service';
 import { StatsService } from '../stats/stats.service';
@@ -79,6 +80,7 @@ export class SyncService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly library: LibraryService,
     private readonly stats: StatsService,
+    private readonly backupApps: BackupAppsService,
   ) {}
 
   /** Changes strictly above `since`, oldest version first. */
@@ -188,28 +190,36 @@ export class SyncService {
 
   /** Full category + import lists, the current high-water mark, and vault size. */
   async meta(): Promise<SyncMetaDto> {
-    const [epoch, cursorRows, totalRows, categories, importRows, storage] =
-      await Promise.all([
-        this.serverEpoch(),
-        this.dataSource.query<{ cursor: string | null }[]>(
-          `SELECT GREATEST(
+    const [
+      epoch,
+      cursorRows,
+      totalRows,
+      categories,
+      importRows,
+      storage,
+      backupApps,
+    ] = await Promise.all([
+      this.serverEpoch(),
+      this.dataSource.query<{ cursor: string | null }[]>(
+        `SELECT GREATEST(
                     COALESCE((SELECT MAX(row_version) FROM manga), 0),
                     COALESCE((SELECT MAX(row_version) FROM sync_tombstone), 0)
                   )::text AS cursor`,
-        ),
-        this.dataSource.query<{ n: number }[]>(
-          `SELECT COUNT(*)::int AS n FROM manga`,
-        ),
-        this.library.listCategories(),
-        this.dataSource.query<ImportRow[]>(
-          `SELECT id, file_name, file_size::text AS file_size, sha256,
+      ),
+      this.dataSource.query<{ n: number }[]>(
+        `SELECT COUNT(*)::int AS n FROM manga`,
+      ),
+      this.library.listCategories(),
+      this.dataSource.query<ImportRow[]>(
+        `SELECT id, file_name, file_size::text AS file_size, sha256,
                   source_app, container, imported_at::text AS imported_at,
                   stats
              FROM import_record
             ORDER BY imported_at DESC`,
-        ),
-        this.stats.vaultStorage(),
-      ]);
+      ),
+      this.stats.vaultStorage(),
+      this.backupApps.list(),
+    ]);
 
     return {
       serverEpoch: epoch,
@@ -226,6 +236,7 @@ export class SyncService {
         importedAt: Number(r.imported_at),
         stats: r.stats ?? {},
       })),
+      backupApps,
       vaultSizeBytes: storage.totalBytes,
       vaultStorage: storage,
     };

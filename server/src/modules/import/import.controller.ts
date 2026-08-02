@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Sse,
   UploadedFile,
@@ -56,6 +58,25 @@ export class ImportController {
       }
       throw err;
     }
+  }
+
+  /**
+   * Tag a staged import with the app it came from, before committing it.
+   *
+   * A `PATCH` on the staged entry rather than a body on `commit`: the review UI
+   * re-renders from the returned DTO, correcting a wrong pick is the same call
+   * again, and `commit` stays bodyless.
+   */
+  @Patch('stage/:id')
+  setSourceApp(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: Record<string, unknown>,
+  ): Promise<StagedImportDto> {
+    const sourceApp = body.sourceApp;
+    if (typeof sourceApp !== 'string') {
+      throw new BadRequestException('sourceApp must be a string');
+    }
+    return this.imports.setSourceApp(id, sourceApp);
   }
 
   /** Start the streaming commit; returns the job id to open the SSE stream with. */

@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiTokenGuard } from './auth/api-token.guard';
 import { buildDataSourceOptions } from './database/data-source';
 import { HealthController } from './health/health.controller';
+import { BackupAppsModule } from './modules/backup-apps/backup-apps.module';
 import { CoverModule } from './modules/covers/cover.module';
 import { ImportModule } from './modules/import/import.module';
 import { LibraryModule } from './modules/library/library.module';
@@ -24,6 +25,7 @@ import { SyncModule } from './modules/sync/sync.module';
       useFactory: (config: ConfigService) =>
         buildDataSourceOptions(config.getOrThrow<string>('DATABASE_URL')),
     }),
+    BackupAppsModule,
     ImportModule,
     LibraryModule,
     CoverModule,
