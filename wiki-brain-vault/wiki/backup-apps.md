@@ -3,7 +3,8 @@
 Created: 2026-08-02
 
 Related: [[index]] · [[backend]] · [[import-pipeline]] · [[library-api]] · [[database]] ·
-[[local-library-mirror]] · [[flutter-app]] · [[dashboard-stats]] · [[tachibk-format]]
+[[local-library-mirror]] · [[flutter-app]] · [[dashboard-stats]] · [[tachibk-format]] ·
+[[backup-export]]
 
 A `.tachibk` is named `<applicationId>_<timestamp>.tachibk`, so the filename says which fork produced
 it (`app.mihon`, `app.komikku`, …). That id is now a first-class thing: named, pickable when the
@@ -102,6 +103,14 @@ lookup had no index at all). The client filters off its mirror, so there is no
   source list — a handful of apps against 25+ sources), plus an app segment on the `_MetaLine`.
   `LibraryFilters.sourceApps` had to move in lockstep across constructor/`copyWith`, `_fetch`,
   `reload`, `_sameFilters` (the stale-response guard) and `hasActiveFilters`.
+
+## The registry also names *exported* files
+
+[[backup-export]] reuses this registry twice over: its `targetApp` chips list these apps, and the id
+picked becomes the exported filename's prefix (`app.komikku_<stamp>.tachibk`). Since the filename is
+the only carrier of app identity in the format, that closes the loop — a file exported for Komikku
+and later re-imported is attributed to Komikku by the very `BACKUP_NAME_RE` above. `targetApp` is
+validated with `BACKUP_APP_ID_RE`, the same regex `ensure()`/`create()` use.
 
 ## Groundwork for auto-backup monitoring (not built)
 

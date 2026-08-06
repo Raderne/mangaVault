@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import 'features/backups/backups_screen.dart';
+import 'features/backups/export/export_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/library/deleted_titles_screen.dart';
 import 'features/library/library_screen.dart';
@@ -48,7 +49,18 @@ final router = GoRouter(
           ),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(path: '/backups', builder: (_, _) => const BackupsScreen()),
+          GoRoute(
+            path: '/backups',
+            builder: (_, _) => const BackupsScreen(),
+            routes: [
+              // Nested, so the wizard keeps the Backups tab selected and a
+              // back-swipe returns to the hub it was launched from.
+              GoRoute(
+                path: 'export',
+                builder: (_, _) => const ExportScreen(),
+              ),
+            ],
+          ),
         ]),
       ],
     ),

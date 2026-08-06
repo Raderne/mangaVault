@@ -32,6 +32,8 @@ class BackupsScreen extends ConsumerWidget {
           _ImportCtaCell(busy: busy),
           const SizedBox(height: AppDimens.gutter),
           ..._stateCells(context, ref, state),
+          const _ExportCtaCell(),
+          const SizedBox(height: AppDimens.gutter),
           const _HistoryCell(),
         ],
       ),
@@ -100,6 +102,49 @@ class _ImportCtaCell extends ConsumerWidget {
             label: 'Select Local File',
             icon: Icons.upload_file,
             onPressed: busy ? null : () => ref.read(importControllerProvider.notifier).pickAndStage(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The way out of the vault, sat directly opposite the way in.
+///
+/// The pairing is the point: an archive you can only put things into is a trap,
+/// so "create a backup" lives at the same level as "import one" rather than
+/// behind a settings menu.
+class _ExportCtaCell extends StatelessWidget {
+  const _ExportCtaCell();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return BentoCell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Expanded(child: CellLabel('Export')),
+              AccentIconWell(icon: Icons.archive_outlined),
+            ],
+          ),
+          const SizedBox(height: AppDimens.unit),
+          Text('Create Backup', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            'Write your library back out as a .tachibk file — everything, your '
+            'favorites, or any slice by app, source or category. Restores into '
+            'Mihon and its forks.',
+            style: theme.textTheme.bodyMedium!
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppDimens.unit * 2),
+          PillButton(
+            label: 'Create Backup',
+            icon: Icons.download,
+            onPressed: () => context.go('/backups/export'),
           ),
         ],
       ),

@@ -8,6 +8,7 @@ import { buildDataSourceOptions } from './database/data-source';
 import { HealthController } from './health/health.controller';
 import { BackupAppsModule } from './modules/backup-apps/backup-apps.module';
 import { CoverModule } from './modules/covers/cover.module';
+import { ExportModule } from './modules/export/export.module';
 import { ImportModule } from './modules/import/import.module';
 import { LibraryModule } from './modules/library/library.module';
 import { StatsModule } from './modules/stats/stats.module';
@@ -27,6 +28,7 @@ import { SyncModule } from './modules/sync/sync.module';
     }),
     BackupAppsModule,
     ImportModule,
+    ExportModule,
     LibraryModule,
     CoverModule,
     StatsModule,

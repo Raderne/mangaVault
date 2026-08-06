@@ -1,10 +1,16 @@
 /**
- * TypeScript view of the decoded `.tachibk` wire model (see backup.proto.ts).
+ * TypeScript view of the `.tachibk` wire model (see backup.proto.ts).
  *
- * Produced by `Type.toObject(msg, { longs: String, defaults: false })`:
+ * Read by the decoder, produced by `Type.toObject(msg, { longs: String,
+ * defaults: false })`:
  *  - every int64 field is a decimal **string** (JS numbers are unsafe > 2^53);
  *  - absent fields are `undefined` (defaults are applied later, in the
  *    normalizer, so we can honour Mihon's non-zero defaults like favorite=true).
+ *
+ * It is also the *input* to the encoder ([[BackupDenormalizer]] builds one from
+ * the domain model), so fields the decoder never surfaces are still declared
+ * here — the writer has to emit them for Mihon to accept the file. Every field
+ * stays optional: absent means "let proto3 write its zero value".
  */
 export interface WireBackup {
   backupManga?: WireManga[];
@@ -34,6 +40,14 @@ export interface WireManga {
   excludedScanlators?: string[];
   notes?: string;
   initialized?: boolean;
+  // Reader/library flags MangaVault does not model. Written as zeros on export
+  // so Mihon restores the title with its own defaults rather than rejecting it.
+  viewer?: number;
+  chapterFlags?: number;
+  viewer_flags?: number;
+  updateStrategy?: number;
+  favoriteModifiedAt?: string; // int64 epoch millis
+  version?: string; // int64
 }
 
 export interface WireChapter {
@@ -47,6 +61,8 @@ export interface WireChapter {
   dateUpload?: string; // int64
   chapterNumber?: number; // float, -1 = unknown
   sourceOrder?: string; // int64
+  lastModifiedAt?: string; // int64 epoch millis
+  version?: string; // int64
 }
 
 export interface WireHistory {
@@ -57,6 +73,7 @@ export interface WireHistory {
 
 export interface WireTracking {
   syncId?: number;
+  libraryId?: string; // int64
   mediaIdInt?: number; // deprecated; use if != 0
   trackingUrl?: string;
   title?: string;
@@ -66,6 +83,7 @@ export interface WireTracking {
   status?: number;
   startedReadingDate?: string; // int64
   finishedReadingDate?: string; // int64
+  private?: boolean;
   mediaId?: string; // int64
 }
 
@@ -73,6 +91,7 @@ export interface WireCategory {
   name?: string;
   order?: string; // int64
   id?: string; // int64
+  flags?: string; // int64
 }
 
 export interface WireSource {

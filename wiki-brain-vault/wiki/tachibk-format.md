@@ -2,11 +2,16 @@
 
 Created: 2026-07-18 (M2)
 
-Related: [[index]] · [[backend]] · [[import-pipeline]] · [[backup-apps]]
+Related: [[index]] · [[backend]] · [[import-pipeline]] · [[backup-apps]] · [[backup-export]]
 
 Implementation of the `.tachibk` / legacy-JSON parsing library. Pure TypeScript, **zero
 Nest/TypeORM imports**, fully unit-tested. Lives in `server/src/tachibk/`. Extends the schema
 reference in `docs/phase-1-data-structures.md` §1 with what was actually learned building it.
+
+> **The library also writes.** Since 2026-08-06 the same folder holds the inverse pipeline
+> (`BackupDenormalizer` + `BackupEncoder`), sharing this page's proto schema so the two directions
+> can't drift. Everything below still describes the read path; see [[backup-export]] for the write
+> path and its own set of traps.
 
 ## Pipeline
 

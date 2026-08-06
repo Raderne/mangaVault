@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-06 22:30] session | Backup export: .tachibk encoder and export wizard
+Touched: backup-export (new), index, tachibk-format, backup-apps
+
 ## [2026-08-02 17:20] session | Backup source apps: registry, picker, library filter
 Touched: backup-apps (new), index, import-pipeline, library-api, database, local-library-mirror,
 flutter-app, dashboard-stats, tachibk-format
