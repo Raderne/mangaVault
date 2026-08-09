@@ -2,6 +2,7 @@
 // (server/src/modules/sync/sync.dto.ts). Manual `fromJson` in the same style as
 // the library, import and stats models — no codegen outside the drift layer.
 
+import '../backup_apps/backup_app_models.dart';
 import '../library/library_models.dart';
 import '../stats/stats_models.dart';
 
@@ -173,6 +174,7 @@ class SyncMetaSnapshot {
     required this.categories,
     required this.imports,
     required this.vaultSizeBytes,
+    this.backupApps = const [],
     this.vaultStorage = const VaultStorage(),
   });
 
@@ -181,6 +183,10 @@ class SyncMetaSnapshot {
   final int totalTitles;
   final List<Category> categories;
   final List<SyncImportRecord> imports;
+
+  /// The backup-app registry, replaced wholesale like categories and imports.
+  /// It only names ids — a title's apps are derived from its import links.
+  final List<BackupApp> backupApps;
   final int vaultSizeBytes;
 
   /// Database / covers / backups split — the mirror stores the parts so the
@@ -196,6 +202,9 @@ class SyncMetaSnapshot {
             .toList(),
         imports: ((j['imports'] as List?) ?? const [])
             .map((e) => SyncImportRecord.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        backupApps: ((j['backupApps'] as List?) ?? const [])
+            .map((e) => BackupApp.fromJson(e as Map<String, dynamic>))
             .toList(),
         vaultSizeBytes: (j['vaultSizeBytes'] as num?)?.toInt() ?? 0,
         vaultStorage: VaultStorage.fromJson(

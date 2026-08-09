@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../backup_apps/backup_app_models.dart';
 import '../import/import_models.dart';
 import '../library/library_models.dart';
 import '../stats/stats_models.dart';
@@ -36,6 +37,7 @@ Staleness stalenessFor(int? lastImportAt, int now) {
     LocalMangaCategory,
     LocalImportRecord,
     LocalMangaImport,
+    LocalBackupApp,
     SyncMeta,
   ],
 )
@@ -52,6 +54,7 @@ class LocalLibraryDao extends DatabaseAccessor<AppDatabase>
     List<String> status = const [],
     List<String> categoryIds = const [],
     List<String> sourceIds = const [],
+    List<String> sourceApps = const [],
     bool? favorite,
     String sortBy = 'title',
     String sortDir = 'asc',
@@ -63,6 +66,7 @@ class LocalLibraryDao extends DatabaseAccessor<AppDatabase>
           status: status,
           categoryIds: categoryIds,
           sourceIds: sourceIds,
+          sourceApps: sourceApps,
           favorite: favorite,
         );
 
@@ -209,6 +213,45 @@ class LocalLibraryDao extends DatabaseAccessor<AppDatabase>
               count: r.read<int>('n'),
             ))
         .toList();
+  }
+
+  /// Every reading app the mirror holds titles from, most titles first.
+  ///
+  /// Like [sources], this deliberately lists what you can actually filter by
+  /// rather than the whole registry — an app you have never imported from is
+  /// a chip that always returns nothing. The registry is only joined for the
+  /// display name, so an id it doesn't know still shows up (labelled by id).
+  Future<List<SourceAppOption>> sourceApps() async {
+    final rows = await customSelect(
+      '''
+      SELECT CASE WHEN ir.source_app = '' THEN ? ELSE ir.source_app END AS app_id,
+             MAX(ba.display_name)        AS display_name,
+             COUNT(DISTINCT mi.manga_id) AS n
+        FROM local_import_record ir
+        JOIN local_manga_import mi ON mi.import_id = ir.id
+        LEFT JOIN local_backup_app ba ON ba.id = ir.source_app
+       GROUP BY app_id
+       ORDER BY n DESC, app_id ASC
+      ''',
+      variables: [Variable.withString(kUnknownSourceApp)],
+      readsFrom: {localImportRecord, localMangaImport, localBackupApp},
+    ).get();
+
+    return rows.map((r) {
+      final id = r.read<String>('app_id');
+      return SourceAppOption(
+        id: id,
+        label: backupAppLabel(id, displayName: r.read<String?>('display_name')),
+        count: r.read<int>('n'),
+      );
+    }).toList();
+  }
+
+  /// Display names for app ids, straight from the mirrored registry — used to
+  /// render a backup's app in the Backups history and on Title Details.
+  Future<Map<String, String>> backupAppNames() async {
+    final rows = await select(localBackupApp).get();
+    return {for (final r in rows) r.id: r.displayName};
   }
 
   /// Drop titles from the mirror, with their category and import links.
@@ -412,6 +455,7 @@ class LocalLibraryDao extends DatabaseAccessor<AppDatabase>
     required List<String> status,
     required List<String> categoryIds,
     required List<String> sourceIds,
+    required List<String> sourceApps,
     required bool? favorite,
   }) {
     var predicate = const Constant(true);
@@ -436,6 +480,34 @@ class LocalLibraryDao extends DatabaseAccessor<AppDatabase>
               ..where((c) =>
                   c.mangaId.equalsExp(localManga.id) &
                   c.categoryId.isIn(categoryIds)),
+          );
+    }
+    if (sourceApps.isNotEmpty) {
+      // Which app a title came from is derived, not stored on the title: a
+      // title merged from a Komikku backup and a Mihon one belongs to both, so
+      // this matches ANY contributing import. Mirrors the server's EXISTS
+      // clause in `library.service.ts`.
+      final named =
+          sourceApps.where((a) => a != kUnknownSourceApp).toList(growable: false);
+      // `''` is how an unidentified backup is stored; 'unknown' is how it reads.
+      Expression<bool> matches = named.isEmpty
+          ? const Constant(false)
+          : localImportRecord.sourceApp.isIn(named);
+      if (sourceApps.contains(kUnknownSourceApp)) {
+        matches = matches | localImportRecord.sourceApp.equals('');
+      }
+
+      acc = acc &
+          existsQuery(
+            select(localMangaImport).join([
+              innerJoin(
+                localImportRecord,
+                localImportRecord.id.equalsExp(localMangaImport.importId),
+              ),
+            ])
+              ..where(
+                localMangaImport.mangaId.equalsExp(localManga.id) & matches,
+              ),
           );
     }
     return acc;

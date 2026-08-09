@@ -23,6 +23,24 @@ class ImportStaging extends ImportState {
   final String fileName;
 }
 
+/// Staged files whose producing app the filename didn't identify.
+///
+/// A separate state rather than a callback into the controller: this is a
+/// `Notifier` with no `BuildContext`, and the whole flow is already a sealed
+/// union the screen renders from. [current] is the file being asked about;
+/// answering it moves to the next [pending] one, then on to [ImportReview].
+class ImportNeedsApp extends ImportState {
+  const ImportNeedsApp({required this.queue, required this.index});
+
+  /// The whole staged queue, in order — the answer replaces one entry in place.
+  final List<StagedImport> queue;
+
+  /// Position in [queue] of the file being asked about.
+  final int index;
+
+  StagedImport get current => queue[index];
+}
+
 /// One or more files staged and awaiting the user's commit/discard decision.
 class ImportReview extends ImportState {
   const ImportReview(this.queue);
@@ -118,7 +136,60 @@ class ImportController extends Notifier<ImportState> {
         return;
       }
     }
-    state = existing.isEmpty ? const ImportIdle() : ImportReview(existing);
+    if (existing.isEmpty) {
+      state = const ImportIdle();
+      return;
+    }
+    _askOrReview(existing);
+  }
+
+  /// Ask about the next file from [from] whose app the filename didn't name,
+  /// or go to review when there is none left.
+  void _askOrReview(List<StagedImport> queue, {int from = 0}) {
+    final index =
+        queue.indexWhere((s) => s.fileMeta.sourceApp.isEmpty, from);
+    state = index == -1
+        ? ImportReview(queue)
+        : ImportNeedsApp(queue: queue, index: index);
+  }
+
+  /// Answer "which app is this from?" for the file currently being asked about.
+  ///
+  /// `''` leaves it unidentified — the backup still imports, and its titles land
+  /// in the library filter's "Unknown app" bucket. The server returns the
+  /// re-staged DTO, so the queue holds its answer rather than a local guess.
+  Future<void> setSourceApp(String stagedId, String sourceApp) async {
+    final s = state;
+    if (s is! ImportNeedsApp) return;
+
+    final queue = [...s.queue];
+    try {
+      final updated = await _repo.setSourceApp(stagedId, sourceApp);
+      final at = queue.indexWhere((q) => q.id == stagedId);
+      if (at != -1) queue[at] = updated;
+    } catch (e) {
+      state = ImportFailed(_message(e));
+      return;
+    }
+    // Resume *after* this file: skipping it leaves `sourceApp` empty, and
+    // scanning from the start would ask about it again forever.
+    _askOrReview(queue, from: s.index + 1);
+  }
+
+  /// Re-tag a file that is already in the review queue (its filename named an
+  /// app, or the user wants to change their answer).
+  Future<void> retagStaged(String stagedId, String sourceApp) async {
+    final s = state;
+    if (s is! ImportReview) return;
+    try {
+      final updated = await _repo.setSourceApp(stagedId, sourceApp);
+      final queue = [...s.queue];
+      final at = queue.indexWhere((q) => q.id == stagedId);
+      if (at != -1) queue[at] = updated;
+      state = ImportReview(queue);
+    } catch (e) {
+      state = ImportFailed(_message(e));
+    }
   }
 
   static bool _isBackupFile(PlatformFile f) {

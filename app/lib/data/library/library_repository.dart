@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/sync/sync_controller.dart';
+import '../backup_apps/backup_app_models.dart';
 import '../local/local_library_dao.dart';
 import 'library_models.dart';
 
@@ -17,6 +18,7 @@ abstract class LibraryRepository {
     List<String> status,
     List<String> categoryIds,
     List<String> sourceIds,
+    List<String> sourceApps,
     bool? favorite,
     String sortBy,
     String sortDir,
@@ -32,6 +34,12 @@ abstract class LibraryRepository {
 
   /// Sources present in the library, with title counts, for the source filter.
   Future<List<SourceOption>> sources();
+
+  /// Reading apps the library was imported from, with title counts.
+  Future<List<SourceAppOption>> sourceApps();
+
+  /// App id → display name, for labelling a backup wherever it is shown.
+  Future<Map<String, String>> backupAppNames();
 
   /// Remove titles from the local mirror after the server has deleted them.
   Future<void> forgetTitles(List<String> ids);
@@ -52,6 +60,7 @@ class LocalLibraryRepository implements LibraryRepository {
     List<String> status = const [],
     List<String> categoryIds = const [],
     List<String> sourceIds = const [],
+    List<String> sourceApps = const [],
     bool? favorite,
     String sortBy = 'title',
     String sortDir = 'asc',
@@ -63,6 +72,7 @@ class LocalLibraryRepository implements LibraryRepository {
         status: status,
         categoryIds: categoryIds,
         sourceIds: sourceIds,
+        sourceApps: sourceApps,
         favorite: favorite,
         sortBy: sortBy,
         sortDir: sortDir,
@@ -78,6 +88,12 @@ class LocalLibraryRepository implements LibraryRepository {
 
   @override
   Future<List<SourceOption>> sources() => _dao.sources();
+
+  @override
+  Future<List<SourceAppOption>> sourceApps() => _dao.sourceApps();
+
+  @override
+  Future<Map<String, String>> backupAppNames() => _dao.backupAppNames();
 
   @override
   Future<void> forgetTitles(List<String> ids) => _dao.deleteTitles(ids);

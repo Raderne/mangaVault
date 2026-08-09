@@ -15,6 +15,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { ImportJobRegistry } from './import-job.registry';
 
 import { acquireSyncLock } from '../../common/sync-lock';
+import { BackupAppsService } from '../backup-apps/backup-apps.service';
 import { CoverService } from '../covers/cover.service';
 import {
   DeletedTitlesService,
@@ -79,6 +80,7 @@ export class ImportService {
     private readonly jobs: ImportJobRegistry,
     private readonly deleted: DeletedTitlesService,
     private readonly covers: CoverService,
+    private readonly backupApps: BackupAppsService,
     config: ConfigService,
   ) {
     this.storageDir = config.get<string>('STORAGE_DIR') ?? './storage';
@@ -150,6 +152,46 @@ export class ImportService {
     };
   }
 
+  /**
+   * Re-tag a staged import with the app it came from, before it is committed.
+   *
+   * Backups are named `<applicationId>_<timestamp>.tachibk`, but a file that was
+   * renamed (or came from a fork that doesn't follow the convention) stages with
+   * `sourceApp: ''` and the app asks the user which app it is. This is where
+   * that answer lands. It also covers correcting a filename-derived value, and
+   * it is how the planned auto-backup watcher will tag a file it picked up from
+   * a folder it already knows the app for.
+   *
+   * `''` is accepted and means "unknown" — an unidentified backup must still be
+   * importable.
+   */
+  async setSourceApp(
+    stagedId: string,
+    rawSourceApp: string,
+  ): Promise<StagedImportDto> {
+    this.evictExpired();
+    const entry = this.staged.get(stagedId);
+    if (!entry) {
+      throw new NotFoundException(
+        'staged import not found or expired; re-upload the file',
+      );
+    }
+
+    entry.fileMeta = {
+      ...entry.fileMeta,
+      sourceApp: await this.backupApps.ensure(rawSourceApp),
+    };
+
+    return {
+      id: entry.id,
+      fileMeta: entry.fileMeta,
+      summary: entry.summary,
+      preview: entry.preview,
+      duplicateOf: entry.duplicateOf,
+      expiresAt: entry.createdAt + STAGED_TTL_MS,
+    };
+  }
+
   discard(stagedId: string): void {
     this.staged.delete(stagedId);
   }
@@ -217,6 +259,10 @@ export class ImportService {
       // Read once, up front: the registry only changes through explicit user
       // action, and a commit must not re-query it per title.
       const blocked = await this.deleted.blockedKeys();
+      // Whatever app this backup is tagged with must be in the registry, or the
+      // library filter would offer an id with no name behind it. Filename-derived
+      // ids land here; a user's pick already registered at PATCH time.
+      await this.backupApps.ensure(entry.fileMeta.sourceApp);
       // File is safe regardless of DB outcome — archive it first.
       await this.archiveFile(entry.fileBytes, entry.fileMeta.sha256);
       this.jobs.emit(jobId, {

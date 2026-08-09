@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/backup_apps/backup_app_models.dart';
 import '../../data/library/library_models.dart';
 import '../../data/library/library_repository.dart';
 import '../sync/sync_controller.dart';
@@ -44,6 +45,7 @@ class LibraryFilters {
     this.text = '',
     this.status = '',
     this.sourceIds = const [],
+    this.sourceApps = const [],
     this.favorite = true,
     this.sortBy = 'title',
     this.sortDir = 'asc',
@@ -57,6 +59,11 @@ class LibraryFilters {
   /// Selected Mihon source ids; empty means every source.
   final List<String> sourceIds;
 
+  /// Selected backup-app ids (`app.mihon`, or `unknown`); empty means every app.
+  /// A title matches if **any** backup that contributed to it came from one of
+  /// them — a title merged from two apps belongs to both.
+  final List<String> sourceApps;
+
   /// `true` = library favorites (default); `false` = non-favorites.
   final bool favorite;
   final String sortBy;
@@ -68,6 +75,7 @@ class LibraryFilters {
     String? text,
     String? status,
     List<String>? sourceIds,
+    List<String>? sourceApps,
     bool? favorite,
     String? sortBy,
     String? sortDir,
@@ -76,6 +84,7 @@ class LibraryFilters {
         text: text ?? this.text,
         status: status ?? this.status,
         sourceIds: sourceIds ?? this.sourceIds,
+        sourceApps: sourceApps ?? this.sourceApps,
         favorite: favorite ?? this.favorite,
         sortBy: sortBy ?? this.sortBy,
         sortDir: sortDir ?? this.sortDir,
@@ -156,6 +165,7 @@ class LibraryController extends Notifier<LibraryState> {
         text: f.text,
         status: f.statusList,
         sourceIds: f.sourceIds,
+        sourceApps: f.sourceApps,
         favorite: f.favorite,
         sortBy: f.sortBy,
         sortDir: f.sortDir,
@@ -217,6 +227,23 @@ class LibraryController extends Notifier<LibraryState> {
     _fetch(reset: true);
   }
 
+  /// Add or remove one backup app from the "from app" filter (multi-select).
+  void toggleSourceApp(String appId) {
+    final next = [...state.filters.sourceApps];
+    if (!next.remove(appId)) next.add(appId);
+    setSourceApps(next);
+  }
+
+  /// Replace the backup-app filter wholesale; an empty list means "all apps".
+  void setSourceApps(List<String> sourceApps) {
+    if (_sameIds(sourceApps, state.filters.sourceApps)) return;
+    state = state.copyWith(
+      filters:
+          state.filters.copyWith(sourceApps: List.unmodifiable(sourceApps)),
+    );
+    _fetch(reset: true);
+  }
+
   /// Toggle between favorites (default) and non-favorites.
   void setFavorite(bool favorite) {
     if (favorite == state.filters.favorite) return;
@@ -255,6 +282,7 @@ class LibraryController extends Notifier<LibraryState> {
         text: f.text,
         status: f.statusList,
         sourceIds: f.sourceIds,
+        sourceApps: f.sourceApps,
         favorite: f.favorite,
         sortBy: f.sortBy,
         sortDir: f.sortDir,
@@ -303,7 +331,8 @@ class LibraryController extends Notifier<LibraryState> {
       a.favorite == b.favorite &&
       a.sortBy == b.sortBy &&
       a.sortDir == b.sortDir &&
-      _sameIds(a.sourceIds, b.sourceIds);
+      _sameIds(a.sourceIds, b.sourceIds) &&
+      _sameIds(a.sourceApps, b.sourceApps);
 
   static bool _sameIds(List<String> a, List<String> b) {
     if (identical(a, b)) return true;
@@ -331,6 +360,15 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) {
 final librarySourcesProvider = FutureProvider<List<SourceOption>>((ref) {
   ref.watch(localRevisionProvider);
   return ref.watch(libraryRepositoryProvider).sources();
+});
+
+/// Reading apps the library was actually imported from, for the "from app"
+/// filter. Like [librarySourcesProvider] this lists what you can filter by
+/// rather than the whole registry — an app you've never imported from would be
+/// a chip that always returns nothing.
+final libraryAppsProvider = FutureProvider<List<SourceAppOption>>((ref) {
+  ref.watch(localRevisionProvider);
+  return ref.watch(libraryRepositoryProvider).sourceApps();
 });
 
 /// Full details for one title, keyed by id (Title Details screen).

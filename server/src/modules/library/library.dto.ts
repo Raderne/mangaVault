@@ -31,6 +31,12 @@ export interface LibraryQueryDto {
   status: PublicationStatus[];
   categoryIds: string[];
   sourceIds: string[];
+  /**
+   * Backup-app ids (`app.mihon`, …) a title must have come from — matched
+   * against **any** contributing import, plus the `'unknown'` bucket for
+   * backups whose producing app was never identified.
+   */
+  sourceApps: string[];
   /** When set, restrict to favorites (`true`) or non-favorites (`false`). */
   favorite?: boolean;
   sortBy: LibrarySortField;

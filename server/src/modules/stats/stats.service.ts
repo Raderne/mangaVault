@@ -196,6 +196,7 @@ export class StatsService {
       status: [],
       categoryIds: [],
       sourceIds: [],
+      sourceApps: [],
       sortBy: 'dateAdded',
       sortDir: 'desc',
       offset: 0,

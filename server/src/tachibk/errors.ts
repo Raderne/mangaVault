@@ -18,3 +18,21 @@ export class BackupParseError extends Error {
     this.name = 'BackupParseError';
   }
 }
+
+export type EncodeStage = 'protobuf' | 'gzip';
+
+/**
+ * Thrown when a backup cannot be written. Kept separate from
+ * {@link BackupParseError} so the export path can't accidentally be reported as
+ * a corrupt *input* — an encode failure is always our bug, never the user's file.
+ */
+export class BackupEncodeError extends Error {
+  constructor(
+    readonly stage: EncodeStage,
+    message: string,
+    readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'BackupEncodeError';
+  }
+}

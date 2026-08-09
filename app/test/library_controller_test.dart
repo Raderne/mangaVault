@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangavault/data/backup_apps/backup_app_models.dart';
 import 'package:mangavault/data/library/library_models.dart';
 import 'package:mangavault/data/library/library_repository.dart';
 import 'package:mangavault/features/library/library_controller.dart';
@@ -20,6 +21,12 @@ class FakeLibraryRepository extends LibraryRepository {
   Future<List<SourceOption>> sources() async => const [];
 
   @override
+  Future<List<SourceAppOption>> sourceApps() async => const [];
+
+  @override
+  Future<Map<String, String>> backupAppNames() async => const {};
+
+  @override
   Future<void> forgetTitles(List<String> ids) async {}
 
   final List<MangaListItem> all;
@@ -29,6 +36,7 @@ class FakeLibraryRepository extends LibraryRepository {
   int queries = 0;
   bool? lastFavorite;
   List<String> lastSourceIds = const [];
+  List<String> lastSourceApps = const [];
 
   @override
   Future<LibraryPage> query({
@@ -36,6 +44,7 @@ class FakeLibraryRepository extends LibraryRepository {
     List<String> status = const [],
     List<String> categoryIds = const [],
     List<String> sourceIds = const [],
+    List<String> sourceApps = const [],
     bool? favorite,
     String sortBy = 'title',
     String sortDir = 'asc',
@@ -45,6 +54,7 @@ class FakeLibraryRepository extends LibraryRepository {
     queries++;
     lastFavorite = favorite;
     lastSourceIds = sourceIds;
+    lastSourceApps = sourceApps;
     var filtered = all;
     if (status.isNotEmpty) {
       filtered = filtered.where((m) => status.contains(m.status)).toList();
@@ -181,6 +191,48 @@ void main() {
     controller.setSources(['s2']);
     await Future<void>.delayed(Duration.zero);
     expect(repo.queries, before);
+  });
+
+  test('toggleSourceApp adds and removes, and re-queries each time', () async {
+    final repo = FakeLibraryRepository([_item(1), _item(2)]);
+    final container = _containerWith(repo);
+    final controller = container.read(libraryControllerProvider.notifier);
+
+    await controller.refresh();
+    controller.toggleSourceApp('app.mihon');
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.lastSourceApps, ['app.mihon']);
+
+    controller.toggleSourceApp('unknown');
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.lastSourceApps, ['app.mihon', 'unknown']);
+
+    controller.toggleSourceApp('app.mihon');
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.lastSourceApps, ['unknown']);
+
+    final before = repo.queries;
+    controller.setSourceApps(['unknown']);
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.queries, before);
+  });
+
+  test('resetFilters clears the app filter', () async {
+    final repo = FakeLibraryRepository([_item(1)]);
+    final container = _containerWith(repo);
+    final controller = container.read(libraryControllerProvider.notifier);
+
+    await controller.refresh();
+    controller.toggleSourceApp('app.mihon');
+    await Future<void>.delayed(Duration.zero);
+    controller.resetFilters();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      container.read(libraryControllerProvider).filters.sourceApps,
+      isEmpty,
+    );
+    expect(repo.lastSourceApps, isEmpty);
   });
 
   test('setSort reverses the direction when the field is already active',

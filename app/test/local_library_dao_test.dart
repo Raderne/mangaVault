@@ -173,6 +173,85 @@ void main() {
     });
   });
 
+  group('source apps', () {
+    /// Alpha came from two apps' backups, Beta from Komikku only, Gamma from a
+    /// backup nothing identified — the three cases the feature has to model.
+    setUp(() async {
+      await seed(db, id: 'a', title: 'Alpha Archivist');
+      await seed(db, id: 'b', title: 'Beta Compendium');
+      await seed(db, id: 'c', title: 'Gamma Chronicle');
+
+      Future<void> import(String id, String app, List<String> mangaIds) async {
+        await db.into(db.localImportRecord).insert(
+              LocalImportRecordCompanion.insert(
+                id: id,
+                fileName: '$id.tachibk',
+                sourceApp: Value(app),
+              ),
+            );
+        for (final m in mangaIds) {
+          await db.into(db.localMangaImport).insert(
+                LocalMangaImportCompanion.insert(mangaId: m, importId: id),
+              );
+        }
+      }
+
+      await import('i-mihon', 'app.mihon', ['a']);
+      await import('i-komikku', 'app.komikku', ['a', 'b']);
+      await import('i-untagged', '', ['c']);
+
+      await db.into(db.localBackupApp).insert(
+            LocalBackupAppCompanion.insert(
+              id: 'app.mihon',
+              displayName: 'Mihon',
+              curated: const Value(true),
+            ),
+          );
+    });
+
+    test('lists apps with title counts, busiest first', () async {
+      final apps = await dao.sourceApps();
+      expect(apps.map((a) => a.id), ['app.komikku', 'app.mihon', 'unknown']);
+      expect(apps.first.count, 2);
+      // A registered app reads by name; an unregistered one falls back to its
+      // id, and a blank source_app becomes the "unknown" bucket.
+      expect(apps.firstWhere((a) => a.id == 'app.mihon').label, 'Mihon');
+      expect(apps.firstWhere((a) => a.id == 'app.komikku').label, 'app.komikku');
+      expect(apps.firstWhere((a) => a.id == 'unknown').label, 'Unknown app');
+    });
+
+    test('matches a title through any contributing import', () async {
+      final mihon = await dao.queryPage(sourceApps: ['app.mihon']);
+      expect(mihon.items.map((i) => i.title), ['Alpha Archivist']);
+
+      final komikku = await dao.queryPage(sourceApps: ['app.komikku']);
+      expect(komikku.items.map((i) => i.title),
+          ['Alpha Archivist', 'Beta Compendium']);
+    });
+
+    test('counts a title once when several selected apps contributed it',
+        () async {
+      final both =
+          await dao.queryPage(sourceApps: ['app.mihon', 'app.komikku']);
+      expect(both.total, 2);
+      expect(both.items.map((i) => i.title),
+          ['Alpha Archivist', 'Beta Compendium']);
+    });
+
+    test('buckets unidentified backups under "unknown"', () async {
+      final p = await dao.queryPage(sourceApps: ['unknown'], favorite: null);
+      expect(p.items.map((i) => i.title), ['Gamma Chronicle']);
+    });
+
+    test('an unknown app id matches nothing', () async {
+      expect((await dao.queryPage(sourceApps: ['app.nope'])).total, 0);
+    });
+
+    test('backupAppNames maps ids to display names', () async {
+      expect(await dao.backupAppNames(), {'app.mihon': 'Mihon'});
+    });
+  });
+
   group('get', () {
     test('returns the record with categories and archive history', () async {
       await seed(db,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangavault/data/backup_apps/backup_app_models.dart';
 import 'package:mangavault/data/library/deleted_models.dart';
 import 'package:mangavault/data/library/library_models.dart';
 import 'package:mangavault/data/library/library_repository.dart';
@@ -25,6 +26,7 @@ class _FakeRepo extends LibraryRepository {
     List<String> status = const [],
     List<String> categoryIds = const [],
     List<String> sourceIds = const [],
+    List<String> sourceApps = const [],
     bool? favorite,
     String sortBy = 'title',
     String sortDir = 'asc',
@@ -42,6 +44,12 @@ class _FakeRepo extends LibraryRepository {
 
   @override
   Future<List<SourceOption>> sources() async => const [];
+
+  @override
+  Future<List<SourceAppOption>> sourceApps() async => const [];
+
+  @override
+  Future<Map<String, String>> backupAppNames() async => const {};
 
   @override
   Future<void> forgetTitles(List<String> ids) async {

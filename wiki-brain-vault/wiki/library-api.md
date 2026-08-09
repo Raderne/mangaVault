@@ -73,6 +73,9 @@ in place:
 - `status` — CSV of `PublicationStatus`; invalid values dropped.
 - `categoryIds` — CSV of uuids (`EXISTS` against `manga_category`, cast `::uuid[]`).
 - `sourceIds` — CSV of decimal source-id strings.
+- `sourceApps` — CSV of backup-app ids (`app.mihon`, plus the `unknown` bucket), lower-cased. An
+  `EXISTS` over `manga_import ⋈ import_record`, so a title merged from two apps' backups matches
+  **either** and is counted once. See [[backup-apps]].
 - `favorite` — `true` / `false` (also accepts `1`/`0`); when set, `m.favorite = …`.
   Omitted → no favorite filter (whole library).
 - `sortBy` ∈ `title | dateAdded | lastReadAt | chapterCount | unreadCount` (default `title`);

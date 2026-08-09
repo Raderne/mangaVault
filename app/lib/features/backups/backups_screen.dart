@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/backup_apps/backup_app_models.dart';
+import '../../data/backup_apps/backup_apps_repository.dart';
 import '../../data/import/import_models.dart';
 import '../../theme/app_dimens.dart';
 import '../../widgets/bento_cell.dart';
@@ -9,6 +11,7 @@ import '../../widgets/glow_progress_bar.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/status_chip.dart';
 import 'import_controller.dart';
+import 'source_app_sheet.dart';
 
 /// Backup & Sources: import hub per the `backup_sources` mockup. Upload
 /// `.tachibk`/`.json` backups, review the staged merge, watch the import stream
@@ -29,6 +32,8 @@ class BackupsScreen extends ConsumerWidget {
           _ImportCtaCell(busy: busy),
           const SizedBox(height: AppDimens.gutter),
           ..._stateCells(context, ref, state),
+          const _ExportCtaCell(),
+          const SizedBox(height: AppDimens.gutter),
           const _HistoryCell(),
         ],
       ),
@@ -39,6 +44,10 @@ class BackupsScreen extends ConsumerWidget {
     return switch (state) {
       ImportStaging(:final fileName) => [
           _BusyCell(label: 'Reading $fileName…'),
+          const SizedBox(height: AppDimens.gutter),
+        ],
+      ImportNeedsApp() => [
+          _NeedsAppCell(state: state),
           const SizedBox(height: AppDimens.gutter),
         ],
       ImportReview(:final queue) => [
@@ -100,6 +109,49 @@ class _ImportCtaCell extends ConsumerWidget {
   }
 }
 
+/// The way out of the vault, sat directly opposite the way in.
+///
+/// The pairing is the point: an archive you can only put things into is a trap,
+/// so "create a backup" lives at the same level as "import one" rather than
+/// behind a settings menu.
+class _ExportCtaCell extends StatelessWidget {
+  const _ExportCtaCell();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return BentoCell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Expanded(child: CellLabel('Export')),
+              AccentIconWell(icon: Icons.archive_outlined),
+            ],
+          ),
+          const SizedBox(height: AppDimens.unit),
+          Text('Create Backup', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            'Write your library back out as a .tachibk file — everything, your '
+            'favorites, or any slice by app, source or category. Restores into '
+            'Mihon and its forks.',
+            style: theme.textTheme.bodyMedium!
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppDimens.unit * 2),
+          PillButton(
+            label: 'Create Backup',
+            icon: Icons.download,
+            onPressed: () => context.go('/backups/export'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BusyCell extends StatelessWidget {
   const _BusyCell({required this.label});
   final String label;
@@ -116,6 +168,113 @@ class _BusyCell extends StatelessWidget {
           ),
           const SizedBox(width: AppDimens.gutter),
           Expanded(child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Asks which reading app a backup came from, when its filename didn't say.
+///
+/// The sheet opens on its own the moment this cell appears — the flow is
+/// blocked on the answer, so making the user tap a button first is a wasted
+/// step. Dismissing it leaves the cell in place with a button to reopen, so a
+/// stray back-swipe can't strand the import.
+class _NeedsAppCell extends ConsumerStatefulWidget {
+  const _NeedsAppCell({required this.state});
+  final ImportNeedsApp state;
+
+  @override
+  ConsumerState<_NeedsAppCell> createState() => _NeedsAppCellState();
+}
+
+class _NeedsAppCellState extends ConsumerState<_NeedsAppCell> {
+  /// Staged ids the sheet has already been auto-opened for, so rebuilds (and
+  /// the rebuild caused by dismissing it) don't reopen it in a loop.
+  final _autoOpened = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOpen());
+  }
+
+  @override
+  void didUpdateWidget(_NeedsAppCell old) {
+    super.didUpdateWidget(old);
+    if (old.state.current.id != widget.state.current.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOpen());
+    }
+  }
+
+  void _maybeOpen() {
+    if (!mounted) return;
+    if (_autoOpened.add(widget.state.current.id)) _open();
+  }
+
+  Future<void> _open() async {
+    final staged = widget.state.current;
+    final picked = await showSourceAppSheet(
+      context,
+      fileName: staged.fileMeta.fileName,
+      current: staged.fileMeta.sourceApp.isEmpty
+          ? null
+          : staged.fileMeta.sourceApp,
+    );
+    if (picked == null || !mounted) return; // dismissed — leave the cell up
+    await ref
+        .read(importControllerProvider.notifier)
+        .setSourceApp(staged.id, picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final staged = widget.state.current;
+    final remaining = widget.state.queue.length - widget.state.index - 1;
+
+    return BentoCell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CellLabel('Identify backup'),
+          const SizedBox(height: AppDimens.unit * 2),
+          Text(staged.fileMeta.fileName, style: theme.textTheme.bodyLarge),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            "This filename doesn't say which app it came from. Pick one so the "
+            'library can be filtered by it.',
+            style: theme.textTheme.bodyMedium!
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          if (remaining > 0) ...[
+            const SizedBox(height: AppDimens.unit),
+            Text(
+              '$remaining more file(s) after this one.',
+              style: theme.textTheme.labelSmall!
+                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: AppDimens.gutter),
+          Row(
+            children: [
+              PillButton(
+                label: 'Choose app',
+                icon: Icons.smartphone_rounded,
+                onPressed: _open,
+              ),
+              const SizedBox(width: AppDimens.unit),
+              TextButton(
+                onPressed: () => ref
+                    .read(importControllerProvider.notifier)
+                    .setSourceApp(staged.id, ''),
+                child: Text(
+                  'Skip',
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -163,15 +322,15 @@ class _ReviewCell extends ConsumerWidget {
   }
 }
 
-class _StagedFileSection extends StatefulWidget {
+class _StagedFileSection extends ConsumerStatefulWidget {
   const _StagedFileSection({super.key, required this.staged});
   final StagedImport staged;
 
   @override
-  State<_StagedFileSection> createState() => _StagedFileSectionState();
+  ConsumerState<_StagedFileSection> createState() => _StagedFileSectionState();
 }
 
-class _StagedFileSectionState extends State<_StagedFileSection> {
+class _StagedFileSectionState extends ConsumerState<_StagedFileSection> {
   /// Active count-chip filter: the `MergeResult.action` to show, or null for
   /// everything. Tapping the active chip again clears it.
   String? _filter;
@@ -179,6 +338,24 @@ class _StagedFileSectionState extends State<_StagedFileSection> {
   void _toggle(String action) => setState(
         () => _filter = _filter == action ? null : action,
       );
+
+  /// Re-open the picker for a file that is already in the review queue — the
+  /// filename-derived app can be wrong, and this is the last chance to fix it
+  /// before the tag is written to the import record.
+  Future<void> _retag() async {
+    final staged = widget.staged;
+    final picked = await showSourceAppSheet(
+      context,
+      fileName: staged.fileMeta.fileName,
+      current: staged.fileMeta.sourceApp.isEmpty
+          ? null
+          : staged.fileMeta.sourceApp,
+    );
+    if (picked == null || !mounted) return;
+    await ref
+        .read(importControllerProvider.notifier)
+        .retagStaged(staged.id, picked);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +375,12 @@ class _StagedFileSectionState extends State<_StagedFileSection> {
           spacing: AppDimens.unit,
           runSpacing: AppDimens.unit,
           children: [
+            // Which app this backup is credited to, and a way to change it —
+            // the same tag the library's "from app" filter will read.
+            _SourceAppChip(
+              sourceApp: staged.fileMeta.sourceApp,
+              onTap: _retag,
+            ),
             // The three outcome counts double as filters over the list below —
             // on a 2,000-title backup, "which 3 were skipped?" is otherwise a
             // long scroll. A zero count stays inert: nothing to show.
@@ -264,6 +447,26 @@ class _StagedFileSectionState extends State<_StagedFileSection> {
         ),
         const Divider(height: AppDimens.gutter * 2),
       ],
+    );
+  }
+}
+
+/// The app a backup is credited to. Renders the registry's display name, falling
+/// back to the raw id, and reads "Unknown app" when nothing identified it.
+class _SourceAppChip extends ConsumerWidget {
+  const _SourceAppChip({required this.sourceApp, this.onTap});
+
+  final String sourceApp;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final names = ref.watch(backupAppNamesProvider).value ?? const {};
+    final label = backupAppLabel(sourceApp, displayName: names[sourceApp]);
+    return StatusChip(
+      label,
+      emphasized: sourceApp.isNotEmpty,
+      onTap: onTap,
     );
   }
 }
@@ -518,14 +721,15 @@ class _HistoryCell extends ConsumerWidget {
   }
 }
 
-class _HistoryRow extends StatelessWidget {
+class _HistoryRow extends ConsumerWidget {
   const _HistoryRow({required this.record});
   final ImportRecord record;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final s = record.stats;
+    final names = ref.watch(backupAppNamesProvider).value ?? const {};
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -536,7 +740,7 @@ class _HistoryRow extends StatelessWidget {
               Text(record.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 2),
               Text(
-                '${record.sourceApp.isEmpty ? 'unknown' : record.sourceApp} · '
+                '${backupAppLabel(record.sourceApp, displayName: names[record.sourceApp])} · '
                 '${s.titlesNew} new · ${s.titlesMerged} merged'
                 '${s.titlesSkipped > 0 ? ' · ${s.titlesSkipped} skipped' : ''}'
                 ' · ${_relativeDate(record.importedAt)}',

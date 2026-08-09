@@ -13,6 +13,8 @@ the first time substantial work happens on a topic.
 
 - [[migration]] — DB migration workflow, rules (never `synchronize`, never edit applied migrations).
 - [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage.
+- [[backup-export]] — creating `.tachibk` files: the encoder (parser run backwards), the scope
+  model, streaming build with no server storage, and the three-step export wizard.
 - [[library-api]] — `/library` query + `/library/:id` + `/categories`, and title **deletion**
   (tombstones, sync lock, cover cleanup); Flutter grid, Title Details, paging, animation language.
 - [[deleted-titles]] — the deletion registry: why a delete must survive the next backup import, the
@@ -27,6 +29,9 @@ the first time substantial work happens on a topic.
 ## Domain
 
 - [[tachibk-format]] — `.tachibk`/legacy-JSON parsing lib: pipeline, protobuf/int64/favorite gotchas.
+  The write direction lives in [[backup-export]].
+- [[backup-apps]] — which reading app a backup came from: filename parsing, the `backup_app`
+  registry, the import picker, the library's "from app" filter, and the auto-backup groundwork.
 - [[cover-fetching]] — M4 cover archiving: `/covers/*`, the Mihon-style fetcher, concurrency, serve +
   `Image.network` auth, the app's archive banner / progressive reveal, and the **durable `cover_job`**
   (cancel, boot resume, post-import trigger).

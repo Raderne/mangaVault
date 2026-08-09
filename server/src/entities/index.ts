@@ -1,3 +1,4 @@
+import { BackupAppEntity } from './backup-app.entity';
 import { CategoryEntity } from './category.entity';
 import { ChapterEntity } from './chapter.entity';
 import { CoverJobEntity } from './cover-job.entity';
@@ -8,6 +9,7 @@ import { MangaEntity } from './manga.entity';
 import { TrackingEntity } from './tracking.entity';
 
 export {
+  BackupAppEntity,
   CategoryEntity,
   ChapterEntity,
   CoverJobEntity,
@@ -19,6 +21,7 @@ export {
 };
 
 export const ALL_ENTITIES = [
+  BackupAppEntity,
   CategoryEntity,
   ChapterEntity,
   CoverJobEntity,

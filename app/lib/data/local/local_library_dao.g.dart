@@ -12,6 +12,7 @@ mixin _$LocalLibraryDaoMixin on DatabaseAccessor<AppDatabase> {
       attachedDatabase.localImportRecord;
   $LocalMangaImportTable get localMangaImport =>
       attachedDatabase.localMangaImport;
+  $LocalBackupAppTable get localBackupApp => attachedDatabase.localBackupApp;
   $SyncMetaTable get syncMeta => attachedDatabase.syncMeta;
   LocalLibraryDaoManager get managers => LocalLibraryDaoManager(this);
 }
@@ -37,6 +38,11 @@ class LocalLibraryDaoManager {
       $$LocalMangaImportTableTableManager(
         _db.attachedDatabase,
         _db.localMangaImport,
+      );
+  $$LocalBackupAppTableTableManager get localBackupApp =>
+      $$LocalBackupAppTableTableManager(
+        _db.attachedDatabase,
+        _db.localBackupApp,
       );
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db.attachedDatabase, _db.syncMeta);

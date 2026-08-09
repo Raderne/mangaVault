@@ -109,6 +109,7 @@ function parseLibraryQuery(raw: Record<string, string>): LibraryQueryDto {
     status,
     categoryIds: csv(raw.categoryIds),
     sourceIds: csv(raw.sourceIds),
+    sourceApps: csv(raw.sourceApps).map((s) => s.toLowerCase()),
     favorite,
     sortBy,
     sortDir,

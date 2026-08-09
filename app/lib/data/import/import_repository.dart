@@ -23,6 +23,18 @@ class ImportRepository {
     return StagedImport.fromJson(res.data!);
   }
 
+  /// Tag a staged import with the app it came from, before committing it.
+  ///
+  /// Pass `''` to leave it unknown. Returns the re-staged DTO so the review
+  /// cell re-renders from the server's answer rather than a local guess.
+  Future<StagedImport> setSourceApp(String stagedId, String sourceApp) async {
+    final res = await _dio.patch<Map<String, dynamic>>(
+      '/imports/stage/$stagedId',
+      data: {'sourceApp': sourceApp},
+    );
+    return StagedImport.fromJson(res.data!);
+  }
+
   /// Start the streamed commit; returns the job id to stream events from.
   Future<String> commit(String stagedId) async {
     final res = await _dio.post<Map<String, dynamic>>('/imports/stage/$stagedId/commit');

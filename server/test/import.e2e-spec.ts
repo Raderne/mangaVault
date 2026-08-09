@@ -5,6 +5,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 
 import { AppModule } from '../src/app.module';
+import type { BackupAppDto } from '../src/modules/backup-apps/backup-apps.dto';
 import type {
   CommitStartedDto,
   ImportEvent,
@@ -59,6 +60,8 @@ describe('Import pipeline (e2e)', () => {
     9_100_000_000_000_000_000n + BigInt(runId % 1_000_000),
   );
   const fileName = `app.mihon_2026-07-18_10-30.tachibk`;
+  /** A user-added app id, unique per run so the registry test cleans up cleanly. */
+  const customApp = `dev.e2e.reader${runId % 1_000_000}`;
 
   const backup = (over: Record<string, unknown> = {}) =>
     encodeBackupGzip({
@@ -79,11 +82,18 @@ describe('Import pipeline (e2e)', () => {
       ],
     });
 
-  async function stageFile(bytes: Uint8Array): Promise<StagedImportDto> {
+  /** Every filename this run uploaded, so `afterAll` can clean up exactly those. */
+  const usedFileNames = new Set<string>();
+
+  async function stageFile(
+    bytes: Uint8Array,
+    name = fileName,
+  ): Promise<StagedImportDto> {
+    usedFileNames.add(name);
     const res = await request(app.getHttpServer())
       .post('/api/v1/imports/stage')
       .set('Authorization', auth)
-      .attach('file', Buffer.from(bytes), fileName)
+      .attach('file', Buffer.from(bytes), name)
       .expect(201);
     return res.body as StagedImportDto;
   }
@@ -137,9 +147,10 @@ describe('Import pipeline (e2e)', () => {
         [sourceId, sourceIdBatch],
       ]);
       await ds.query(
-        `DELETE FROM import_record WHERE source_app = 'app.mihon' AND file_name = $1 AND imported_at >= $2`,
-        [fileName, runId],
+        `DELETE FROM import_record WHERE file_name = ANY($1) AND imported_at >= $2`,
+        [[...usedFileNames], runId],
       );
+      await ds.query(`DELETE FROM backup_app WHERE id = $1`, [customApp]);
       await ds.query(`DELETE FROM category WHERE name = $1`, [
         `Reading-${runId}`,
       ]);
@@ -284,6 +295,85 @@ describe('Import pipeline (e2e)', () => {
         ]),
       ),
     ).toBe(titles);
+  });
+
+  describe('source app attribution', () => {
+    const sourceIdApp = String(
+      9_200_000_000_000_000_000n + BigInt(runId % 1_000_000),
+    );
+    const untaggedName = `library-backup-${runId}.tachibk`;
+
+    const appBackup = (slug: string) =>
+      encodeBackupGzip({
+        backupSources: [{ name: 'MangaDex', sourceId: sourceIdApp }],
+        backupManga: [
+          {
+            source: sourceIdApp,
+            url: `/manga/${runId}/app/${slug}`,
+            title: `App Title ${slug}`,
+            status: 1,
+          },
+        ],
+      });
+
+    afterAll(async () => {
+      if (ds?.isInitialized) {
+        await ds.query(`DELETE FROM manga WHERE source_id = $1`, [sourceIdApp]);
+        await ds.query(`DELETE FROM known_source WHERE source_id = $1`, [
+          sourceIdApp,
+        ]);
+      }
+    });
+
+    it('reads the app id from a date-only filename', async () => {
+      const staged = await stageFile(
+        appBackup('dateonly'),
+        'app.mihon_2026-07-16.tachibk',
+      );
+      expect(staged.fileMeta.sourceApp).toBe('app.mihon');
+    });
+
+    it('leaves sourceApp empty when the filename carries no app prefix', async () => {
+      const staged = await stageFile(appBackup('untagged'), untaggedName);
+      expect(staged.fileMeta.sourceApp).toBe('');
+    });
+
+    it('tags a staged import via PATCH, registers the app, and commits with it', async () => {
+      const staged = await stageFile(appBackup('patched'), untaggedName);
+      expect(staged.fileMeta.sourceApp).toBe('');
+
+      const patched = await request(app.getHttpServer())
+        .patch(`/api/v1/imports/stage/${staged.id}`)
+        .set('Authorization', auth)
+        .send({ sourceApp: customApp })
+        .expect(200);
+      expect((patched.body as StagedImportDto).fileMeta.sourceApp).toBe(
+        customApp,
+      );
+
+      const { record } = await commitAndWait(staged.id);
+      expect(record.sourceApp).toBe(customApp);
+
+      // Using an app id is what registers it — the library filter reads the
+      // registry, so an id it can be filtered by must have a name behind it.
+      const apps = await request(app.getHttpServer())
+        .get('/api/v1/backup-apps')
+        .set('Authorization', auth)
+        .expect(200);
+      const mine = (apps.body as BackupAppDto[]).find(
+        (a) => a.id === customApp,
+      );
+      expect(mine).toMatchObject({ curated: false, importCount: 1 });
+      expect(mine!.titleCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('rejects a PATCH with a non-string sourceApp', () => {
+      return request(app.getHttpServer())
+        .patch(`/api/v1/imports/stage/${stagedId}`)
+        .set('Authorization', auth)
+        .send({ sourceApp: 42 })
+        .expect(400);
+    });
   });
 
   it('lists imports in history (newest first)', async () => {
