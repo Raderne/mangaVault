@@ -1,6 +1,7 @@
 # Reference clone, not part of the build
 /MihonApp
 /VM
+C:\Dev\projects\MangaVault\App design
 
 # Node / NestJS
 node_modules/
