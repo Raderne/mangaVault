@@ -5,6 +5,10 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-09 23:30] session | Deploy plan for the shared Oracle VM + 1.0.0 branch
+Touched: deployment (new), index
+Co-tenant with Expensy behind its existing Caddy via a shared `edge` network; no new ports.
+
 ## [2026-08-09 22:30] session | Per-user server setup replaces compile-time config
 Touched: server-connection (new), index, flutter-app, app-updates
 Reverses the 2026-07-18 "baked in at build time" decision — a public APK cannot carry a token.

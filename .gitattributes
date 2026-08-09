@@ -1,0 +1,27 @@
+# Development happens on Windows (core.autocrlf=true) but the server, its
+# container, and the ops cron all run on Linux. Anything executed there must be
+# stored and checked out with LF — a shell script with CRLF fails on the VM with
+# a bare `bad interpreter: /usr/bin/env bash^M`, which reads like a missing
+# interpreter rather than a line-ending problem.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+.env.example    text eol=lf
+*.env.example   text eol=lf
+Caddyfile*      text eol=lf
+gradlew         text eol=lf
+
+# Windows-only.
+*.bat           text eol=crlf
+*.ps1           text eol=crlf
+
+# Never normalize binaries.
+*.png           binary
+*.jpg           binary
+*.ttf           binary
+*.keystore      binary
+*.jks           binary
+*.tachibk       binary
+*.apk           binary

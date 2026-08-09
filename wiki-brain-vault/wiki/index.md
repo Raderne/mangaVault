@@ -33,7 +33,8 @@ the first time substantial work happens on a topic.
   download → install), APK signing, and the GitHub Releases workflow.
 - [[server-connection]] — the setup screen and runtime server config: why the URL/token are no
   longer compiled in, keystore storage, the two-step connection check, and the router gate.
-- [[deployment]] — _(to be created)_ how/where the server is deployed (Docker on a VM).
+- [[deployment]] — the server on the shared Oracle VM: `vault.expensy-app.org`, the one-Caddy /
+  two-apps `edge` network, env, ARM64 build rule, and backups.
 
 ## Domain
 

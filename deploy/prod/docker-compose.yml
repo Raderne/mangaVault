@@ -1,0 +1,64 @@
+# Manga Vault production stack — Oracle Cloud VM (Ubuntu 24.04, aarch64),
+# co-tenant with the Expensy stack already on that box.
+#
+# Copy this to ~/deploy/mangavault/ on the VM; see
+# wiki-brain-vault/wiki/deployment.md for the full runbook.
+#
+# Two things make this different from the repo-root docker-compose.yml (which
+# is for local development):
+#   * No published ports. The server is reached only through the shared `edge`
+#     network by the Caddy container that already fronts api.expensy-app.org.
+#     Nothing new is exposed to the internet, and Postgres is not reachable
+#     from outside this stack at all.
+#   * Built on the VM. The base images are multi-arch but the machine is ARM64 —
+#     an image built on an x86 laptop or CI runner will not run here.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: mangavault
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: mangavault
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mangavault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: ../../mangavault/server # ~/deploy/mangavault → ~/mangavault/server
+      dockerfile: Dockerfile
+    restart: always
+    env_file: ./server.env
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "3000" # only Caddy talks to it; no host port
+    volumes:
+      # Archived cover art. A named volume, not a bind mount, so it survives
+      # `docker compose down` and is backed up explicitly (see ops/backup.sh).
+      - storage:/data/storage
+    networks:
+      default: # reaches `db`
+      edge: # reaches the shared Caddy
+        aliases:
+          # What the Caddyfile reverse_proxies to. An alias rather than
+          # `container_name` so Compose keeps its own naming, and so the name
+          # cannot collide with a service called `server` in another stack.
+          - mangavault-server
+
+networks:
+  # Created once by hand: `docker network create edge`. Shared with the Expensy
+  # stack, whose Caddy is the only ingress on this VM.
+  edge:
+    external: true
+
+volumes:
+  pgdata:
+  storage:

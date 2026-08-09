@@ -1,0 +1,34 @@
+# Append this block to the EXISTING Caddyfile at ~/deploy/prod/Caddyfile on the
+# VM — the one that already serves api.expensy-app.org. Do not create a second
+# Caddy: only one process can hold ports 80 and 443.
+#
+# `mangavault-server` is the network alias the Manga Vault stack publishes on
+# the shared `edge` network (see deploy/prod/docker-compose.yml). Caddy can only
+# resolve it once its own container has joined that network.
+#
+# Reload without dropping the Expensy API:
+#   docker compose -f ~/deploy/prod/docker-compose.yml exec -w /etc/caddy caddy \
+#     caddy reload
+
+vault.expensy-app.org {
+    encode gzip
+
+    # Backups are uploaded whole: the server accepts up to 200 MB
+    # (MAX_UPLOAD_BYTES in src/modules/import/import.controller.ts). Caddy sets
+    # no body limit by default, so this is only here to document the ceiling —
+    # if you ever add `request_body max_size`, it must stay at or above this.
+    request_body {
+        max_size 200MB
+    }
+
+    # Importing a large backup and archiving covers both hold the connection
+    # open well past Caddy's default 30s write timeout, and the import progress
+    # stream is server-sent events that must not be buffered or cut off.
+    reverse_proxy mangavault-server:3000 {
+        flush_interval -1
+        transport http {
+            response_header_timeout 5m
+            read_timeout 30m
+        }
+    }
+}
