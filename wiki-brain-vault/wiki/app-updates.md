@@ -191,8 +191,17 @@ the server is compiled in, and About talks about the *app*, not the library.
 
 ### Release history
 
-- **v1.0.0** — tagged 2026-08-09 from `release/1.0.0`. First public release; the repo was made
-  public for it, which is what lets the in-app updater read the Releases API without a credential.
+- **v1.0.0** — tagged 2026-08-09 at `514995b` from `release/1.0.0`, published by the workflow in
+  ~8 min. First public release; the repo was made public for it, which is what lets the in-app
+  updater read the Releases API without a credential. Asset `manga-vault-1.0.0.apk`, **61.5 MB**
+  (universal, all ABIs, no R8 — see the deferred list below).
+
+  Verified end to end against the *published* release, not a fixture: `AppRelease.fromJson` +
+  `parseReleaseNotes` over the live `/releases` payload returns one installable release, 14 items
+  in a single emerald `ADDED` group, wrapped bullets rejoined into whole sentences, and an
+  installed 1.0.0 correctly concludes **up to date** rather than offering itself as an update.
+  That exercises the whole chain: `CHANGELOG.md` → `changelog-section.mjs` → GitHub release body →
+  the app's parser. Worth repeating after any change to the changelog format or the slicer.
 
 ### Cutting a release
 
