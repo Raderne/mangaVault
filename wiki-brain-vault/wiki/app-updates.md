@@ -189,6 +189,11 @@ the server is compiled in, and About talks about the *app*, not the library.
 3. Locally, `app/android/key.properties` (git-ignored) does the same job for a local release
    build. Without it the release build falls back to **debug keys** and logs a warning.
 
+### Release history
+
+- **v1.0.0** — tagged 2026-08-09 from `release/1.0.0`. First public release; the repo was made
+  public for it, which is what lets the in-app updater read the Releases API without a credential.
+
 ### Cutting a release
 
 1. Move the `## [Unreleased]` items into a new `## [x.y.z] - YYYY-MM-DD` section.

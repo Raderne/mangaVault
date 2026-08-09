@@ -186,8 +186,13 @@ restarting** (no Expensy downtime this time):
 ```bash
 cat ~/mangavault/deploy/prod/Caddyfile.snippet >> ~/deploy/prod/Caddyfile
 cd ~/deploy/prod
-docker compose exec -w /etc/caddy caddy caddy reload
+docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile   # check before applying
+docker compose exec caddy caddy reload   --config /etc/caddy/Caddyfile
 ```
+
+`--config` is explicit on purpose: a bare `caddy reload` looks for a Caddyfile in the container's
+working directory, not at the mounted path, and fails confusingly. `validate` first means a typo
+is caught before it reaches the process serving Expensy.
 
 Caddy fetches the certificate for `vault.expensy-app.org` on the first request; give it a few
 seconds. Watch it happen with `docker compose logs -f caddy`.

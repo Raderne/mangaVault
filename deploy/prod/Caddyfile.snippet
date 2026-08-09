@@ -6,9 +6,10 @@
 # the shared `edge` network (see deploy/prod/docker-compose.yml). Caddy can only
 # resolve it once its own container has joined that network.
 #
-# Reload without dropping the Expensy API:
-#   docker compose -f ~/deploy/prod/docker-compose.yml exec -w /etc/caddy caddy \
-#     caddy reload
+# Reload without dropping the Expensy API (pass --config explicitly; a bare
+# `caddy reload` looks for a Caddyfile in the working directory):
+#   docker compose -f ~/deploy/prod/docker-compose.yml exec caddy \
+#     caddy reload --config /etc/caddy/Caddyfile
 
 vault.expensy-app.org {
     encode gzip
