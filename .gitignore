@@ -1,6 +1,7 @@
 # Reference clone, not part of the build
 /MihonApp
 /VM
+/wiki-brain-vault
 
 # Node / NestJS
 node_modules/
