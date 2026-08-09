@@ -1,7 +1,13 @@
+# The pub package name must stay lowercase snake_case — it is the Dart import
+# prefix (`package:mangavault/…`), never a display name. The user-facing name is
+# "Manga Vault" (Android `android:label`, `MaterialApp.title`, the app bar).
 name: mangavault
-description: "MangaVault - archival client for manga/manhwa library backups."
+description: "Manga Vault - archival client for manga/manhwa library backups."
 publish_to: 'none'
 
+# Keep in lockstep with the top entry of the repo-root CHANGELOG.md and the
+# `v<version>` git tag that triggers the release workflow. The build number
+# after `+` becomes Android's versionCode and must increase every release.
 version: 1.0.0+1
 
 environment:
@@ -23,6 +29,17 @@ dependencies:
   path_provider: ^2.1.6
   path: ^1.9.1
   shared_preferences: ^2.5.5
+  # Reads the *installed* version/build at runtime, which is what the updater
+  # must compare against GitHub — a constant baked from pubspec would drift the
+  # moment someone sideloads a different APK.
+  package_info_plus: ^8.3.1
+  # The updater's escape hatch: open a release on GitHub when it carries no
+  # installable APK, or when someone wants to read the full notes on the web.
+  url_launcher: ^6.3.1
+  # The server URL and API token are entered by the user and live only on the
+  # device. The token is a credential, so it goes in the Android Keystore
+  # (EncryptedSharedPreferences), not in plain shared_preferences.
+  flutter_secure_storage: ^9.2.4
 
 dev_dependencies:
   flutter_test:

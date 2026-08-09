@@ -1,17 +1,33 @@
-# mangavault
+# Manga Vault — Flutter client
 
-A new Flutter project.
+The Android client for [Manga Vault](../README.md). It uploads `.tachibk` / legacy `.json`
+backups to the server, browses the consolidated library from an on-device SQLite mirror, and
+renders the Minimalist Slate design.
 
-## Getting Started
+The Dart package is named `mangavault` (lowercase, as pub requires) — the user-facing name is
+**Manga Vault**.
 
-This project is a starting point for a Flutter application.
+## Running
 
-A few resources to get you started if this is your first Flutter project:
+The server URL and API token are **compile-time** values, not settings:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```sh
+cp config/dev.example.json config/dev.json   # then fill in your LAN URL + API_TOKEN
+flutter run --dart-define-from-file=config/dev.json
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+`config/dev.json` is git-ignored. On the Android emulator use `http://10.0.2.2:3000`.
+
+## Checks
+
+```sh
+flutter analyze
+flutter test
+```
+
+## Releasing
+
+Versions live in `pubspec.yaml` (`version: <semver>+<build>`) and must match the top entry of
+the repo-root `CHANGELOG.md`. Pushing a `v<semver>` tag builds a signed APK and publishes it to
+GitHub Releases, where the in-app updater finds it. See
+[`../wiki-brain-vault/wiki/app-updates.md`](../wiki-brain-vault/wiki/app-updates.md).

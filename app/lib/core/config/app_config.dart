@@ -1,24 +1,48 @@
-/// Compile-time server configuration for the MangaVault backend (`server/`).
+/// Build-time configuration.
 ///
-/// Values come from `--dart-define` (typically via a git-ignored config file:
-/// `flutter run --dart-define-from-file=config/dev.json`). The defaults target
-/// the dev server on this machine's LAN, so a physical device on the same
-/// Wi-Fi connects out of the box.
+/// **The server URL and API token are no longer here.** Manga Vault ships as a
+/// public APK and every user runs their own server, so baking in an address and
+/// a bearer token would hand one person's archive to everyone who downloaded
+/// the app. They are entered once in the setup screen and kept in the device
+/// keystore — see `core/config/server_config.dart`.
 ///
-/// There is deliberately no in-app connection settings screen — the server is
-/// the single source of truth and is baked in at build time.
+/// What remains is genuinely build-time: which GitHub repo to look for updates
+/// in, and dev conveniences that are absent from a release build.
 class AppConfig {
-  /// Base origin of the backend, without the `/api/v1` prefix.
-  /// Android emulator would use `http://10.0.2.2:3000`; a physical device on
-  /// the LAN uses the host's LAN IP.
-  static const String baseUrl = String.fromEnvironment(
-    'SERVER_URL',
-    defaultValue: 'http://192.168.1.12:3000',
+  /// GitHub repository the in-app updater reads releases from.
+  ///
+  /// Safe defaults to ship: the repo is public and the Releases API needs no
+  /// credential. Still `dart-define`-able so a fork can publish its own builds
+  /// without editing source.
+  static const String updateRepoOwner = String.fromEnvironment(
+    'UPDATE_REPO_OWNER',
+    defaultValue: 'Raderne',
+  );
+  static const String updateRepoName = String.fromEnvironment(
+    'UPDATE_REPO_NAME',
+    defaultValue: 'mangaVault',
   );
 
-  /// Bearer token matching the server's `API_TOKEN`. Supply via dart-define;
-  /// never commit the real value.
-  static const String apiToken = String.fromEnvironment('API_TOKEN');
+  /// Set to `false` in a build that should never offer to update itself.
+  static const bool updatesEnabled = bool.fromEnvironment(
+    'UPDATES_ENABLED',
+    defaultValue: true,
+  );
+
+  static String get releasesPageUrl =>
+      'https://github.com/$updateRepoOwner/$updateRepoName/releases';
+
+  /// Dev convenience only: **prefills** the setup screen's fields so
+  /// `flutter run --dart-define-from-file=config/dev.json` is one tap from
+  /// connected, instead of retyping a LAN address and a long token on every
+  /// fresh install.
+  ///
+  /// These are *not* config. Nothing reads them after the setup screen, and a
+  /// release build passes no defines, so they are empty in a published APK.
+  /// Never reintroduce them as a fallback for [ServerConfig] — that would put
+  /// the token back in the binary, which is the whole thing this avoids.
+  static const String devSeedServerUrl = String.fromEnvironment('SERVER_URL');
+  static const String devSeedApiToken = String.fromEnvironment('API_TOKEN');
 
   const AppConfig._();
 }

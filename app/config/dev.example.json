@@ -1,4 +1,5 @@
 {
+  "_comment": "Dev convenience only. These PREFILL the /setup form so a fresh install is one tap from connected; they are not configuration. Nothing reads them after setup, and a release APK is built with no defines at all — the server URL and token are per-user runtime state kept in the device keystore. Copy to dev.json (git-ignored) and fill in.",
   "SERVER_URL": "http://192.168.1.12:3000",
   "API_TOKEN": "copy-your-server-API_TOKEN-here"
 }

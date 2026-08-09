@@ -29,6 +29,10 @@ the first time substantial work happens on a topic.
 - [[file-selector]] — MangaVault's own file browser for import/save: all-files access over SAF, the
   resume re-check that makes the grant land, the `VaultFileSystem` test seam, quick folders.
 - [[database]] — Postgres schema, migrations, indexes, int64 discipline, unmapped columns, restores.
+- [[app-updates]] — naming/versioning, CHANGELOG-as-release-notes, the in-app updater (check →
+  download → install), APK signing, and the GitHub Releases workflow.
+- [[server-connection]] — the setup screen and runtime server config: why the URL/token are no
+  longer compiled in, keystore storage, the two-step connection check, and the router gate.
 - [[deployment]] — _(to be created)_ how/where the server is deployed (Docker on a VM).
 
 ## Domain

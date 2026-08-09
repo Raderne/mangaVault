@@ -1,0 +1,159 @@
+name: Release
+
+# Publishes a signed APK to GitHub Releases. The in-app updater reads exactly
+# what this workflow produces:
+#   * the tag  -> the version the app compares against its own
+#   * the body -> the changelog it renders, sliced from CHANGELOG.md
+#   * the .apk asset -> what it downloads and installs
+#
+# Trigger by pushing a tag: `git tag v1.1.0 && git push origin v1.1.0`.
+# `workflow_dispatch` builds the same thing without publishing, for a dry run.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to dry-run (e.g. 1.1.0). Builds but does not publish.'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.44.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        working-directory: .
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      # The three sources of the version must agree before anything is built.
+      # A tag that disagrees with pubspec.yaml would ship an APK whose
+      # self-reported version never matches the release, so the updater would
+      # offer the same update forever.
+      - name: Check pubspec version matches the tag
+        run: |
+          PUBSPEC=$(grep -E '^version:' pubspec.yaml | sed -E 's/^version:[[:space:]]*//' | cut -d'+' -f1)
+          EXPECTED="${{ steps.version.outputs.version }}"
+          if [ "$PUBSPEC" != "$EXPECTED" ]; then
+            echo "::error::pubspec.yaml is $PUBSPEC but the tag is $EXPECTED."
+            exit 1
+          fi
+
+      - name: Slice release notes from CHANGELOG.md
+        working-directory: .
+        run: |
+          node scripts/changelog-section.mjs "${{ steps.version.outputs.version }}" \
+            > "$RUNNER_TEMP/release-notes.md"
+          echo "--- release notes ---"
+          cat "$RUNNER_TEMP/release-notes.md"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      # Every release must be signed with the same key or Android will refuse
+      # to install it over the previous one. See android/app/build.gradle.kts.
+      - name: Write signing config
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See wiki-brain-vault/wiki/app-updates.md."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/release.keystore
+          cat > android/key.properties <<EOF
+          storeFile=release.keystore
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      # NO --dart-define for SERVER_URL / API_TOKEN, deliberately. This APK is
+      # public: anything compiled into it is readable by everyone who downloads
+      # it. Each user points the app at their own server on first launch, and
+      # the token is entered there and kept in that device's keystore.
+      # See wiki-brain-vault/wiki/server-connection.md.
+      - name: Build APK
+        run: |
+          flutter build apk --release
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             "$RUNNER_TEMP/manga-vault-${{ steps.version.outputs.version }}.apk"
+
+      # The real guard. Android refuses an update signed by a different key
+      # than the installed build, so shipping one debug-signed APK would strand
+      # everyone who installed it on that version forever.
+      - name: Verify the APK is not debug-signed
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "$APKSIGNER" verify --print-certs \
+            "$RUNNER_TEMP/manga-vault-${{ steps.version.outputs.version }}.apk" \
+            | tee "$RUNNER_TEMP/certs.txt"
+          if grep -qi 'CN=Android Debug' "$RUNNER_TEMP/certs.txt"; then
+            echo "::error::APK is signed with the Android debug key. Refusing to publish."
+            exit 1
+          fi
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f android/key.properties android/release.keystore
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manga-vault-${{ steps.version.outputs.version }}-apk
+          path: ${{ runner.temp }}/manga-vault-${{ steps.version.outputs.version }}.apk
+          retention-days: 14
+
+      - name: Publish release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Manga Vault ${{ steps.version.outputs.version }}
+          body_path: ${{ runner.temp }}/release-notes.md
+          files: ${{ runner.temp }}/manga-vault-${{ steps.version.outputs.version }}.apk
+          # A pre-release tag (v1.1.0-beta.1) publishes as one, which the
+          # updater's `latest()` skips.
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}

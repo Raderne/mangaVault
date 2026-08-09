@@ -43,8 +43,9 @@ class TitleDeleter {
     // outlives the title. Deliberately **not** awaited: this is opportunistic
     // local cleanup, and the disk cache can take its time (or fail outright)
     // without that holding up a delete the server has already committed.
+    final covers = _ref.read(coverUrlsProvider);
     for (final id in ids) {
-      final url = CoverRepository.coverUrl('archived', id);
+      final url = covers.cover('archived', id);
       if (url == null) continue;
       unawaited(CoverCache.evict(id, url).catchError((Object _) {}));
     }

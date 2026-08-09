@@ -2,13 +2,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/config/app_config.dart';
+import '../../core/config/server_config.dart';
+import '../../core/config/server_config_controller.dart';
 import 'cover_models.dart';
 
 /// Talks to the server's `/covers/*` endpoints — cover archiving (M4). The
 /// archived image itself is served at `GET /covers/:id`; because Flutter's
 /// `Image.network` uses its own HTTP client (not Dio), callers must attach
-/// [authHeaders] so the bearer-guarded route lets it through.
+/// [CoverUrls.authHeaders] so the bearer-guarded route lets it through.
 class CoverRepository {
   CoverRepository(this._dio);
 
@@ -52,18 +53,37 @@ class CoverRepository {
     return CoverResult.fromJson(res.data!);
   }
 
+}
+
+/// Builds cover image URLs and their auth header for the *currently connected*
+/// server.
+///
+/// These used to be statics over the compile-time config. They can't be:
+/// the server address and token are chosen at runtime now, and a cover URL
+/// built against a stale origin either 404s or — worse, after a server
+/// switch — points at somebody else's image.
+class CoverUrls {
+  const CoverUrls(this.config);
+
+  final ServerConfig config;
+
   /// URL of the archived cover, or null while it isn't archived yet (the UI
-  /// renders a placeholder in that case).
-  static String? coverUrl(String coverState, String mangaId) =>
-      coverState == 'archived'
-          ? '${AppConfig.baseUrl}/api/v1/covers/$mangaId'
+  /// renders a placeholder in that case) or before the app is set up.
+  String? cover(String coverState, String mangaId) =>
+      coverState == 'archived' && config.isConfigured
+          ? '${config.apiBase}/covers/$mangaId'
           : null;
 
-  /// Bearer header for loading a guarded cover image via `Image.network`.
-  static Map<String, String> get authHeaders => AppConfig.apiToken.isEmpty
+  /// Bearer header for loading a guarded cover image via `CachedNetworkImage`,
+  /// which doesn't go through Dio and so doesn't inherit the client's headers.
+  Map<String, String> get authHeaders => config.apiToken.isEmpty
       ? const {}
-      : {'Authorization': 'Bearer ${AppConfig.apiToken}'};
+      : {'Authorization': 'Bearer ${config.apiToken}'};
 }
+
+final coverUrlsProvider = Provider<CoverUrls>(
+  (ref) => CoverUrls(ref.watch(serverConfigProvider)),
+);
 
 final coverRepositoryProvider = Provider<CoverRepository>(
   (ref) => CoverRepository(ref.watch(apiClientProvider)),

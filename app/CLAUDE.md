@@ -29,6 +29,16 @@ Guidance for work under `app/`. See the repo root `CLAUDE.md` for project-wide r
   Filesystem work goes through `VaultFileSystem` (`core/files/`) so it stays testable, and always
   with `p.posix`, never bare `p`. See `wiki-brain-vault/wiki/file-selector.md`.
 
+- The user-facing name is **Manga Vault** (two words). The Dart package stays `mangavault` and the
+  Android `applicationId` stays `dev.mangavault.mangavault` — changing the latter would make the
+  next release a different app, not an update. Versions live in `pubspec.yaml` and must match the
+  repo-root `CHANGELOG.md` and the `v*` git tag. See `wiki-brain-vault/wiki/app-updates.md`.
+- **The server URL and API token are never compiled in.** The APK is public; a baked-in token is a
+  published credential. They are entered on the `/setup` screen, stored in the device keystore,
+  and read through `serverConfigProvider` — `--dart-define=SERVER_URL/API_TOKEN` only *prefills*
+  that form in dev. The router redirects every route to `/setup` until the app is configured, so
+  no screen can call the API unconfigured. See `wiki-brain-vault/wiki/server-connection.md`.
+
 ## Structure notes
 
 - `lib/theme/` holds the Minimalist Slate tokens; shared widgets (BentoCell, MangaCard, …) live

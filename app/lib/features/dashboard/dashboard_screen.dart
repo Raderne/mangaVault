@@ -16,6 +16,7 @@ import '../../widgets/pressable.dart';
 import '../../widgets/progress_ring.dart';
 import '../library/library_screen.dart' show labelForStatus;
 import '../sync/sync_controller.dart';
+import '../updates/update_banner.dart';
 import 'dashboard_controller.dart';
 
 /// Archive Dashboard (home): the `archive_dashboard` mockup's bento grid, fed
@@ -29,13 +30,14 @@ class DashboardScreen extends ConsumerWidget {
     final async = ref.watch(dashboardProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MangaVault'),
+        title: const Text('Manga Vault'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh stats',
             onPressed: () => ref.read(syncControllerProvider.notifier).run(),
           ),
+          const AboutAction(),
         ],
       ),
       body: RefreshIndicator(
@@ -72,7 +74,13 @@ class _DashboardBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = data.stats;
     final cells = <Widget>[
-      const _WelcomeBlock(),
+      // The update banner shares the welcome slot rather than taking one of
+      // its own: it is absent most of the time, and an empty list entry would
+      // leave a gutter-sized hole under the greeting.
+      const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [_WelcomeBlock(), UpdateBanner()],
+      ),
       if (stats.isEmpty)
         const _EmptyArchiveCell()
       else ...[

@@ -61,6 +61,23 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  /// Empty every table and reset the sync bookkeeping to first-run state.
+  ///
+  /// Used when the app is pointed at a **different server**. The mirror holds
+  /// one server's library keyed by that server's ids, and the sync cursor is
+  /// only meaningful against the server that issued it — carrying either across
+  /// a switch would show the previous vault's titles under the new server's
+  /// credentials, then fail to reconcile them. Cheap to do: the next sync
+  /// refetches everything.
+  Future<void> wipe() async {
+    await transaction(() async {
+      for (final table in allTables) {
+        await delete(table).go();
+      }
+      await _seedMeta();
+    });
+  }
+
   /// The singleton sync bookkeeping row (cursor, epoch, last-synced, …).
   Future<SyncMetaData?> syncStateRow() =>
       (select(syncMeta)..where((t) => t.id.equals(0))).getSingleOrNull();

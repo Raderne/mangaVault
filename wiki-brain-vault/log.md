@@ -5,6 +5,14 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-09 22:30] session | Per-user server setup replaces compile-time config
+Touched: server-connection (new), index, flutter-app, app-updates
+Reverses the 2026-07-18 "baked in at build time" decision — a public APK cannot carry a token.
+
+## [2026-08-09 21:00] session | Manga Vault 1.0.0, in-app updater, release pipeline
+Touched: app-updates (new), index, flutter-app
+Also: renamed the app to "Manga Vault", added CHANGELOG.md, release signing + GitHub Actions.
+
 ## [2026-08-09 18:00] session | In-app Slate file selector for import and save
 Touched: file-selector (new), index, backup-apps, import-pipeline, backup-export
 Follow-up: fixed the save browser never opening (navigator resolved from an unmounted context).

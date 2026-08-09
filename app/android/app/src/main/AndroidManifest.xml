@@ -12,8 +12,14 @@
         android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
+    <!-- The app ships through GitHub Releases, so it updates itself by handing
+         a downloaded APK to Android's package installer. INTERNET reaches the
+         Releases API; REQUEST_INSTALL_PACKAGES lets us raise the install
+         prompt (the user still grants "install unknown apps" per-app). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application
-        android:label="mangavault"
+        android:label="Manga Vault"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -38,6 +44,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Grants the package installer read access to a downloaded APK.
+             The authority is suffixed so it cannot collide with a FileProvider
+             declared by a plugin. Scope: `res/xml/update_paths.xml`. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

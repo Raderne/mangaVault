@@ -14,6 +14,11 @@ protobuf), the Postgres library store, cover fetching/archiving, and stats. The 
 (`app/`) is a client — it uploads backup files, browses the library, and renders the four designed
 screens. Nothing archival lives only on the phone.
 
+**Every user runs their own server.** The APK is published publicly on GitHub Releases, so the
+server URL and `API_TOKEN` are *never* compiled into it — they are entered once on the app's
+`/setup` screen and kept in the device keystore, and the router blocks every other route until
+they are. See `wiki-brain-vault/wiki/server-connection.md`.
+
 The app *does* keep an on-device SQLite **mirror** of the library for fast, offline browsing, filled
 by a delta sync (`/sync/*`). That is a disposable cache, not storage: it holds only the fields the
 screens render, can be deleted and rebuilt in seconds, and never holds anything the server doesn't.

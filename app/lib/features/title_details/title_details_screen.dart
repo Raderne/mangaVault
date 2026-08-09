@@ -123,7 +123,7 @@ class TitleDetailsScreen extends ConsumerWidget {
       final result = await ref.read(coverRepositoryProvider).retry(titleId);
       // Drop any cached image (disk + memory) so the fresh cover shows — the
       // serve URL is stable, so a replaced cover would otherwise stay stale.
-      final url = CoverRepository.coverUrl('archived', titleId);
+      final url = ref.read(coverUrlsProvider).cover('archived', titleId);
       if (url != null) {
         await CoverCache.evict(titleId, url);
       }

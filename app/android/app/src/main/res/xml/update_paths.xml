@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scope for the `<provider>` that hands downloaded APKs to Android's package
+     installer. Only the one directory the updater writes to is exposed:
+     `path_provider`'s getTemporaryDirectory() is the app's cache dir, and
+     GithubUpdateRepository downloads into its `updates/` subfolder. -->
+<paths>
+    <cache-path name="updates" path="updates/" />
+</paths>

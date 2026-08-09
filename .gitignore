@@ -1,5 +1,6 @@
 # Reference clone, not part of the build
 /MihonApp
+/VM
 
 # Node / NestJS
 node_modules/

@@ -28,21 +28,27 @@ app/config/
   dev.example.json              # committed template
 ```
 
-## Server connection (decided 2026-07-18)
+## Server connection (rewritten 2026-08-09 — full page: [[server-connection]])
 
-- **No in-app connection settings.** The old Settings tab (server URL + token text fields backed
-  by `shared_preferences`) was removed entirely — the `server/` backend is the single source of
-  truth, baked in at **build time**.
-- `core/config/app_config.dart` reads `String.fromEnvironment('SERVER_URL')` (default
-  `http://192.168.1.12:3000` — this dev machine's LAN IP, so a physical device on the same Wi-Fi
-  works out of the box) and `String.fromEnvironment('API_TOKEN')`.
-- Supply real values via `flutter run --dart-define-from-file=config/dev.json`. `config/dev.json`
-  holds the token and is git-ignored; `config/dev.example.json` is the committed template. The
-  token must match the server's `API_TOKEN` env var (see [[backend]] auth guard).
-- `apiClientProvider` builds a Dio with `baseUrl = '${AppConfig.baseUrl}/api/v1'` and, when a
-  token is set, an `Authorization: Bearer <token>` header. It no longer watches any provider —
-  config is constant, so the client is constructed once.
-- Android emulator alternative: set `SERVER_URL` to `http://10.0.2.2:3000` in the config file.
+> **Superseded.** The 2026-07-18 decision recorded here was "no in-app connection settings; the
+> server URL and `API_TOKEN` are baked in at build time". That held while the APK was built
+> privately for one LAN. It stopped holding when the app began shipping as a **public** artifact
+> on GitHub Releases ([[app-updates]]) — a compile-time token in a public APK is a published
+> credential.
+
+- The server address and token are now **entered by the user on first launch** and stored in the
+  device keystore (`flutter_secure_storage`). Every user runs their own server; there is no
+  account and no shared instance.
+- **The router gates the whole app**: `routerProvider` redirects every route to `/setup` until
+  `isConfiguredProvider` is true, so no screen can fire an unauthenticated request. `main()` is
+  `async` and loads the config before `runApp` so that decision is synchronous.
+- `apiClientProvider` **watches** `serverConfigProvider` again, so connecting or switching servers
+  rebuilds the client and every repository under it.
+- Switching servers wipes the drift mirror; rotating the token on the same server does not. See
+  [[local-library-mirror]].
+- `--dart-define=SERVER_URL/API_TOKEN` survives as a **dev prefill only** for the setup form
+  (`AppConfig.devSeedServerUrl`). Nothing reads it after setup, and the release workflow passes
+  no defines. Android emulator: `http://10.0.2.2:3000`.
 
 ## Navigation
 
@@ -340,6 +346,33 @@ The mockups define the motion language (bento cells fade-up staggered on `cubic-
   doesn't fight the Hero.
 - `widgets/glow_progress_bar.dart` — now animates its fill via `TweenAnimationBuilder` (also smooths
   live import progress on the Backups screen).
+
+## About & in-app updates (2026-08-09)
+
+Full page: [[app-updates]]. App-side essentials:
+
+- The app is now **Manga Vault** (display name only — Dart package and `applicationId` unchanged)
+  at version `1.0.0+1`, shipped as an APK on GitHub Releases.
+- **Navigation gained a nested route, not a tab.** `/about` sits under the Dashboard branch,
+  reached from a badged info action in its app bar (`AboutAction`). Bottom nav stays at 3 tabs and
+  Settings is still deliberately absent — About talks about the *app*, not the library.
+- `lib/data/updates/` + `lib/features/updates/` hold the whole lifecycle; `UpdateController` is a
+  `Notifier` over a sealed `UpdateState` (idle → checking → upToDate | available → downloading →
+  ready → installed).
+- **`main.dart` now owns an explicit `ProviderContainer`** and fires the throttled `autoCheck()`
+  after the first frame. Deliberate: a check wired into the widget tree would fire a real GitHub
+  request in every widget test that pumps a screen.
+- The dashboard's welcome slot now holds `[_WelcomeBlock, UpdateBanner]` in one `Column` — the
+  banner is absent most of the time and its own list entry would leave a gutter-sized hole.
+- **Gotcha:** `(a, b).wait` on a record wraps failures in `ParallelWaitError`, silently discarding
+  a typed exception. It cost the updater its error messages until `check()` was made sequential.
+- **Gotcha:** any test that touches `shared_preferences` needs
+  `SharedPreferences.setMockInitialValues({})` in `setUp`. Without it `getInstance()` waits on a
+  platform channel that a widget test's fake clock never services — the suite *hangs* rather than
+  failing.
+- Tests: `update_models_test.dart` (semver, the changelog parser, a round-trip against the real
+  `CHANGELOG.md`), `update_controller_test.dart` (fake repo + installer, plus a height-invariance
+  test for the downloading cell), `about_screen_test.dart`.
 
 ## Removed / deferred
 
