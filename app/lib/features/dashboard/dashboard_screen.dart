@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/format.dart';
 import '../../data/library/library_models.dart';
 import '../../data/stats/stats_models.dart';
+import '../../theme/app_accents.dart';
 import '../../theme/app_dimens.dart';
 import '../../widgets/archived_cover.dart';
 import '../../widgets/bento_cell.dart';
@@ -88,6 +89,7 @@ class _DashboardBody extends StatelessWidget {
                   value: groupedNumber(stats.totalChapters),
                   caption: '${groupedNumber(stats.readChapters)} read',
                   icon: Icons.format_list_numbered,
+                  accent: VaultAccent.cyan,
                 ),
               ),
               const SizedBox(width: AppDimens.gutter),
@@ -99,6 +101,11 @@ class _DashboardBody extends StatelessWidget {
                       ? '${stats.coversFailed} failed'
                       : 'of ${groupedNumber(stats.totalTitles)} titles',
                   icon: Icons.image_outlined,
+                  // Failures are the one thing on this cell worth a warning
+                  // hue; a healthy cover run stays amber with storage.
+                  accent: stats.coversFailed > 0
+                      ? VaultAccent.rose
+                      : VaultAccent.amber,
                 ),
               ),
             ],
@@ -151,8 +158,10 @@ class _TotalTitlesCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    const accent = VaultAccent.violet;
     return BentoCell(
       tone: BentoTone.high,
+      accent: accent,
       child: Stack(
         children: [
           // Oversized watermark glyph, as in the mockup's large cell.
@@ -162,7 +171,7 @@ class _TotalTitlesCell extends StatelessWidget {
             child: Icon(
               Icons.auto_stories,
               size: 96,
-              color: scheme.primary.withValues(alpha: 0.09),
+              color: accent.color.withValues(alpha: 0.14),
             ),
           ),
           Column(
@@ -173,7 +182,7 @@ class _TotalTitlesCell extends StatelessWidget {
               Text(
                 groupedNumber(stats.totalTitles),
                 style: theme.textTheme.displayLarge!
-                    .copyWith(color: scheme.primary),
+                    .copyWith(color: accent.color),
               ),
               const SizedBox(height: 2),
               Text(
@@ -186,7 +195,7 @@ class _TotalTitlesCell extends StatelessWidget {
               const SizedBox(height: AppDimens.unit * 2),
               Row(
                 children: [
-                  _PulseDot(color: scheme.secondary),
+                  _PulseDot(color: VaultAccent.emerald.color),
                   const SizedBox(width: AppDimens.unit),
                   Expanded(
                     child: Text(
@@ -214,12 +223,14 @@ class _StatCell extends StatelessWidget {
     required this.value,
     required this.caption,
     required this.icon,
+    required this.accent,
   });
 
   final String label;
   final String value;
   final String caption;
   final IconData icon;
+  final VaultAccent accent;
 
   @override
   Widget build(BuildContext context) {
@@ -227,17 +238,27 @@ class _StatCell extends StatelessWidget {
     final scheme = theme.colorScheme;
     return BentoCell(
       padding: const EdgeInsets.all(AppDimens.unit * 2.5),
+      accent: accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Expanded(child: CellLabel(label)),
-              AccentIconWell(icon: icon, size: 32, iconSize: 16),
+              AccentIconWell(
+                icon: icon,
+                size: 32,
+                iconSize: 16,
+                accent: accent,
+              ),
             ],
           ),
           const SizedBox(height: AppDimens.unit),
-          Text(value, style: theme.textTheme.headlineMedium),
+          Text(
+            value,
+            style: theme.textTheme.headlineMedium!
+                .copyWith(color: accent.color),
+          ),
           const SizedBox(height: 2),
           Text(
             caption,
@@ -263,6 +284,7 @@ class _ReadingProgressCell extends StatelessWidget {
     final percent = (stats.readFraction * 100).round();
     return BentoCell(
       tone: BentoTone.high,
+      accent: VaultAccent.emerald,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -273,7 +295,12 @@ class _ReadingProgressCell extends StatelessWidget {
               ProgressRing(
                 value: stats.readFraction,
                 size: 104,
-                center: Text('$percent%', style: theme.textTheme.titleMedium),
+                accent: VaultAccent.emerald,
+                center: Text(
+                  '$percent%',
+                  style: theme.textTheme.titleMedium!
+                      .copyWith(color: VaultAccent.emerald.color),
+                ),
               ),
               const SizedBox(width: AppDimens.cellPadding),
               Expanded(
@@ -295,7 +322,8 @@ class _ReadingProgressCell extends StatelessWidget {
                               width: 7,
                               height: 7,
                               decoration: BoxDecoration(
-                                color: _statusDotColor(scheme, entry.key),
+                                color: _statusAccent(entry.key)?.color ??
+                                    scheme.onSurfaceVariant,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -329,12 +357,15 @@ class _ReadingProgressCell extends StatelessWidget {
     return entries.take(3).toList();
   }
 
-  /// Sparse accent dots so the status mix isn't grey-on-grey.
-  Color _statusDotColor(ColorScheme scheme, String status) => switch (status) {
-        'ongoing' => scheme.secondary,
-        'completed' || 'publishing_finished' => scheme.primary,
-        'on_hiatus' || 'cancelled' => scheme.error,
-        _ => scheme.onSurfaceVariant,
+  /// One hue per publication state, so the mix is readable as a legend rather
+  /// than three identical dots. Null falls back to muted grey — an unknown
+  /// status has no meaning to colour-code.
+  VaultAccent? _statusAccent(String status) => switch (status) {
+        'ongoing' => VaultAccent.emerald,
+        'completed' || 'publishing_finished' => VaultAccent.cyan,
+        'on_hiatus' => VaultAccent.amber,
+        'cancelled' => VaultAccent.rose,
+        _ => null,
       };
 }
 
@@ -350,6 +381,10 @@ class _BackupHealthCell extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return BentoCell(
+      // Violet, not a warning hue: the rows below carry the actual verdict in
+      // emerald/amber/rose, and a rose cell would shout "problem" even when
+      // every source is fresh.
+      accent: VaultAccent.violet,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -380,6 +415,7 @@ class _BackupHealthCell extends StatelessWidget {
           PillButton(
             label: 'Import a backup',
             icon: Icons.upload_file,
+            accent: VaultAccent.violet,
             onPressed: () => context.go('/backups'),
           ),
         ],
@@ -397,14 +433,17 @@ class _HealthRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    // secondary ≡ tertiary hex in the scheme; Aging uses the deep tertiary
-    // container so it reads distinct from Fresh's lavender.
-    final (color, word) = switch (row.staleness) {
-      Staleness.fresh => (scheme.secondary, 'Fresh'),
-      Staleness.aging => (scheme.onTertiaryContainer, 'Aging'),
-      Staleness.stale => (scheme.error, 'Stale'),
+    // A real traffic light now that the palette has three distinguishable
+    // hues — the old scheme had to reach for `onTertiaryContainer` because
+    // `secondary` and `tertiary` share a hex.
+    final (accent, word) = switch (row.staleness) {
+      Staleness.fresh => (VaultAccent.emerald, 'Fresh'),
+      Staleness.aging => (VaultAccent.amber, 'Aging'),
+      Staleness.stale => (VaultAccent.rose, 'Stale'),
     };
+    final color = accent.color;
     return NestedWell(
+      accent: accent,
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimens.unit * 1.5,
         vertical: AppDimens.unit * 1.5,
@@ -414,7 +453,16 @@ class _HealthRow extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: AccentAlpha.glow),
+                  blurRadius: 5,
+                ),
+              ],
+            ),
           ),
           const SizedBox(width: AppDimens.unit * 1.5),
           Expanded(
@@ -456,6 +504,8 @@ class _ResumeShelf extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Shelf(
       label: 'Resume reading',
+      // Same hue as the reading-progress cell: both answer "how far am I?".
+      accent: VaultAccent.emerald,
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
@@ -464,6 +514,7 @@ class _ResumeShelf extends StatelessWidget {
           manga: item.manga,
           caption: number != null ? 'Ch. $number' : item.nextChapter.name,
           progress: item.readFraction,
+          accent: VaultAccent.emerald,
         );
       },
     );
@@ -480,6 +531,7 @@ class _RecentShelf extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Shelf(
       label: 'Recently added',
+      accent: VaultAccent.cyan,
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
@@ -531,15 +583,18 @@ class _Shelf extends StatelessWidget {
     required this.label,
     required this.itemCount,
     required this.itemBuilder,
+    required this.accent,
   });
 
   final String label;
   final int itemCount;
   final Widget Function(BuildContext, int) itemBuilder;
+  final VaultAccent accent;
 
   @override
   Widget build(BuildContext context) {
     return BentoCell(
+      accent: accent,
       padding: const EdgeInsets.symmetric(vertical: AppDimens.unit * 2.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,11 +630,15 @@ class _ShelfCard extends StatelessWidget {
     required this.manga,
     required this.caption,
     this.progress,
+    this.accent,
   });
 
   final MangaListItem manga;
   final String caption;
   final double? progress;
+
+  /// Hue for the tile's progress bar, when it has one.
+  final VaultAccent? accent;
 
   @override
   Widget build(BuildContext context) {
@@ -633,7 +692,10 @@ class _ShelfCard extends StatelessWidget {
                   ? null
                   : Padding(
                       padding: const EdgeInsets.only(bottom: 4),
-                      child: GlowProgressBar(value: progress!),
+                      child: GlowProgressBar(
+                        value: progress!,
+                        accent: accent,
+                      ),
                     ),
             ),
             SizedBox(
@@ -666,6 +728,7 @@ class _VaultCell extends StatelessWidget {
     final last = stats.lastImportAt;
     final storage = stats.vaultStorage;
     return BentoCell(
+      accent: VaultAccent.amber,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -679,7 +742,8 @@ class _VaultCell extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       formatBytes(stats.vaultSizeBytes),
-                      style: theme.textTheme.titleMedium,
+                      style: theme.textTheme.titleMedium!
+                          .copyWith(color: VaultAccent.amber.color),
                     ),
                     const SizedBox(height: 2),
                     Row(
@@ -701,7 +765,10 @@ class _VaultCell extends StatelessWidget {
                   ],
                 ),
               ),
-              const AccentIconWell(icon: Icons.storage),
+              const AccentIconWell(
+                icon: Icons.storage,
+                accent: VaultAccent.amber,
+              ),
             ],
           ),
           // Where the bytes actually are. Covers dominate by an order of
@@ -726,10 +793,13 @@ class _StorageBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    // Segment hues match the cells those bytes belong to, so the bar reads as
+    // a legend for the dashboard rather than three arbitrary colors: covers
+    // are amber up in the Covers cell, backups violet in Backup health.
     final parts = <(String, int, Color)>[
-      ('Covers', storage.coversBytes, scheme.primary),
-      ('Database', storage.databaseBytes, scheme.secondary),
-      ('Backups', storage.backupsBytes, scheme.onSurfaceVariant),
+      ('Covers', storage.coversBytes, VaultAccent.amber.color),
+      ('Database', storage.databaseBytes, VaultAccent.cyan.color),
+      ('Backups', storage.backupsBytes, VaultAccent.violet.color),
     ];
 
     return Column(
@@ -791,6 +861,7 @@ class _EmptyArchiveCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return BentoCell(
+      accent: VaultAccent.violet,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -806,6 +877,7 @@ class _EmptyArchiveCell extends StatelessWidget {
           PillButton(
             label: 'Import a backup',
             icon: Icons.upload_file,
+            accent: VaultAccent.violet,
             onPressed: () => context.go('/backups'),
           ),
         ],
@@ -854,7 +926,16 @@ class _PulseDotState extends State<_PulseDot>
       child: Container(
         width: 8,
         height: 8,
-        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+        decoration: BoxDecoration(
+          color: widget.color,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withValues(alpha: AccentAlpha.glow),
+              blurRadius: 6,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -3,7 +3,11 @@
 Created: 2026-07-28
 
 Related: [[index]] · [[backend]] · [[flutter-app]] · [[library-api]] · [[cover-fetching]] ·
-[[import-pipeline]] · [[database]] · [[local-library-mirror]]
+[[import-pipeline]] · [[database]] · [[local-library-mirror]] · [[manga-neon-accents]]
+
+> **2026-08-09:** every cell on this screen now carries a `VaultAccent` hue (wash + border + icon
+> well + figure). The colour map and rules live in [[manga-neon-accents]]; the aggregates below are
+> unchanged.
 
 > **2026-07-30:** the app computes all four aggregates from the on-device mirror instead of calling
 > `/stats/*` (the endpoints remain, and the local figures are verified to match them exactly against

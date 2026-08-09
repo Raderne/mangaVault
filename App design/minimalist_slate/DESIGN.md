@@ -118,6 +118,40 @@ The palette is anchored in a deep **Dark Slate** (#1a1e2e), providing a high-con
 - **Accents:** Low-saturation blues are reserved for progress bars, primary buttons, and active toggle states.
 - **Text:** An off-white (#f8f9fb) is used for primary text to reduce eye strain compared to pure white, while mid-tones are used for secondary metadata.
 
+### Manga Neon — the bento accent set (added 2026-08-09)
+
+The base scheme above is effectively monochrome: `secondary` and `tertiary` carry the *same* hex,
+so the whole app had one accent hue and the bento grid read flat. **Manga Neon** layers five hues
+over it so each cell has an identity, without changing a single surface token.
+
+| Accent | Foreground | Wash | Carries |
+| --- | --- | --- | --- |
+| violet | `#a79cff` | `#6d5bf0` | Titles, the archive hero, import (the way in) |
+| cyan | `#4cc9e8` | `#14a5c7` | Chapters, merges, in-flight work, recently added |
+| amber | `#f5a524` | `#e08700` | Covers, storage, history, "needs your attention" |
+| emerald | `#35d0a5` | `#12a87f` | Reading progress, fresh backups, success, export |
+| rose | `#ff7e99` | `#f0426a` | Stale backups, cancelled titles, failures |
+
+Two colors per accent, and the split is load-bearing: **foreground** is lightened until it clears
+WCAG AA on the worst surface it can land on (a `surface-container-high` cell already carrying its
+own wash); **wash** is the saturated form, used *only* at low alpha for the cell tint. One color
+cannot do both — a 12% veil of the light foreground reads grey rather than coloured.
+
+Application rules:
+
+- A cell tints with a **diagonal gradient** (top-left → transparent) at **12%** peak, never a flat
+  fill, plus a **28%** accent border. Fills for icon wells / chips / nested wells are **16%**.
+- **Surfaces never change.** The slate ladder underneath is untouched; the accent is a veil over it,
+  which is what keeps cover art dominant.
+- One hue per cell, and **no two vertically adjacent cells share a hue**.
+- Rose is reserved for genuine alerts. A cell whose *rows* carry the verdict (backup health) takes a
+  neutral hue so the cell itself doesn't shout "problem" when everything is fine.
+- Body and muted text stay on `on-surface` / `on-surface-variant` — never accent-coloured. Only
+  figures, icons, indicators and CTAs take the hue.
+
+Contrast is enforced by `app/test/app_accents_test.dart`, not by eye: every accent-on-washed-surface
+pairing and both text roles on every washed surface are asserted ≥ 4.5:1 (worst case is 5.30:1).
+
 ## Typography
 
 This design system utilizes **Inter** exclusively to maintain a systematic, utilitarian aesthetic that feels contemporary and neutral. The typography focuses on a clear hierarchy to handle dense metadata (author names, chapter counts, genres).

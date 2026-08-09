@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/backup_apps/backup_app_models.dart';
 import '../../data/backup_apps/backup_apps_repository.dart';
 import '../../data/import/import_models.dart';
+import '../../theme/app_accents.dart';
 import '../../theme/app_dimens.dart';
 import '../../widgets/bento_cell.dart';
 import '../../widgets/glow_progress_bar.dart';
@@ -80,17 +81,25 @@ class _ImportCtaCell extends ConsumerWidget {
     final theme = Theme.of(context);
     return BentoCell(
       tone: BentoTone.high,
+      accent: VaultAccent.violet,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               const Expanded(child: CellLabel('Initialization')),
-              const AccentIconWell(icon: Icons.upload_file),
+              const AccentIconWell(
+                icon: Icons.upload_file,
+                accent: VaultAccent.violet,
+              ),
             ],
           ),
           const SizedBox(height: AppDimens.unit),
-          Text('Import Backup', style: theme.textTheme.headlineMedium),
+          Text(
+            'Import Backup',
+            style: theme.textTheme.headlineMedium!
+                .copyWith(color: VaultAccent.violet.color),
+          ),
           const SizedBox(height: AppDimens.unit),
           Text(
             'Restore your library, reading progress, and collections from a '
@@ -101,6 +110,7 @@ class _ImportCtaCell extends ConsumerWidget {
           PillButton(
             label: 'Select Local File',
             icon: Icons.upload_file,
+            accent: VaultAccent.violet,
             onPressed: busy ? null : () => ref.read(importControllerProvider.notifier).pickAndStage(),
           ),
         ],
@@ -121,17 +131,27 @@ class _ExportCtaCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return BentoCell(
+      // Emerald against the import cell's violet: the two CTAs sit opposite
+      // each other by design, and different hues is what makes that read.
+      accent: VaultAccent.emerald,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
               Expanded(child: CellLabel('Export')),
-              AccentIconWell(icon: Icons.archive_outlined),
+              AccentIconWell(
+                icon: Icons.archive_outlined,
+                accent: VaultAccent.emerald,
+              ),
             ],
           ),
           const SizedBox(height: AppDimens.unit),
-          Text('Create Backup', style: theme.textTheme.headlineMedium),
+          Text(
+            'Create Backup',
+            style: theme.textTheme.headlineMedium!
+                .copyWith(color: VaultAccent.emerald.color),
+          ),
           const SizedBox(height: AppDimens.unit),
           Text(
             'Write your library back out as a .tachibk file — everything, your '
@@ -144,6 +164,7 @@ class _ExportCtaCell extends StatelessWidget {
           PillButton(
             label: 'Create Backup',
             icon: Icons.download,
+            accent: VaultAccent.emerald,
             onPressed: () => context.go('/backups/export'),
           ),
         ],
@@ -159,12 +180,16 @@ class _BusyCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BentoCell(
+      accent: VaultAccent.cyan,
       child: Row(
         children: [
-          const SizedBox(
+          SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: VaultAccent.cyan.color,
+            ),
           ),
           const SizedBox(width: AppDimens.gutter),
           Expanded(child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
@@ -234,6 +259,9 @@ class _NeedsAppCellState extends ConsumerState<_NeedsAppCell> {
     final remaining = widget.state.queue.length - widget.state.index - 1;
 
     return BentoCell(
+      // Amber: the flow is blocked waiting on the user, which is a caution,
+      // not a failure.
+      accent: VaultAccent.amber,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -261,6 +289,7 @@ class _NeedsAppCellState extends ConsumerState<_NeedsAppCell> {
               PillButton(
                 label: 'Choose app',
                 icon: Icons.smartphone_rounded,
+                accent: VaultAccent.amber,
                 onPressed: _open,
               ),
               const SizedBox(width: AppDimens.unit),
@@ -292,6 +321,7 @@ class _ReviewCell extends ConsumerWidget {
     final anyCommittable = queue.any((s) => !s.isDuplicate);
 
     return BentoCell(
+      accent: VaultAccent.cyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -307,6 +337,7 @@ class _ReviewCell extends ConsumerWidget {
               PillButton(
                 label: anyCommittable ? 'Commit import' : 'Nothing to import',
                 icon: Icons.check,
+                accent: VaultAccent.cyan,
                 onPressed: anyCommittable ? controller.commitAll : null,
               ),
               const SizedBox(width: AppDimens.unit),
@@ -387,11 +418,15 @@ class _StagedFileSectionState extends ConsumerState<_StagedFileSection> {
             StatusChip(
               '${s.titlesNew} new',
               selected: _filter == 'created',
+              // A zero count is inert, and colouring it would advertise an
+              // outcome that didn't happen.
+              accent: s.titlesNew == 0 ? null : VaultAccent.emerald,
               onTap: s.titlesNew == 0 ? null : () => _toggle('created'),
             ),
             StatusChip(
               '${s.titlesMerged} merged',
               selected: _filter == 'merged',
+              accent: s.titlesMerged == 0 ? null : VaultAccent.cyan,
               onTap: s.titlesMerged == 0 ? null : () => _toggle('merged'),
             ),
             // Deleted titles this backup will NOT bring back, stated before
@@ -400,10 +435,12 @@ class _StagedFileSectionState extends ConsumerState<_StagedFileSection> {
               StatusChip(
                 '${s.titlesSkipped} skipped',
                 selected: _filter == 'skipped',
+                accent: VaultAccent.amber,
                 onTap: () => _toggle('skipped'),
               ),
             StatusChip('${s.chaptersTotal} chapters'),
-            if (staged.isDuplicate) StatusChip('Already imported'),
+            if (staged.isDuplicate)
+              StatusChip('Already imported', accent: VaultAccent.amber),
           ],
         ),
         if (s.warnings.isNotEmpty) ...[
@@ -463,9 +500,12 @@ class _SourceAppChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final names = ref.watch(backupAppNamesProvider).value ?? const {};
     final label = backupAppLabel(sourceApp, displayName: names[sourceApp]);
+    // Violet, so the "which app" chip reads as a different *kind* of fact from
+    // the emerald/cyan/amber outcome counts sitting next to it. An unidentified
+    // backup stays grey — there's nothing to affirm.
     return StatusChip(
       label,
-      emphasized: sourceApp.isNotEmpty,
+      accent: sourceApp.isEmpty ? null : VaultAccent.violet,
       onTap: onTap,
     );
   }
@@ -478,8 +518,10 @@ class _MergeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final badge = StatusChip(_actionLabel(result.action),
-        emphasized: result.isMerged);
+    final badge = StatusChip(
+      _actionLabel(result.action),
+      accent: _actionAccent(result.action),
+    );
     final title = Expanded(
       child: Text(result.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
     );
@@ -519,6 +561,8 @@ class _CommittingCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return BentoCell(
+      tone: BentoTone.high,
+      accent: VaultAccent.cyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -528,7 +572,7 @@ class _CommittingCell extends StatelessWidget {
           const SizedBox(height: AppDimens.unit),
           Text(state.fileName, style: theme.textTheme.bodyLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: AppDimens.unit * 2),
-          GlowProgressBar(value: state.fraction),
+          GlowProgressBar(value: state.fraction, accent: VaultAccent.cyan),
           const SizedBox(height: AppDimens.unit),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -538,7 +582,8 @@ class _CommittingCell extends StatelessWidget {
                     style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ),
               Text('${state.processed} / ${state.total}',
-                  style: theme.textTheme.labelSmall!.copyWith(color: theme.colorScheme.primary)),
+                  style: theme.textTheme.labelSmall!
+                      .copyWith(color: VaultAccent.cyan.color)),
             ],
           ),
           const SizedBox(height: AppDimens.gutter),
@@ -559,7 +604,10 @@ class _CommittingCell extends StatelessWidget {
                             maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
                       ),
                       const SizedBox(width: AppDimens.unit),
-                      StatusChip(_actionLabel(m.action), emphasized: m.isMerged),
+                      StatusChip(
+                        _actionLabel(m.action),
+                        accent: _actionAccent(m.action),
+                      ),
                     ],
                   ),
                 );
@@ -584,19 +632,28 @@ class _DoneCell extends ConsumerWidget {
         records.fold<int>(0, (n, r) => n + r.stats.titlesSkipped);
     final titlesMerged = records.fold<int>(0, (n, r) => n + r.stats.titlesMerged);
     return BentoCell(
+      accent: VaultAccent.emerald,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           NestedWell(
+            accent: VaultAccent.emerald,
             child: Row(
               children: [
-                const AccentIconWell(icon: Icons.check_circle_outline),
+                const AccentIconWell(
+                  icon: Icons.check_circle_outline,
+                  accent: VaultAccent.emerald,
+                ),
                 const SizedBox(width: AppDimens.unit * 1.5),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Import complete', style: theme.textTheme.titleMedium),
+                      Text(
+                        'Import complete',
+                        style: theme.textTheme.titleMedium!
+                            .copyWith(color: VaultAccent.emerald.color),
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         '$titlesNew new · $titlesMerged merged'
@@ -619,6 +676,9 @@ class _DoneCell extends ConsumerWidget {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 onPressed: () => context.go('/library/deleted'),
+                style: TextButton.styleFrom(
+                  foregroundColor: VaultAccent.amber.color,
+                ),
                 icon: const Icon(Icons.restore, size: 18),
                 label: Text(
                   titlesSkipped == 1
@@ -632,6 +692,7 @@ class _DoneCell extends ConsumerWidget {
           PillButton(
             label: 'Import another',
             icon: Icons.add,
+            accent: VaultAccent.emerald,
             onPressed: () => ref.read(importControllerProvider.notifier).reset(),
           ),
         ],
@@ -648,14 +709,22 @@ class _FailedCell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return BentoCell(
+      accent: VaultAccent.rose,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.error_outline, color: theme.colorScheme.error),
-              const SizedBox(width: AppDimens.unit),
-              Text('Import failed', style: theme.textTheme.titleMedium),
+              const AccentIconWell(
+                icon: Icons.error_outline,
+                accent: VaultAccent.rose,
+              ),
+              const SizedBox(width: AppDimens.unit * 1.5),
+              Text(
+                'Import failed',
+                style: theme.textTheme.titleMedium!
+                    .copyWith(color: VaultAccent.rose.color),
+              ),
             ],
           ),
           const SizedBox(height: AppDimens.unit),
@@ -664,6 +733,7 @@ class _FailedCell extends ConsumerWidget {
           PillButton(
             label: 'Try again',
             icon: Icons.refresh,
+            accent: VaultAccent.rose,
             onPressed: () => ref.read(importControllerProvider.notifier).reset(),
           ),
         ],
@@ -680,20 +750,26 @@ class _HistoryCell extends ConsumerWidget {
     final theme = Theme.of(context);
     final history = ref.watch(importHistoryProvider);
     return BentoCell(
+      accent: VaultAccent.amber,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
               Expanded(child: CellLabel('Import history')),
-              AccentIconWell(icon: Icons.history, size: 32, iconSize: 16),
+              AccentIconWell(
+                icon: Icons.history,
+                size: 32,
+                iconSize: 16,
+                accent: VaultAccent.amber,
+              ),
             ],
           ),
           const SizedBox(height: AppDimens.unit * 2),
           history.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: AppDimens.unit),
-              child: LinearProgressIndicator(),
+            loading: () => Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppDimens.unit),
+              child: LinearProgressIndicator(color: VaultAccent.amber.color),
             ),
             error: (e, _) => Text('Could not load history: $e',
                 style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error)),
@@ -768,4 +844,12 @@ String _actionLabel(String action) => switch (action) {
       'merged' => 'MERGED',
       'skipped' => 'SKIPPED',
       _ => 'NEW',
+    };
+
+/// Hue for a per-title import outcome, matching the review chips above the
+/// list so a badge and the count that filters to it read as the same thing.
+VaultAccent _actionAccent(String action) => switch (action) {
+      'merged' => VaultAccent.cyan,
+      'skipped' => VaultAccent.amber,
+      _ => VaultAccent.emerald,
     };

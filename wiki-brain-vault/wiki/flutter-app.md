@@ -3,7 +3,7 @@
 Created: 2026-07-18
 
 Related: [[index]] · [[backend]] · [[library-api]] · [[cover-fetching]] · [[dashboard-stats]] ·
-[[local-library-mirror]]
+[[local-library-mirror]] · [[manga-neon-accents]]
 
 ## Stack
 
@@ -171,6 +171,12 @@ lib/core/format.dart                # shared formatters (relativeDate moved here
   Dashboard: hero + reading-progress use `high`; stat/vault cells lead with icon wells; health rows
   sit in nested wells; Aging uses `onTertiaryContainer` (Fresh keeps `secondary`) because the scheme
   maps `secondary` ≡ `tertiary`. Backups CTA / done / history follow the same wells.
+- **Manga Neon accents (2026-08-09)** — full page: [[manga-neon-accents]]. Every cell on Dashboard
+  and Backups now takes a `VaultAccent` (`theme/app_accents.dart`): a 12% diagonal wash + 28%
+  border over the *unchanged* slate surface, with matching icon wells, chips, pills, bars and ring.
+  This supersedes the "Aging uses `onTertiaryContainer`" workaround above — health rows are a real
+  emerald/amber/rose traffic light now. `accent:` is optional and null renders exactly as before, so
+  Library / Title Details / nav were untouched.
 - Gotchas worth remembering: `IntrinsicHeight` is required around the paired-cell `Row` (stretch in a
   `ListView` = infinite height), the horizontal shelves size themselves from
   `MediaQuery.textScalerOf` rather than a constant (a hardcoded height overflowed on a device with an

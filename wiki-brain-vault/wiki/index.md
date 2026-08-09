@@ -21,6 +21,8 @@ the first time substantial work happens on a topic.
   snapshot/restore model, and the recycle-bin screen.
 - [[dashboard-stats]] — M5 dashboard: `/stats/*` aggregates, backup staleness, the bento grid,
   shelves, and the shared `core/format.dart` helpers.
+- [[manga-neon-accents]] — the five-hue accent layer over Minimalist Slate: the two-color-per-accent
+  split, cell wash/border/fill alphas, per-cell hue map, and the contrast test that bounds it.
 - [[local-library-mirror]] — on-device SQLite mirror + `/sync/*` delta feed: `row_version` triggers,
   the advisory lock, drift schema, and why `updated_at` can't be a cursor.
 - [[database]] — Postgres schema, migrations, indexes, int64 discipline, unmapped columns, restores.
