@@ -31,6 +31,15 @@ class FakeImportRepository extends ImportRepository {
   /// Ids the source-app PATCH was called for, and what it was tagged with.
   final tagged = <String, String>{};
 
+  /// Paths uploaded through the streaming path, in order.
+  final streamed = <String>[];
+
+  @override
+  Future<StagedImport> stageFile(String path, String fileName) async {
+    streamed.add(path);
+    return _stagedNamed(fileName, sourceApp: 'app.mihon');
+  }
+
   @override
   Future<StagedImport> setSourceApp(String stagedId, String sourceApp) async {
     tagged[stagedId] = sourceApp;
@@ -131,6 +140,49 @@ StagedImport _staged() => StagedImport(
     );
 
 void main() {
+  group('staging from the file browser', () {
+    ProviderContainer containerFor(FakeImportRepository repo) {
+      final container = ProviderContainer(overrides: [
+        importRepositoryProvider.overrideWithValue(repo),
+        appDatabaseProvider.overrideWithValue(_memoryDb()),
+        syncControllerProvider.overrideWith(RecordingSyncController.new),
+      ]);
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('stagePaths streams each backup and lands in review', () async {
+      final repo = FakeImportRepository(const []);
+      final container = containerFor(repo);
+
+      await container.read(importControllerProvider.notifier).stagePaths([
+        '/storage/emulated/0/Download/app.mihon_2026-08-01.tachibk',
+        '/storage/emulated/0/Download/legacy.json',
+      ]);
+
+      // Sent by path, not read into memory first.
+      expect(repo.streamed, [
+        '/storage/emulated/0/Download/app.mihon_2026-08-01.tachibk',
+        '/storage/emulated/0/Download/legacy.json',
+      ]);
+      final state = container.read(importControllerProvider);
+      expect(state, isA<ImportReview>());
+      expect((state as ImportReview).queue, hasLength(2));
+    });
+
+    test('stagePaths ignores anything that is not a backup', () async {
+      final repo = FakeImportRepository(const []);
+      final container = containerFor(repo);
+
+      await container
+          .read(importControllerProvider.notifier)
+          .stagePaths(['/storage/emulated/0/Download/holiday.jpg']);
+
+      expect(repo.streamed, isEmpty);
+      expect(container.read(importControllerProvider), isA<ImportFailed>());
+    });
+  });
+
   group('source app attribution', () {
     ProviderContainer containerFor(
       ImportState seed,

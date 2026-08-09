@@ -3,7 +3,7 @@
 Created: 2026-08-06
 
 Related: [[index]] · [[tachibk-format]] · [[backup-apps]] · [[import-pipeline]] · [[library-api]] ·
-[[backend]] · [[flutter-app]] · [[database]]
+[[backend]] · [[flutter-app]] · [[database]] · [[file-selector]]
 
 The way *out* of the vault: any slice of the library written back as a `.tachibk` that Mihon and its
 forks restore natively. This is what makes MangaVault an archive rather than a roach motel — if the
@@ -59,10 +59,16 @@ New pure files under `server/src/tachibk/`, still zero Nest/TypeORM imports:
 history table, no cleanup job** — and no stale copy that could outlive a title deleted from the
 vault. The user chose this over a server-stored export history.
 
-The client saves it through the platform's own picker (`FilePicker.saveFile`), not into app storage:
-a backup you can't find is not a backup, and on Android the SAF dialog is the only route to a folder
-that survives an uninstall. No new dependency — `file_picker` was already in `pubspec.yaml` for
-import.
+The client saves it into a folder the user chose, never into app storage: a backup you can't find is
+not a backup, and it has to survive an uninstall.
+
+**Since 2026-08-09 that folder is chosen in MangaVault's own save browser** ([[file-selector]]) —
+`openSaveBrowser` returns a path and `ExportController` writes the bytes through `VaultFileSystem`.
+`FilePicker.saveFile` remains the fallback for when file access hasn't been granted, and in that
+case the plugin writes the file itself. The controller takes a `chooseDestination` callback rather
+than a `BuildContext` it doesn't have; a `null` return is still a cancel that keeps the scope, and
+`ExportResult.fileName` now comes from the chosen path, since the user can rename the file in the
+browser.
 
 ## API — `server/src/modules/export/`
 

@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangavault/core/files/file_access.dart';
+import 'package:mangavault/core/files/vault_file_system.dart';
 import 'package:mangavault/data/backup_apps/backup_app_models.dart';
 import 'package:mangavault/data/backup_apps/backup_apps_repository.dart';
 import 'package:mangavault/data/export/export_models.dart';
@@ -9,6 +13,8 @@ import 'package:mangavault/data/export/export_repository.dart';
 import 'package:mangavault/features/backups/export/export_controller.dart';
 import 'package:mangavault/features/backups/export/export_screen.dart';
 import 'package:mangavault/theme/app_theme.dart';
+
+import 'support/fake_file_system.dart';
 
 /// Fake repository: records the scopes it was asked about, answers instantly.
 class FakeExportRepository extends ExportRepository {
@@ -84,6 +90,24 @@ ExportFacets _facets() => const ExportFacets(
       ],
     );
 
+/// Like [FakeExportRepository], but [build] actually returns a file — needed by
+/// the save tests, which the widget tests deliberately never reach.
+class BuildingExportRepository extends FakeExportRepository {
+  @override
+  Future<ExportedBackup> build(
+    ExportScope scope, {
+    void Function(int, int)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    built.add(scope);
+    return ExportedBackup(
+      fileName: 'app.mihon_2026-08-06_12-00.tachibk',
+      bytes: Uint8List.fromList([31, 139, 8, 0]), // a plausible gzip header
+      titles: 12,
+    );
+  }
+}
+
 /// The registry behind the "name it for which app" chips. Stubbed so no test
 /// reaches the network for it.
 const _registry = [
@@ -91,10 +115,20 @@ const _registry = [
   BackupApp(id: 'app.komikku', displayName: 'Komikku', importCount: 1),
 ];
 
-Widget _app(FakeExportRepository repo) => ProviderScope(
+/// Access granted, so the wizard reaches for the in-app save browser.
+class _GrantedAccess extends FileAccessController {
+  @override
+  FileAccessStatus build() => FileAccessStatus.granted;
+}
+
+Widget _app(FakeExportRepository repo, {FakeFileSystem? fs}) => ProviderScope(
       overrides: [
         exportRepositoryProvider.overrideWithValue(repo),
         backupAppsProvider.overrideWith((ref) async => _registry),
+        if (fs != null) ...[
+          vaultFileSystemProvider.overrideWithValue(fs),
+          fileAccessProvider.overrideWith(_GrantedAccess.new),
+        ],
       ],
       child: MaterialApp(theme: buildAppTheme(), home: const ExportScreen()),
     );
@@ -416,6 +450,97 @@ void main() {
       expect(controller.state.scope.mode, ExportMode.all);
       expect(controller.state.step, ExportStep.select);
       expect(repo.previewed.last.mode, ExportMode.all);
+    });
+  });
+
+  group('the save browser actually opens', () {
+    /// Regression: the destination callback used to resolve its navigator from
+    /// the action bar's `BuildContext`. `buildAndSave` sets `status: building`
+    /// on its first line, which tears that widget down — so by the time the
+    /// file existed the context was unmounted, the callback returned null, and
+    /// the browser silently never appeared. Only a test that drives the real
+    /// screen catches this; the controller-level tests below pass either way.
+    testWidgets('tapping Create backup pushes the save browser', (tester) async {
+      _phoneViewport(tester);
+      final fs = FakeFileSystem()..addDirectory('/storage/emulated/0');
+      final repo = BuildingExportRepository();
+
+      await tester.pumpWidget(_app(repo, fs: fs));
+      await _settle(tester);
+
+      // Walk to the last step, where the build button lives.
+      await tester.tap(find.text('Next'));
+      await _settle(tester);
+      await tester.tap(find.text('Next'));
+      await _settle(tester);
+
+      await tester.tap(find.text('Create backup'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Save Backup'), findsOneWidget);
+      expect(find.text('Save here'), findsOneWidget);
+    });
+  });
+
+  group('saving through the in-app browser', () {
+    /// Boots the wizard with a repository that actually returns bytes, plus a
+    /// fake filesystem to write them into.
+    Future<(ExportController, FakeFileSystem)> boot({
+      required Future<String?> Function(String) chooseDestination,
+    }) async {
+      final fs = FakeFileSystem()..addDirectory('/storage/emulated/0/Download');
+      final container = ProviderContainer(overrides: [
+        exportRepositoryProvider.overrideWithValue(BuildingExportRepository()),
+        vaultFileSystemProvider.overrideWithValue(fs),
+      ]);
+      addTearDown(container.dispose);
+      final controller = container.read(exportControllerProvider.notifier);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      controller.applyFavoritesPreset();
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      await controller.buildAndSave(chooseDestination: chooseDestination);
+      return (controller, fs);
+    }
+
+    test('writes the bytes where the browser said', () async {
+      const path = '/storage/emulated/0/Download/app.mihon_x.tachibk';
+      final (controller, fs) = await boot(
+        chooseDestination: (_) async => path,
+      );
+
+      expect(fs.written[path], isNotNull);
+      expect(controller.state.status, ExportStatus.saved);
+      // Named from the path, so a rename in the browser is what's reported.
+      expect(controller.state.result!.fileName, 'app.mihon_x.tachibk');
+    });
+
+    test('dismissing the browser is a cancel that keeps the scope', () async {
+      final (controller, fs) = await boot(chooseDestination: (_) async => null);
+
+      expect(fs.written, isEmpty);
+      expect(controller.state.status, ExportStatus.editing);
+      expect(controller.state.error, isNull);
+      // The whole point: a dismissed save must not cost the user the selection
+      // they just built.
+      expect(controller.state.scope.filters.favorite, isTrue);
+    });
+
+    test('an unwritable destination fails the export, not silently', () async {
+      final fs = FakeFileSystem();
+      final container = ProviderContainer(overrides: [
+        exportRepositoryProvider.overrideWithValue(BuildingExportRepository()),
+        vaultFileSystemProvider.overrideWithValue(fs..readOnly = true),
+      ]);
+      addTearDown(container.dispose);
+      final controller = container.read(exportControllerProvider.notifier);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      await controller.buildAndSave(
+        chooseDestination: (_) async => '/storage/emulated/0/nope.tachibk',
+      );
+
+      expect(controller.state.status, ExportStatus.failed);
+      expect(controller.state.error, isNotNull);
     });
   });
 }

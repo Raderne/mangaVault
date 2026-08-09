@@ -26,6 +26,8 @@ the first time substantial work happens on a topic.
   split, cell wash/border/fill alphas, per-cell hue map, and the contrast test that bounds it.
 - [[local-library-mirror]] — on-device SQLite mirror + `/sync/*` delta feed: `row_version` triggers,
   the advisory lock, drift schema, and why `updated_at` can't be a cursor.
+- [[file-selector]] — MangaVault's own file browser for import/save: all-files access over SAF, the
+  resume re-check that makes the grant land, the `VaultFileSystem` test seam, quick folders.
 - [[database]] — Postgres schema, migrations, indexes, int64 discipline, unmapped columns, restores.
 - [[deployment]] — _(to be created)_ how/where the server is deployed (Docker on a VM).
 

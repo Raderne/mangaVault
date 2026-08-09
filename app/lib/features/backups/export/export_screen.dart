@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/files/file_access.dart';
 import '../../../core/format.dart';
+import '../../../theme/app_accents.dart';
 import '../../../theme/app_dimens.dart';
 import '../../../widgets/bento_cell.dart';
 import '../../../widgets/entrance_fade.dart';
 import '../../../widgets/glow_progress_bar.dart';
 import '../../../widgets/pill_button.dart';
+import '../../files/file_browser_route.dart';
 import 'export_controller.dart';
 import 'export_options_step.dart';
 import 'export_review_step.dart';
@@ -52,6 +55,34 @@ class ExportScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Build the file, then choose where it goes.
+///
+/// The destination browser is supplied here rather than reached for inside the
+/// controller, which has no `BuildContext`. Without file access we pass nothing
+/// and the controller falls back to the platform save dialog — so refusing the
+/// permission costs the Slate styling, never the export.
+///
+/// **The navigator is captured now, not inside the callback.** `buildAndSave`
+/// sets `status: building` on its first line, which swaps `_EditingBody` (and
+/// with it the action bar this was called from) out of the tree — so by the
+/// time there is a file to save, `context` is unmounted and looking a navigator
+/// up from it yields nothing. That silently returned `null`, which the
+/// controller correctly reads as "cancelled", and the save browser never
+/// appeared at all.
+Future<void> _buildAndSave(BuildContext context, WidgetRef ref) {
+  final granted = ref.read(fileAccessProvider).isGranted;
+  final navigator = Navigator.of(context, rootNavigator: true);
+  return ref.read(exportControllerProvider.notifier).buildAndSave(
+        chooseDestination: granted
+            ? (suggested) => pushSaveBrowser(
+                  navigator,
+                  suggestedName: suggested,
+                  accent: VaultAccent.emerald,
+                )
+            : null,
+      );
 }
 
 /// The wizard proper: step bar, the current step's body, and the action bar.
@@ -151,7 +182,8 @@ class _ActionBar extends ConsumerWidget {
                     PillButton(
                       label: 'Create backup',
                       icon: Icons.download,
-                      onPressed: state.canBuild ? controller.buildAndSave : null,
+                      onPressed:
+                          state.canBuild ? () => _buildAndSave(context, ref) : null,
                     )
                   else
                     PillButton(
@@ -328,7 +360,7 @@ class _FailedBody extends ConsumerWidget {
                   PillButton(
                     label: 'Try again',
                     icon: Icons.refresh,
-                    onPressed: controller.buildAndSave,
+                    onPressed: () => _buildAndSave(context, ref),
                   ),
                   const SizedBox(width: AppDimens.unit),
                   TextButton(

@@ -1,6 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
+import '../../core/files/vault_file_system.dart';
 import '../../data/import/import_models.dart';
 import '../../data/import/import_repository.dart';
 import '../sync/sync_controller.dart';
@@ -102,6 +104,14 @@ class ImportFailed extends ImportState {
   final List<ImportRecord> partial;
 }
 
+/// One file waiting to be staged, and how to send it. Lets the browser path
+/// (stream from disk) and the picker path (bytes in hand) share one loop.
+class _PendingUpload {
+  const _PendingUpload(this.fileName, this.send);
+  final String fileName;
+  final Future<StagedImport> Function(ImportRepository repo) send;
+}
+
 // ---- controller ----
 
 class ImportController extends Notifier<ImportState> {
@@ -110,7 +120,25 @@ class ImportController extends Notifier<ImportState> {
 
   ImportRepository get _repo => ref.read(importRepositoryProvider);
 
-  /// Pick one or more backups and stage each; move to the review queue.
+  /// Stage backups the in-app file browser picked, by path.
+  ///
+  /// The primary way in. Having a real path lets the upload stream off disk
+  /// instead of going through the heap, which the system picker's
+  /// `withData: true` cannot do.
+  Future<void> stagePaths(List<String> paths) async {
+    final accepted =
+        paths.where((path) => isBackupFileName(p.posix.basename(path))).toList();
+    await _stageAll([
+      for (final path in accepted)
+        _PendingUpload(
+          p.posix.basename(path),
+          (repo) => repo.stageFile(path, p.posix.basename(path)),
+        ),
+    ]);
+  }
+
+  /// Stage backups chosen through the platform's own picker — the fallback for
+  /// when file access hasn't been granted.
   ///
   /// Uses [FileType.any] (not a custom-extension filter): `.tachibk` has no
   /// registered MIME type, so Android's document picker greys those files out
@@ -123,19 +151,27 @@ class ImportController extends Notifier<ImportState> {
     );
     if (result == null || result.files.isEmpty) return; // user cancelled
 
-    final accepted = result.files.where(_isBackupFile).toList();
-    if (accepted.isEmpty) {
+    await _stageAll([
+      for (final file in result.files)
+        if (file.bytes != null && isBackupFileName(file.name))
+          _PendingUpload(file.name, (repo) => repo.stage(file.name, file.bytes!)),
+    ]);
+  }
+
+  /// Upload each file in turn, then route to the review queue (or to the
+  /// "which app is this from?" question). Shared by both entry points so the
+  /// two ways in cannot drift apart.
+  Future<void> _stageAll(List<_PendingUpload> pending) async {
+    if (pending.isEmpty) {
       state = const ImportFailed('Select a .tachibk or .json backup file.');
       return;
     }
 
     final existing = state is ImportReview ? [...(state as ImportReview).queue] : <StagedImport>[];
-    for (final file in accepted) {
-      final bytes = file.bytes;
-      if (bytes == null) continue;
-      state = ImportStaging(file.name);
+    for (final upload in pending) {
+      state = ImportStaging(upload.fileName);
       try {
-        existing.add(await _repo.stage(file.name, bytes));
+        existing.add(await upload.send(_repo));
       } catch (e) {
         state = ImportFailed(_message(e));
         return;
@@ -195,11 +231,6 @@ class ImportController extends Notifier<ImportState> {
     } catch (e) {
       state = ImportFailed(_message(e));
     }
-  }
-
-  static bool _isBackupFile(PlatformFile f) {
-    final name = f.name.toLowerCase();
-    return name.endsWith('.tachibk') || name.endsWith('.json');
   }
 
   /// Commit every staged import sequentially, folding SSE events into state.

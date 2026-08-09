@@ -4,7 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
+import '../../../core/files/vault_file_system.dart';
 import '../../../data/export/export_models.dart';
 import '../../../data/export/export_repository.dart';
 
@@ -247,12 +249,19 @@ class ExportController extends Notifier<ExportState> {
 
   // ---- build ----
 
-  /// Build the backup and hand it to the platform's save dialog.
+  /// Build the backup and write it where the user says.
   ///
-  /// The file is written by the user's own file picker rather than dropped in
-  /// app storage: a backup they can't find is not a backup, and on Android the
-  /// SAF dialog is the only way to reach a folder that survives uninstalling.
-  Future<void> buildAndSave() async {
+  /// The file lands in a folder they chose rather than in app storage: a backup
+  /// they can't find is not a backup, and it has to survive uninstalling the
+  /// app.
+  ///
+  /// [chooseDestination] is MangaVault's own save browser, supplied by the
+  /// screen because a `Notifier` has no `BuildContext`. When it is given, *we*
+  /// write the bytes; when it isn't — file access hasn't been granted — the
+  /// platform save dialog does, and writes them itself.
+  Future<void> buildAndSave({
+    Future<String?> Function(String suggestedName)? chooseDestination,
+  }) async {
     if (state.isBusy) return;
     _debounce?.cancel();
     state = state.copyWith(
@@ -273,11 +282,19 @@ class ExportController extends Notifier<ExportState> {
             },
           );
 
-      final path = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save backup',
-        fileName: built.fileName,
-        bytes: built.bytes,
-      );
+      final String? path;
+      if (chooseDestination != null) {
+        path = await chooseDestination(built.fileName);
+        if (path != null) {
+          await ref.read(vaultFileSystemProvider).writeBytes(path, built.bytes);
+        }
+      } else {
+        path = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save backup',
+          fileName: built.fileName,
+          bytes: built.bytes,
+        );
+      }
 
       if (path == null) {
         // Dismissed the save dialog — not an error. Drop straight back to the
@@ -293,7 +310,9 @@ class ExportController extends Notifier<ExportState> {
         status: ExportStatus.saved,
         clearProgress: true,
         result: ExportResult(
-          fileName: built.fileName,
+          // The user can rename the file in the save browser, so the saved
+          // name comes from the path, not from what the server suggested.
+          fileName: p.posix.basename(path),
           path: path,
           sizeBytes: built.sizeBytes,
           titles: built.titles,

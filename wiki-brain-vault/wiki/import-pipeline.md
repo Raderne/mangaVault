@@ -3,7 +3,8 @@
 Created: 2026-07-18 (M2)
 
 Related: [[index]] · [[backend]] · [[tachibk-format]] · [[database]] · [[local-library-mirror]] ·
-[[cover-fetching]] · [[deleted-titles]] · [[backup-apps]] · [[flutter-app]] · [[manga-neon-accents]]
+[[cover-fetching]] · [[deleted-titles]] · [[backup-apps]] · [[flutter-app]] · [[manga-neon-accents]] ·
+[[file-selector]]
 
 NestJS module that turns an uploaded backup into library rows. `server/src/modules/import/`.
 Consumes the pure [[tachibk-format]] lib; owns the DB writes and file archiving.
@@ -92,6 +93,12 @@ The Flutter Backups screen consumes all of the above — see [[flutter-app]] (Im
 `ImportRepository` (multipart stage, commit→jobId, Dio SSE stream via `core/sse/sse_parser.dart`),
 an `ImportController` state machine, and a live-progress screen that renders each `manga` event as
 it streams in. M2 is complete.
+
+Files reach it two ways (2026-08-09, [[file-selector]]): `stagePaths(paths)` from MangaVault's own
+file browser, which uploads with `ImportRepository.stageFile` — `MultipartFile.fromFile`, streamed
+off disk — and `pickAndStage()` from the platform picker, which only has bytes, as the fallback for
+when file access hasn't been granted. Both run through one `_stageAll` loop so the two entry points
+cannot drift apart, and `ImportState` is unchanged by either.
 
 Since 2026-07-30, `commitAll()` also **runs a library sync** before emitting `ImportDone`, so the
 newly imported titles land in the on-device mirror and the Library/Dashboard update immediately —

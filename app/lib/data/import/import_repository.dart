@@ -15,10 +15,23 @@ class ImportRepository {
   final Dio _dio;
 
   /// Upload a backup file's bytes and get the staged preview.
+  ///
+  /// Used by the system-picker fallback, which hands back bytes and no path.
+  /// Prefer [stageFile] when a real path is available.
   Future<StagedImport> stage(String fileName, List<int> bytes) async {
-    final form = FormData.fromMap({
-      'file': MultipartFile.fromBytes(bytes, filename: fileName),
-    });
+    return _post(MultipartFile.fromBytes(bytes, filename: fileName));
+  }
+
+  /// Upload a backup straight off disk, streaming it rather than reading it
+  /// into memory first. The server caps uploads at 200 MB, and holding one of
+  /// those in the Dart heap on a phone is worth avoiding when the browser has
+  /// already given us a path.
+  Future<StagedImport> stageFile(String path, String fileName) async {
+    return _post(await MultipartFile.fromFile(path, filename: fileName));
+  }
+
+  Future<StagedImport> _post(MultipartFile file) async {
+    final form = FormData.fromMap({'file': file});
     final res = await _dio.post<Map<String, dynamic>>('/imports/stage', data: form);
     return StagedImport.fromJson(res.data!);
   }

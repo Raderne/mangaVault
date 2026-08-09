@@ -5,6 +5,10 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-09 18:00] session | In-app Slate file selector for import and save
+Touched: file-selector (new), index, backup-apps, import-pipeline, backup-export
+Follow-up: fixed the save browser never opening (navigator resolved from an unmounted context).
+
 ## [2026-08-09 12:00] session | Import list to a fixed-height vanishing ticker
 Touched: import-pipeline, index
 

@@ -116,16 +116,22 @@ validated with `BACKUP_APP_ID_RE`, the same regex `ensure()`/`create()` use.
 
 Decision (2026-08-02): **the Flutter app watches the device folder**, not the server.
 
-- **The server owns the app registry; the device owns the folder grants.** A SAF tree URI is
-  device-specific and meaningless to the vault, so a `WatchedFolder {appId, safTreeUri,
-  lastImportedFileName, lastImportedAt}` belongs in `shared_preferences` — not in the mirror, per
-  CLAUDE.md's rule about device-only state.
+> **Amended 2026-08-09 — the SAF part is superseded.** [[file-selector]] took
+> `MANAGE_EXTERNAL_STORAGE` (all-files access) for the in-app file browser, so the watcher no longer
+> needs a SAF tree grant: it polls a **plain path** with `Directory.list()`. `WatchedFolder` becomes
+> `{appId, path, lastImportedFileName, lastImportedAt}`, the SAF plugin is never needed, and the
+> quick-folder detection in `core/files/storage_roots.dart` already finds `<AppName>/autobackup`.
+> Everything below still holds.
+
+- **The server owns the app registry; the device owns the folder.** A device path is meaningless to
+  the vault, so `WatchedFolder` belongs in `shared_preferences` — not in the mirror, per CLAUDE.md's
+  rule about device-only state.
 - Re-scan dedup is already free: `import_record.sha256` is unique, staging returns `duplicateOf`, and
   `startCommit` 409s on it.
 - Mihon keeps only the **last 4** auto-backups (`BackupCreator.kt` `MAX_AUTO_BACKUPS`), named
   `<applicationId>_yyyy-MM-dd_HH-mm.tachibk` — so scan on every app resume, not on a slow timer, or
   backups are lost before they are seen.
-- Deps deliberately **not** added yet: a SAF persistent-permission plugin and WorkManager.
+- Dep deliberately **not** added yet: WorkManager.
 
 ## Verified (2026-08-02, against a freshly wiped vault)
 

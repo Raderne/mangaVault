@@ -23,6 +23,11 @@ Guidance for work under `app/`. See the repo root `CLAUDE.md` for project-wide r
   match them, but rebuild as Flutter widgets; don't mimic the HTML structure.
 - Library views must stay smooth at 1,000+ titles: paginate/lazy-load from the API and use
   builder-based lists/grids.
+- **Picking or saving a file goes through MangaVault's own browser**, not a platform dialog:
+  `features/files/file_browser_route.dart` (`openFileBrowser` / `openSaveBrowser`). It needs
+  all-files access; the `file_picker` dialogs remain only as the fallback when that is denied.
+  Filesystem work goes through `VaultFileSystem` (`core/files/`) so it stays testable, and always
+  with `p.posix`, never bare `p`. See `wiki-brain-vault/wiki/file-selector.md`.
 
 ## Structure notes
 

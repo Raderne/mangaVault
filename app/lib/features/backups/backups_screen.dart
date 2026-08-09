@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/files/file_access.dart';
 import '../../data/backup_apps/backup_app_models.dart';
 import '../../data/backup_apps/backup_apps_repository.dart';
 import '../../data/import/import_models.dart';
@@ -12,6 +13,8 @@ import '../../widgets/entrance_fade.dart';
 import '../../widgets/glow_progress_bar.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/status_chip.dart';
+import '../files/file_access_gate.dart';
+import '../files/file_browser_route.dart';
 import 'import_controller.dart';
 import 'import_ticker.dart';
 import 'source_app_sheet.dart';
@@ -34,6 +37,19 @@ class BackupsScreen extends ConsumerWidget {
         children: [
           _ImportCtaCell(busy: busy),
           const SizedBox(height: AppDimens.gutter),
+          // Only when access is missing, and only while nothing is in flight:
+          // the CTA above still works through the system picker, so this
+          // explains the better path rather than blocking the flow — and it
+          // must never push a running import's progress off the screen.
+          if (state is ImportIdle &&
+              !ref.watch(fileAccessProvider).isGranted) ...[
+            FileAccessGate(
+              onUseSystemPicker:
+                  busy ? null : ref.read(importControllerProvider.notifier).pickAndStage,
+              systemPickerLabel: 'Pick a file the old way',
+            ),
+            const SizedBox(height: AppDimens.gutter),
+          ],
           _ImportStateSection(state: state),
           const _ExportCtaCell(),
           const SizedBox(height: AppDimens.gutter),
@@ -107,6 +123,24 @@ class _ImportCtaCell extends ConsumerWidget {
   const _ImportCtaCell({required this.busy});
   final bool busy;
 
+  /// MangaVault's own browser when it can read storage, the platform picker
+  /// when it can't. The button never changes label: which dialog opens is an
+  /// implementation detail, and "Select Local File" is true of both.
+  Future<void> _pick(BuildContext context, WidgetRef ref) async {
+    final controller = ref.read(importControllerProvider.notifier);
+    if (!ref.read(fileAccessProvider).isGranted) {
+      await controller.pickAndStage();
+      return;
+    }
+    final picked = await openFileBrowser(
+      context,
+      accent: VaultAccent.violet,
+      onUseSystemPicker: controller.pickAndStage,
+    );
+    if (picked == null || picked.isEmpty) return; // dismissed
+    await controller.stagePaths([for (final file in picked) file.path]);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -142,7 +176,7 @@ class _ImportCtaCell extends ConsumerWidget {
             label: 'Select Local File',
             icon: Icons.upload_file,
             accent: VaultAccent.violet,
-            onPressed: busy ? null : () => ref.read(importControllerProvider.notifier).pickAndStage(),
+            onPressed: busy ? null : () => _pick(context, ref),
           ),
         ],
       ),
