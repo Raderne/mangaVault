@@ -5,6 +5,12 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-09 12:00] session | Import list to a fixed-height vanishing ticker
+Touched: import-pipeline, index
+
+## [2026-08-09 00:00] session | Manga Neon accents on Dashboard and Backups cells
+Touched: manga-neon-accents (new), index, flutter-app, dashboard-stats
+
 ## [2026-08-06 22:30] session | Backup export: .tachibk encoder and export wizard
 Touched: backup-export (new), index, tachibk-format, backup-apps
 

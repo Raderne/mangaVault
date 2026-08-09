@@ -12,7 +12,8 @@ the first time substantial work happens on a topic.
 ## Concepts
 
 - [[migration]] — DB migration workflow, rules (never `synchronize`, never edit applied migrations).
-- [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage.
+- [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage, and
+  the app's fixed-height vanishing ticker for live progress.
 - [[backup-export]] — creating `.tachibk` files: the encoder (parser run backwards), the scope
   model, streaming build with no server storage, and the three-step export wizard.
 - [[library-api]] — `/library` query + `/library/:id` + `/categories`, and title **deletion**
@@ -21,6 +22,8 @@ the first time substantial work happens on a topic.
   snapshot/restore model, and the recycle-bin screen.
 - [[dashboard-stats]] — M5 dashboard: `/stats/*` aggregates, backup staleness, the bento grid,
   shelves, and the shared `core/format.dart` helpers.
+- [[manga-neon-accents]] — the five-hue accent layer over Minimalist Slate: the two-color-per-accent
+  split, cell wash/border/fill alphas, per-cell hue map, and the contrast test that bounds it.
 - [[local-library-mirror]] — on-device SQLite mirror + `/sync/*` delta feed: `row_version` triggers,
   the advisory lock, drift schema, and why `updated_at` can't be a cursor.
 - [[database]] — Postgres schema, migrations, indexes, int64 discipline, unmapped columns, restores.
