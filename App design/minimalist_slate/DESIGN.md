@@ -194,3 +194,19 @@ The shape language is defined by oversized, generous curves that soften the "tec
 - **Status Chips:** Small, low-contrast capsules used for genres or tags. Backgrounds are only 10% more saturated than the surface they sit on.
 - **Inputs:** Darker than the surface layer, with a 1px focus border in the accent indigo.
 - **Manga Cards:** Vertical containers with a fixed aspect ratio for the cover art, featuring an overlay for the chapter count in the bottom-right corner.
+
+## Motion (added 2026-08-09)
+
+Entrance easing is `cubic-bezier(0.22, 1, 0.36, 1)` everywhere; cells stagger 70ms apart. Two rules
+follow from the Bento premise that a cell is a fixed compartment:
+
+- **A cell never resizes because of its own live content.** Anything that streams — import progress,
+  a fetch queue — renders into a fixed-height well, and the well is sized from the *text scale*, not
+  a constant. Content that outgrows it vanishes; it does not push the layout.
+- **Vanishing stack** is the pattern for a live feed: newest item enters at the top at full opacity,
+  each older one steps down a slot and dims (100% → 55% → 30% → 12%) until it fades out entirely.
+  Rows glide (320ms) more slowly than they dim (200ms), so a departing row is invisible before it is
+  removed. A feed faster than ~7 items/sec is **sampled**, not shown — dropped items are the point,
+  since this is ambient feedback rather than a log.
+
+Everything honours the platform reduce-motion setting by snapping to the final frame.

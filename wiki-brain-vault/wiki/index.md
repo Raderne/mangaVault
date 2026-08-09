@@ -12,7 +12,8 @@ the first time substantial work happens on a topic.
 ## Concepts
 
 - [[migration]] — DB migration workflow, rules (never `synchronize`, never edit applied migrations).
-- [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage.
+- [[import-pipeline]] — M2 import module: stage/commit flow, merge engine, endpoints, storage, and
+  the app's fixed-height vanishing ticker for live progress.
 - [[backup-export]] — creating `.tachibk` files: the encoder (parser run backwards), the scope
   model, streaming build with no server storage, and the three-step export wizard.
 - [[library-api]] — `/library` query + `/library/:id` + `/categories`, and title **deletion**

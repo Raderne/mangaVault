@@ -3,7 +3,7 @@
 Created: 2026-07-18 (M2)
 
 Related: [[index]] · [[backend]] · [[tachibk-format]] · [[database]] · [[local-library-mirror]] ·
-[[cover-fetching]] · [[deleted-titles]] · [[backup-apps]]
+[[cover-fetching]] · [[deleted-titles]] · [[backup-apps]] · [[flutter-app]] · [[manga-neon-accents]]
 
 NestJS module that turns an uploaded backup into library rows. `server/src/modules/import/`.
 Consumes the pure [[tachibk-format]] lib; owns the DB writes and file archiving.
@@ -97,6 +97,46 @@ Since 2026-07-30, `commitAll()` also **runs a library sync** before emitting `Im
 newly imported titles land in the on-device mirror and the Library/Dashboard update immediately —
 the *Import Service → Library Sync service* hand-off. A sync failure never fails a successful
 import. See [[local-library-mirror]].
+
+## Live import view: the vanishing ticker (2026-08-09)
+
+`app/lib/features/backups/import_ticker.dart`. The committing cell used to render every `manga`
+event into a `ListView` capped at 50 rows and 280px. It grew as the import ran, and on a real backup
+it was an unreadable blur. It is now a **fixed-height well of four slots**: the newest title enters
+at the top, each older one steps down and dims (100 / 55 / 30 / 12%), and the oldest fades out. The
+card's height never changes. Motion rules are in DESIGN.md §Motion; hues in [[manga-neon-accents]].
+
+Decisions worth keeping:
+
+- **The ticker samples the stream; it does not follow it.** A 1,200-title backup emits ~40 events a
+  second — faster than any transition, so every row would be a strobe. One admission per 140ms,
+  intermediates dropped. Throttling lives in the widget, not `ImportController`: it is a legibility
+  concern, and the controller's job is to be the truth, not the pace.
+- **A fifth "exit slot" at opacity 0.** Without somewhere to fade *to*, the oldest row is cut from
+  the tree while still partly visible and pops. Rows also dim (200ms) faster than they glide (320ms)
+  so the residual at removal is invisible.
+- **Rows are keyed by a monotonic counter, not by the event.** `MangaEvent` has no id and titles
+  repeat across backups; a duplicate key puts two rows in one slot.
+- **`_recentCap` dropped 50 → 4.** Only the head of `recent` is ever read now; the old cap copied a
+  50-element list per title, ~60k allocations across a large import.
+- **Slot geometry comes from `MediaQuery.textScalerOf`**, like the dashboard shelves. Note the
+  failure mode differs: a too-short slot **squashes** the badge rather than overflowing it, so a
+  bounds assertion passes while the label is clipped. `import_ticker_test.dart` compares each badge
+  against a reference chip rendered at the same text scale — verified to fail against a deliberately
+  wrong metric before being kept.
+- **`ExcludeSemantics`.** A screen reader announcing 1,200 titles is noise; the phase label and the
+  `n / total` counter beside the well already carry the progress.
+
+The phase cells (staging → needs-app → review → committing → done/failed) are wrapped in
+`_ImportStateSection`: an `AnimatedSwitcher` inside an `AnimatedSize`, keyed on `state.runtimeType`
+**only**. Keying on the state instance would rebuild the committing cell on every progress tick and
+the ticker would never show anything. Its `layoutBuilder` overrides the default centred `Stack` —
+otherwise a tall cell leaving and a short one arriving slide past each other.
+
+> **Testing gotcha, cost an hour:** swapping a `NotifierProvider` override
+> (`overrideWith(() => Seeded(newState))`) on a `pumpWidget` does **not** re-run the notifier's
+> `build()`, so the screen keeps rendering the first seed. It looks exactly like a broken widget.
+> Drive a single controller instance from the test instead.
 
 ## Covers follow the import (2026-07-31)
 

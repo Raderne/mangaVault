@@ -8,10 +8,12 @@ import '../../data/import/import_models.dart';
 import '../../theme/app_accents.dart';
 import '../../theme/app_dimens.dart';
 import '../../widgets/bento_cell.dart';
+import '../../widgets/entrance_fade.dart';
 import '../../widgets/glow_progress_bar.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/status_chip.dart';
 import 'import_controller.dart';
+import 'import_ticker.dart';
 import 'source_app_sheet.dart';
 
 /// Backup & Sources: import hub per the `backup_sources` mockup. Upload
@@ -32,7 +34,7 @@ class BackupsScreen extends ConsumerWidget {
         children: [
           _ImportCtaCell(busy: busy),
           const SizedBox(height: AppDimens.gutter),
-          ..._stateCells(context, ref, state),
+          _ImportStateSection(state: state),
           const _ExportCtaCell(),
           const SizedBox(height: AppDimens.gutter),
           const _HistoryCell(),
@@ -40,35 +42,64 @@ class BackupsScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  List<Widget> _stateCells(BuildContext context, WidgetRef ref, ImportState state) {
-    return switch (state) {
-      ImportStaging(:final fileName) => [
-          _BusyCell(label: 'Reading $fileName…'),
-          const SizedBox(height: AppDimens.gutter),
-        ],
-      ImportNeedsApp() => [
-          _NeedsAppCell(state: state),
-          const SizedBox(height: AppDimens.gutter),
-        ],
-      ImportReview(:final queue) => [
-          _ReviewCell(queue: queue),
-          const SizedBox(height: AppDimens.gutter),
-        ],
-      ImportCommitting() => [
-          _CommittingCell(state: state),
-          const SizedBox(height: AppDimens.gutter),
-        ],
-      ImportDone(:final records) => [
-          _DoneCell(records: records),
-          const SizedBox(height: AppDimens.gutter),
-        ],
-      ImportFailed(:final message) => [
-          _FailedCell(message: message),
-          const SizedBox(height: AppDimens.gutter),
-        ],
-      ImportIdle() => const [],
+/// The one cell that tracks where an import has got to, cross-faded and
+/// height-animated as the flow moves staging → review → committing → done.
+///
+/// Without this the cells swap in a single frame and the two below them jump by
+/// however much the height changed — which is most visible at exactly the
+/// moment the user is watching, the hand-off from "Commit import" to progress.
+class _ImportStateSection extends StatelessWidget {
+  const _ImportStateSection({required this.state});
+  final ImportState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final still = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return AnimatedSize(
+      duration: still ? Duration.zero : const Duration(milliseconds: 300),
+      curve: kEntranceCurve,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: still ? Duration.zero : const Duration(milliseconds: 260),
+        // Out faster than in, so the arriving cell is never fighting the
+        // departing one for the same space.
+        reverseDuration: still ? Duration.zero : const Duration(milliseconds: 160),
+        switchInCurve: kEntranceCurve,
+        switchOutCurve: Curves.easeIn,
+        // The default layout centres children, which makes a tall cell leaving
+        // and a short one arriving slide past each other vertically.
+        layoutBuilder: (current, previous) => Stack(
+          alignment: Alignment.topCenter,
+          children: [...previous, ?current],
+        ),
+        // Keyed by phase only: the committing cell must survive every progress
+        // tick, or the ticker would be rebuilt from scratch forty times a
+        // second and never show anything.
+        child: KeyedSubtree(
+          key: ValueKey(state.runtimeType),
+          child: _stateCell(state),
+        ),
+      ),
+    );
+  }
+
+  Widget _stateCell(ImportState state) {
+    final cell = switch (state) {
+      ImportStaging(:final fileName) => _BusyCell(label: 'Reading $fileName…'),
+      ImportNeedsApp() => _NeedsAppCell(state: state),
+      ImportReview(:final queue) => _ReviewCell(queue: queue),
+      ImportCommitting() => _CommittingCell(state: state),
+      ImportDone(:final records) => _DoneCell(records: records),
+      ImportFailed(:final message) => _FailedCell(message: message),
+      ImportIdle() => null,
     };
+    if (cell == null) return const SizedBox.shrink();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [cell, const SizedBox(height: AppDimens.gutter)],
+    );
   }
 }
 
@@ -519,8 +550,8 @@ class _MergeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final badge = StatusChip(
-      _actionLabel(result.action),
-      accent: _actionAccent(result.action),
+      importActionLabel(result.action),
+      accent: importActionAccent(result.action),
     );
     final title = Expanded(
       child: Text(result.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
@@ -572,48 +603,35 @@ class _CommittingCell extends StatelessWidget {
           const SizedBox(height: AppDimens.unit),
           Text(state.fileName, style: theme.textTheme.bodyLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: AppDimens.unit * 2),
-          GlowProgressBar(value: state.fraction, accent: VaultAccent.cyan),
+          // Shorter than the default: events land every few tens of ms, and a
+          // 600ms glide would trail the counter beside it all the way through.
+          GlowProgressBar(
+            value: state.fraction,
+            accent: VaultAccent.cyan,
+            duration: const Duration(milliseconds: 300),
+          ),
           const SizedBox(height: AppDimens.unit),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
+                // One line, always: the phase label grows as titles are counted
+                // and a wrap here would resize the card mid-import.
                 child: Text(state.phaseLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ),
+              const SizedBox(width: AppDimens.unit),
               Text('${state.processed} / ${state.total}',
                   style: theme.textTheme.labelSmall!
                       .copyWith(color: VaultAccent.cyan.color)),
             ],
           ),
           const SizedBox(height: AppDimens.gutter),
-          // Live stream of the most recent records as they're written.
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 280),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: state.recent.length,
-              itemBuilder: (context, i) {
-                final m = state.recent[i];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(m.title,
-                            maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
-                      ),
-                      const SizedBox(width: AppDimens.unit),
-                      StatusChip(
-                        _actionLabel(m.action),
-                        accent: _actionAccent(m.action),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+          // Live view of the titles being written — a fixed-height well, not a
+          // list, so the card's height never moves while an import runs.
+          ImportTicker(recent: state.recent),
         ],
       ),
     );
@@ -838,18 +856,3 @@ class _HistoryRow extends ConsumerWidget {
     return '${diff.inDays}d ago';
   }
 }
-
-/// Badge text for a per-title import outcome.
-String _actionLabel(String action) => switch (action) {
-      'merged' => 'MERGED',
-      'skipped' => 'SKIPPED',
-      _ => 'NEW',
-    };
-
-/// Hue for a per-title import outcome, matching the review chips above the
-/// list so a badge and the count that filters to it read as the same thing.
-VaultAccent _actionAccent(String action) => switch (action) {
-      'merged' => VaultAccent.cyan,
-      'skipped' => VaultAccent.amber,
-      _ => VaultAccent.emerald,
-    };

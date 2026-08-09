@@ -5,8 +5,13 @@ import '../../data/import/import_models.dart';
 import '../../data/import/import_repository.dart';
 import '../sync/sync_controller.dart';
 
-/// Keep only the most recent manga records in the live view (perf at 1000+).
-const _recentCap = 50;
+/// Keep only the most recent manga records in the live view.
+///
+/// The live view is a four-deep ticker that reads nothing but the head, so this
+/// buffer exists purely so a consumer can look back a row or two. It used to be
+/// 50, back when the screen rendered a scrolling list — at one copied list per
+/// title that was ~60k pointless allocations across a 1,200-title backup.
+const _recentCap = 4;
 
 // ---- state ----
 
