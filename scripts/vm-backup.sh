@@ -73,13 +73,24 @@ echo "$n" > "$counter"
 if [ "$n" -eq 0 ]; then
   covers="$BACKUP_DIR/mangavault-covers-$ts.tar.gz"
   echo "[$(date -u +%FT%TZ)] archiving covers -> $covers"
+  # Stream the tar to stdout and let *this* shell create the file, rather than
+  # bind-mounting BACKUP_DIR and writing from inside. The container runs as root
+  # (it has to — the cover tree is root-owned), so a file it creates on a bind
+  # mount is root-owned too, and the `chmod 600` below then fails for ubuntu.
+  # Under `set -e` that aborted the whole run *after* a good dump had been
+  # written, which is exactly the kind of failure a backup script must not have.
+  #
+  # postgres:16-alpine rather than `alpine`: it is already on the box because
+  # the stack runs it, so 03:30 never depends on Docker Hub being reachable.
   if docker run --rm \
     -v "${COMPOSE_PROJECT_NAME:-mangavault-prod}_storage":/src:ro \
-    -v "$BACKUP_DIR":/dst \
-    alpine tar czf "/dst/$(basename "$covers")" -C /src . ; then
+    postgres:16-alpine tar czf - -C /src . > "$covers"; then
     chmod 600 "$covers"
     echo "[$(date -u +%FT%TZ)] wrote $(du -h "$covers" | cut -f1)"
   else
+    # The redirect above created the file regardless of how docker exited, so a
+    # partial archive has to be removed explicitly or it looks like a good one.
+    rm -f "$covers"
     echo "WARN: cover archive failed; the database dump above is still good" >&2
   fi
   # Keep only the newest two cover archives — they are large and rebuildable.
