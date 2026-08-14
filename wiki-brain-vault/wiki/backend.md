@@ -54,3 +54,27 @@ server/src/
   `npm run dev` (there is no `start:dev`), and Jest's single-test flag is now
   `npm test -- --testPathPatterns <name>` (plural — Jest renamed `--testPathPattern` and errors
   out on the old form).
+
+## Container & build (see [[deployment]] for the box it runs on)
+
+- **`npm install`, never `npm ci`** — in the Dockerfile, in CI, everywhere. `sharp` pulls
+  platform-specific optional dependencies (`@img/sharp-*`, and `@emnapi/*` beneath them) and npm
+  writes into the lockfile only what the *installing* platform resolved (npm/cli#4828). A lockfile
+  generated on Windows fails `npm ci` on ARM64 Alpine with `Missing: @emnapi/runtime from lock
+  file`; regenerate it on Linux and it fails on Windows with `Missing: @img/sharp-wasm32`. There is
+  no single lockfile that satisfies both — this was diagnosed the slow way, by trying. `npm install`
+  honours the lockfile where it is consistent and re-resolves only the divergent optional deps.
+- **The image runs as `node` (uid 1000), not root.** The server fetches cover art from arbitrary
+  third-party URLs and parses untrusted protobuf out of uploaded backups; neither belongs to uid 0.
+  If the `storage` volume already has root-owned content from an older image, chown it once —
+  Docker only applies the image's ownership to an *empty* named volume:
+  `docker run --rm -v mangavault-prod_storage:/data alpine chown -R 1000:1000 /data`.
+- **`HEALTHCHECK` on `/api/v1/health`** is in the Dockerfile, so any compose file inherits it.
+  Without one, `restart: always` cannot act on a process that is up but wedged.
+- **Production log level is `['log','warn','error']`** (`main.ts`). `DEBUG` emits one line per cover
+  archived — thousands per import, and it was the largest container log on the VM.
+- `x-powered-by` is disabled; the app is typed as `NestExpressApplication` so `app.disable()` is
+  checked rather than reached through an `any` (which trips the repo's lint rules).
+- **`.github/workflows/server.yml`** lints, tests and builds the real image for **amd64 and
+  arm64**, then asserts `sharp` loads and the image is not root. The VM is Ampere A1, so an
+  amd64-only build proves nothing about where this actually runs.

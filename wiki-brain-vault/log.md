@@ -5,6 +5,12 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-14 16:30] session | VM audit and hardening pass, both apps
+Touched: deployment, backend, index
+Vault had zero backups (2,014 titles / 190,284 chapters); installed nightly dumps + off-box copy and
+rehearsed a restore. Kept Caddy over Traefik (verdict recorded). Both apps off root, limited,
+healthchecked; DOCKER-USER default-deny; kernel patched.
+
 ## [2026-08-09 23:30] session | Deploy plan for the shared Oracle VM + 1.0.0 branch
 Touched: deployment (new), index
 Co-tenant with Expensy behind its existing Caddy via a shared `edge` network; no new ports.

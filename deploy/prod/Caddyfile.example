@@ -1,0 +1,76 @@
+# The COMPLETE Caddyfile as deployed at ~/deploy/prod/Caddyfile on the VM —
+# both tenants, not just Manga Vault's block. It lives in this repo because
+# Expensy's prod config exists only on the VM, and a shared ingress that only
+# one of its two tenants has a copy of is a config nobody can rebuild.
+#
+# Replaces the older Caddyfile.snippet: the sites now share a (common) snippet,
+# which has to be defined exactly once, so appending a block with `cat >>` is no
+# longer the right way to add one.
+#
+# Apply without dropping either app:
+#   docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+#   docker compose exec caddy caddy reload   --config /etc/caddy/Caddyfile
+# `--config` is explicit on purpose: a bare reload looks for a Caddyfile in the
+# container's working directory, not at the mounted path, and fails confusingly.
+#
+# Requires on the caddy service: a `caddy_logs` volume mounted at /var/log/caddy,
+# and membership of both `default` (to reach `api`) and the external `edge`
+# network (to reach `mangavault-server`).
+
+(common) {
+	encode gzip
+
+	# Both hosts are HTTPS-only and always will be; without this a first request
+	# on http:// is still answered in cleartext before the redirect. Caddy
+	# *replaces* rather than appends, so Expensy's helmet-set HSTS does not double.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# There was previously no record anywhere of who called what, on either
+	# domain. Rolled by Caddy itself so it cannot fill the disk.
+	log {
+		output file /var/log/caddy/{args[0]}.log {
+			roll_size 10mb
+			roll_keep 5
+			roll_keep_for 720h
+		}
+		format json
+	}
+}
+
+api.expensy-app.org {
+	import common expensy
+	reverse_proxy api:3000
+}
+
+vault.expensy-app.org {
+	import common vault
+
+	# Backups are uploaded whole: the server accepts up to 200 MB
+	# (MAX_UPLOAD_BYTES in src/modules/import/import.controller.ts).
+	request_body {
+		max_size 200MB
+	}
+
+	# `mangavault-server` is the network alias published on the shared `edge`
+	# network (see docker-compose.yml). Caddy can only resolve it once its own
+	# container has joined that network.
+	#
+	# The three transport settings each fix a real failure:
+	#   flush_interval -1        the import progress feed is server-sent events;
+	#                            buffered, the app's live ticker shows nothing
+	#                            until the import has already finished.
+	#   read_timeout 30m         importing a large backup and archiving a
+	#                            thousand covers both hold the connection well
+	#                            past Caddy's 30s default.
+	#   response_header_timeout  same, for the first byte back.
+	reverse_proxy mangavault-server:3000 {
+		flush_interval -1
+		transport http {
+			response_header_timeout 5m
+			read_timeout 30m
+		}
+	}
+}
