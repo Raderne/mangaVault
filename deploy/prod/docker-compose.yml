@@ -28,6 +28,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # This box has one OCPU and hosts a second app. Ceilings keep a heavy import
+    # from starving api.expensy-app.org; Compose v2 honours deploy.resources
+    # outside Swarm.
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   server:
     build:
@@ -40,6 +50,14 @@ services:
         condition: service_healthy
     expose:
       - "3000" # only Caddy talks to it; no host port
+    deploy:
+      resources:
+        limits:
+          cpus: "0.6" # leave headroom for Expensy on the single OCPU
+          memory: 768M # sharp decodes cover art; 512M is too tight under import
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     volumes:
       # Archived cover art. A named volume, not a bind mount, so it survives
       # `docker compose down` and is backed up explicitly (see ops/backup.sh).
