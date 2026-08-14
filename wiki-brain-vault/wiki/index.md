@@ -6,7 +6,8 @@ the first time substantial work happens on a topic.
 
 ## Components
 
-- [[backend]] — NestJS 11 API: layout, auth guard, migration-owned schema, int64 discipline, ports.
+- [[backend]] — NestJS 11 API: layout, auth guard, migration-owned schema, int64 discipline, ports,
+  and the container build (`npm install` not `npm ci`, non-root, healthcheck, CI).
 - [[flutter-app]] — app structure, Riverpod + go_router, Minimalist Slate theming, compile-time server config.
 
 ## Concepts
@@ -34,7 +35,8 @@ the first time substantial work happens on a topic.
 - [[server-connection]] — the setup screen and runtime server config: why the URL/token are no
   longer compiled in, keystore storage, the two-step connection check, and the router gate.
 - [[deployment]] — the server on the shared Oracle VM: `vault.expensy-app.org`, the one-Caddy /
-  two-apps `edge` network, env, ARM64 build rule, and backups.
+  two-apps `edge` network, env, ARM64 build rule, backups + off-box copy, the hardening baseline
+  (non-root, limits, healthchecks, DOCKER-USER firewall), and why not Traefik.
 
 ## Domain
 

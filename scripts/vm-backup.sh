@@ -110,3 +110,14 @@ if ((${#dumps[@]} > KEEP_COUNT)); then
   done
 fi
 echo "[$(date -u +%FT%TZ)] pruned ${pruned} dump(s); keeping up to ${KEEP_COUNT}"
+
+# Copy off the box. Local dumps share a boot volume with the data they protect,
+# so on their own they only cover "someone deleted a row", not "the volume is
+# gone". Deliberately last and deliberately non-fatal: a network problem at
+# 03:30 must not make a good local backup look like a failed run.
+sync_script="${OCI_SYNC:-$HOME/ops/mangavault/oci-sync.sh}"
+if [ -x "$sync_script" ]; then
+  bash "$sync_script" || echo "WARN: off-box copy failed; local backups above are still good" >&2
+else
+  echo "[$(date -u +%FT%TZ)] no off-box sync configured — backups are LOCAL ONLY"
+fi

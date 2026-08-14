@@ -1,0 +1,88 @@
+name: Server
+
+# Guards the thing that actually gets deployed. The VM runs `docker compose up
+# -d --build`, so the Dockerfile — not `npm test` on a runner — is the artifact
+# that has to work. A broken build used to be discovered on the VM, mid-deploy,
+# with the site down; it should be discovered here instead.
+#
+# Specifically catches the sharp/npm lockfile trap (npm/cli#4828): the optional
+# @img/sharp-* and @emnapi/* dependencies resolve differently per platform, so a
+# lockfile written on Windows can break the image build on Linux. Building the
+# real image on every server change is the only thing that reliably catches it.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'server/**'
+      - '.github/workflows/server.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - '.github/workflows/server.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      # `npm install`, matching the Dockerfile. `npm ci` is deliberately not
+      # used anywhere in this repo — see the comment in server/Dockerfile.
+      - run: npm install --no-audit --no-fund
+
+      - run: npx eslint src
+      - run: npm test
+      - run: npm run build
+
+  image:
+    name: Build the production image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # The VM is Ampere A1 (aarch64) and sharp resolves a platform-specific
+      # binary at install time, so an amd64-only build proves nothing about the
+      # machine this actually runs on. Build both; the image is never pushed.
+      - name: Build for amd64 and arm64
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A build that succeeds but produces an image that cannot load its native
+      # deps still breaks the deploy, and sharp is exactly that kind of dep.
+      - name: Load the arm64 image and check sharp
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: mangavault-server:ci
+          cache-from: type=gha
+
+      - name: sharp loads, and the image does not run as root
+        run: |
+          docker run --rm --platform linux/arm64 mangavault-server:ci \
+            node -e "const s=require('sharp');console.log('sharp',s.versions.sharp,'libvips',s.versions.vips)"
+          user=$(docker run --rm --platform linux/arm64 mangavault-server:ci id -un)
+          echo "image runs as: $user"
+          [ "$user" = "node" ] || { echo "::error::image must not run as root"; exit 1; }
