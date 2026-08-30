@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-30 16:25] session | Added Android launcher icon
+Touched: none
+
 ## [2026-08-14 16:30] session | VM audit and hardening pass, both apps
 Touched: deployment, backend, index
 Vault had zero backups (2,014 titles / 190,284 chapters); installed nightly dumps + off-box copy and
