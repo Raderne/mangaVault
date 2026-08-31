@@ -73,7 +73,11 @@ export class SourceMigrationJobEntity {
   fromSourceId: string;
 
   /** Target sources in preference order — the first good match wins. */
-  @Column({ name: 'to_source_ids', type: 'jsonb', default: () => `'[]'::jsonb` })
+  @Column({
+    name: 'to_source_ids',
+    type: 'jsonb',
+    default: () => `'[]'::jsonb`,
+  })
   toSourceIds: string[];
 
   @Column({ type: 'integer', default: 0 })

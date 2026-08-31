@@ -146,7 +146,9 @@ export class SourceRegistry1754400000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS uq_source_health_job_running`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS uq_source_health_job_running`,
+    );
     await queryRunner.query(
       `DROP INDEX IF EXISTS idx_source_health_job_started_at`,
     );

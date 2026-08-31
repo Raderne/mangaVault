@@ -40,7 +40,9 @@ describe('normalizeTitle', () => {
 
 describe('titleSimilarity', () => {
   it('is 1 for titles that normalize to the same string', () => {
-    expect(titleSimilarity('Solo Leveling', 'solo leveling (official)')).toBe(1);
+    expect(titleSimilarity('Solo Leveling', 'solo leveling (official)')).toBe(
+      1,
+    );
   });
 
   it('rates a real-world rename above the auto-accept bar', () => {

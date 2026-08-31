@@ -132,7 +132,10 @@ describe('parseIndexV2', () => {
 
   it('keeps ids past 2^53 exact', () => {
     const id = '9127464796236242233';
-    const entry = { ...v2Entry(), sources: [{ id, name: 'X', language: 'az' }] };
+    const entry = {
+      ...v2Entry(),
+      sources: [{ id, name: 'X', language: 'az' }],
+    };
     const parsed = parseIndexV2(BASE, v2Body([entry]));
 
     expect(parsed.sources[0].sourceId).toBe(id);
@@ -155,7 +158,9 @@ describe('parseIndexV2', () => {
     const other = {
       ...v2Entry(),
       packageName: 'eu.kanade.tachiyomi.extension.all.impostor',
-      sources: [{ id: '2499283573021220255', name: 'Impostor', language: 'en' }],
+      sources: [
+        { id: '2499283573021220255', name: 'Impostor', language: 'en' },
+      ],
     };
     const parsed = parseIndexV2(BASE, v2Body([v2Entry(), other]));
 
@@ -168,9 +173,9 @@ describe('parseIndexV2', () => {
 
   it('defaults an unknown content warning to safe', () => {
     const entry = { ...v2Entry(), contentWarning: 'CONTENT_WARNING_FUTURE' };
-    expect(parseIndexV2(BASE, v2Body([entry])).extensions[0].contentWarning).toBe(
-      'safe',
-    );
+    expect(
+      parseIndexV2(BASE, v2Body([entry])).extensions[0].contentWarning,
+    ).toBe('safe');
   });
 });
 

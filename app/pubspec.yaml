@@ -2,13 +2,13 @@
 # prefix (`package:mangavault/…`), never a display name. The user-facing name is
 # "Manga Vault" (Android `android:label`, `MaterialApp.title`, the app bar).
 name: mangavault
-description: "Manga Vault - archival client for manga/manhwa library backups."
+description: 'Manga Vault - archival client for manga/manhwa library backups.'
 publish_to: 'none'
 
 # Keep in lockstep with the top entry of the repo-root CHANGELOG.md and the
 # `v<version>` git tag that triggers the release workflow. The build number
 # after `+` becomes Android's versionCode and must increase every release.
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: ^3.12.0
@@ -51,9 +51,9 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:
-  android: "ic_launcher"
+  android: 'ic_launcher'
   ios: false
-  image_path: "../appIcon/app icon.png"
+  image_path: '../appIcon/app icon.png'
   min_sdk_android: 21
 
 flutter:

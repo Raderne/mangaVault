@@ -9,18 +9,18 @@ slices the section for the tag being built and posts it as the GitHub release bo
 updater parses that body back into typed, colour-coded entries. So the section headings matter —
 use only the six below, and keep every item a single `- ` bullet on one line.
 
-| Heading         | Shown in-app as | Accent  |
-| --------------- | --------------- | ------- |
-| `### Added`     | ADDED           | emerald |
-| `### Fixed`     | FIXED           | cyan    |
-| `### Changed`   | CHANGED         | violet  |
-| `### Deprecated`| DEPRECATED      | amber   |
-| `### Security`  | SECURITY        | amber   |
-| `### Removed`   | REMOVED         | rose    |
+| Heading          | Shown in-app as | Accent  |
+| ---------------- | --------------- | ------- |
+| `### Added`      | ADDED           | emerald |
+| `### Fixed`      | FIXED           | cyan    |
+| `### Changed`    | CHANGED         | violet  |
+| `### Deprecated` | DEPRECATED      | amber   |
+| `### Security`   | SECURITY        | amber   |
+| `### Removed`    | REMOVED         | rose    |
 
 ## [Unreleased]
 
-## [1.0.1] - 2026-08-30
+## [1.0.2] - 2026-08-30
 
 Sources gain an identity. The vault can now tell you where each title came from, whether that
 place still works, and move titles off one that doesn't.

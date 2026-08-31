@@ -50,12 +50,12 @@ export class SourceSearchRegistry {
 
   /** Registry facts about a source id, or null if we have never seen it. */
   async describe(sourceId: string): Promise<SearchableSource | null> {
-    const rows = (await this.dataSource.query(
+    const rows = await this.dataSource.query<SearchableSource[]>(
       `SELECT source_id AS "sourceId", package_name AS "packageName",
               name, COALESCE(lang, '') AS lang, base_url AS "homeUrl"
          FROM known_source WHERE source_id = $1`,
       [sourceId],
-    )) as SearchableSource[];
+    );
     return rows[0] ?? null;
   }
 

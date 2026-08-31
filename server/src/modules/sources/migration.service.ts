@@ -181,7 +181,13 @@ export class MigrationService {
           while (!signal.aborted) {
             const index = cursor++;
             if (index >= titles.length) return;
-            await this.planOne(jobId, titles[index], targets, vaultPool, signal);
+            await this.planOne(
+              jobId,
+              titles[index],
+              targets,
+              vaultPool,
+              signal,
+            );
           }
         },
       );
@@ -235,10 +241,7 @@ export class MigrationService {
 
     // `url` is the matcher's name for the title's own address on its source —
     // it is what stops a title being offered itself as a migration target.
-    const ranked = rankCandidates(
-      { ...title, url: title.mangaUrl },
-      collected,
-    );
+    const ranked = rankCandidates({ ...title, url: title.mangaUrl }, collected);
     // Preference order is the user's ranking of target sources, so a strong
     // match on their first choice beats a marginally better one further down.
     const ordered = [...ranked].sort((a, b) => {
@@ -471,26 +474,31 @@ export class MigrationService {
 
     try {
       const result = await withSyncLock(this.dataSource, async (mgr) => {
-        const current = (await mgr.query(
+        const current = await mgr.query<
+          Array<MigrationSnapshot & { coverState: string }>
+        >(
           `SELECT source_id AS "sourceId", manga_url AS "mangaUrl",
                   source_name AS "sourceName", thumbnail_url AS "thumbnailUrl",
                   cover_state AS "coverState"
              FROM manga WHERE id = $1`,
           [item.mangaId],
-        )) as Array<MigrationSnapshot & { coverState: string }>;
+        );
         if (current.length === 0) {
-          return { outcome: 'failed' as const, error: 'title no longer exists' };
+          return {
+            outcome: 'failed' as const,
+            error: 'title no longer exists',
+          };
         }
 
         // The identity we are about to take may already belong to another
         // archived title — the user already has this book on the target source.
         // That is not an error and must not be forced: two rows cannot share
         // `uq_manga_source`, and overwriting one would destroy its history.
-        const clash = (await mgr.query(
+        const clash = await mgr.query<Array<{ id: string }>>(
           `SELECT id FROM manga
             WHERE source_id = $1 AND manga_url = $2 AND id <> $3`,
           [item.toSourceId, item.toMangaUrl, item.mangaId],
-        )) as Array<{ id: string }>;
+        );
         if (clash.length > 0) {
           return { outcome: 'conflict' as const, conflictId: clash[0].id };
         }
@@ -502,10 +510,10 @@ export class MigrationService {
           thumbnailUrl: current[0].thumbnailUrl,
         };
 
-        const targetName = (await mgr.query(
+        const targetName = await mgr.query<Array<{ name: string }>>(
           `SELECT name FROM known_source WHERE source_id = $1`,
           [item.toSourceId],
-        )) as Array<{ name: string }>;
+        );
 
         // A cover already archived keeps its file — `cover_path` is untouched,
         // so the app shows the same image throughout. Only the *upstream*
@@ -583,11 +591,11 @@ export class MigrationService {
     const snapshot = item.snapshot;
 
     await withSyncLock(this.dataSource, async (mgr) => {
-      const clash = (await mgr.query(
+      const clash = await mgr.query<Array<{ id: string }>>(
         `SELECT id FROM manga
           WHERE source_id = $1 AND manga_url = $2 AND id <> $3`,
         [snapshot.sourceId, snapshot.mangaUrl, item.mangaId],
-      )) as Array<{ id: string }>;
+      );
       if (clash.length > 0) {
         throw new ConflictException(
           'another title now holds the original source and url',
@@ -642,11 +650,11 @@ export class MigrationService {
 
     await withSyncLock(this.dataSource, async (mgr) => {
       // Highest chapter number the old title had actually read.
-      const highWater = (await mgr.query(
+      const highWater = await mgr.query<Array<{ n: number | null }>>(
         `SELECT MAX(chapter_number) AS n FROM chapter
           WHERE manga_id = $1 AND read AND chapter_number >= 0`,
         [loser],
-      )) as Array<{ n: number | null }>;
+      );
       const readUpTo = highWater[0]?.n ?? null;
 
       if (readUpTo !== null) {
@@ -748,7 +756,7 @@ export class MigrationService {
       args.push(mangaIds);
       filter = `AND m.id = ANY($2::uuid[])`;
     }
-    return (await this.dataSource.query(
+    return await this.dataSource.query<VaultTitle[]>(
       `SELECT m.id, m.source_id AS "sourceId", m.manga_url AS "mangaUrl",
               m.title, m.author, m.thumbnail_url AS "thumbnailUrl",
               COALESCE(c.n, 0)::int AS "chapterCount"
@@ -759,7 +767,7 @@ export class MigrationService {
         WHERE m.source_id = $1 ${filter}
         ORDER BY m.title ASC`,
       args,
-    )) as VaultTitle[];
+    );
   }
 
   /**
@@ -772,7 +780,9 @@ export class MigrationService {
   private async vaultCandidatePool(
     toSourceIds: string[],
   ): Promise<SourceCandidate[]> {
-    const rows = (await this.dataSource.query(
+    const rows = await this.dataSource.query<
+      Array<Omit<SourceCandidate, 'via'>>
+    >(
       `SELECT m.source_id AS "sourceId", m.manga_url AS url, m.title,
               m.author, m.thumbnail_url AS "thumbnailUrl",
               COALESCE(c.n, 0)::int AS "chapterCount"
@@ -782,7 +792,7 @@ export class MigrationService {
          ) c ON c.manga_id = m.id
         WHERE m.source_id = ANY($1::text[])`,
       [toSourceIds],
-    )) as Array<Omit<SourceCandidate, 'via'>>;
+    );
     return rows.map((r) => ({ ...r, via: 'vault' as const }));
   }
 
@@ -820,11 +830,13 @@ export class MigrationService {
 
   /** Recompute the job counters from its items — the single source of truth. */
   private async refreshCounters(jobId: string): Promise<void> {
-    const rows = (await this.dataSource.query(
+    const rows = await this.dataSource.query<
+      Array<{ state: string; n: number }>
+    >(
       `SELECT state, COUNT(*)::int AS n
          FROM source_migration_item WHERE job_id = $1 GROUP BY state`,
       [jobId],
-    )) as Array<{ state: string; n: number }>;
+    );
     const by = new Map(rows.map((r) => [r.state, r.n]));
     const pending = by.get('pending') ?? 0;
     const total = [...by.values()].reduce((a, b) => a + b, 0);
@@ -846,20 +858,21 @@ export class MigrationService {
   private async sourceNames(ids: string[]): Promise<Map<string, string>> {
     const unique = [...new Set(ids.filter((id) => id.length > 0))];
     if (unique.length === 0) return new Map();
-    const rows = (await this.dataSource.query(
+    const rows = await this.dataSource.query<
+      Array<{ source_id: string; name: string }>
+    >(
       `SELECT source_id, name FROM known_source WHERE source_id = ANY($1::text[])`,
       [unique],
-    )) as Array<{ source_id: string; name: string }>;
+    );
     return new Map(rows.map((r) => [r.source_id, r.name || r.source_id]));
   }
 
   private async titlesById(ids: string[]): Promise<Map<string, string>> {
     const unique = [...new Set(ids)];
     if (unique.length === 0) return new Map();
-    const rows = await this.dataSource.query<Array<{ id: string; title: string }>>(
-      `SELECT id, title FROM manga WHERE id = ANY($1::uuid[])`,
-      [unique],
-    );
+    const rows = await this.dataSource.query<
+      Array<{ id: string; title: string }>
+    >(`SELECT id, title FROM manga WHERE id = ANY($1::uuid[])`, [unique]);
     return new Map(rows.map((r) => [r.id, r.title]));
   }
 

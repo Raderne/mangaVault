@@ -81,7 +81,9 @@ export class MangaDexAdapter implements SourceSearchAdapter {
     if (lang) params.append('availableTranslatedLanguage[]', lang);
 
     const body = await this.get(`${API}/manga?${params.toString()}`, signal);
-    const data = Array.isArray(body?.data) ? (body.data as MangaDexManga[]) : [];
+    const data = Array.isArray(body?.data)
+      ? (body.data as MangaDexManga[])
+      : [];
 
     return data.flatMap((manga) => {
       const names = allTitles(manga);

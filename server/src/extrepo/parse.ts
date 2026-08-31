@@ -114,7 +114,10 @@ export function isPlaceholderIndex(parsed: ParsedRepoIndex): boolean {
 }
 
 /** Parse an index body in whichever format it is published in. */
-export function parseRepoIndex(baseUrl: string, body: unknown): ParsedRepoIndex {
+export function parseRepoIndex(
+  baseUrl: string,
+  body: unknown,
+): ParsedRepoIndex {
   const format = detectIndexFormat(body);
   if (format === null) {
     throw new RepoIndexError(
@@ -137,7 +140,9 @@ export function parseRepoIndex(baseUrl: string, body: unknown): ParsedRepoIndex 
  *       sources: [ { id, name, language, homeUrl, mirrorUrls? } ] } ] } }
  */
 export function parseIndexV2(baseUrl: string, body: Json): ParsedRepoIndex {
-  const list = isObject(body.extensionList) ? body.extensionList.extensions : [];
+  const list = isObject(body.extensionList)
+    ? body.extensionList.extensions
+    : [];
   const entries = Array.isArray(list) ? list.slice(0, MAX_ENTRIES) : [];
   const acc = newAccumulator('v2', baseUrl);
 
@@ -265,10 +270,7 @@ interface Accumulator {
   warnings: string[];
 }
 
-function newAccumulator(
-  format: RepoIndexFormat,
-  baseUrl: string,
-): Accumulator {
+function newAccumulator(format: RepoIndexFormat, baseUrl: string): Accumulator {
   return {
     format,
     baseUrl: trimSlash(baseUrl),

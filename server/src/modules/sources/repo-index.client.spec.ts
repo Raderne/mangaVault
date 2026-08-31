@@ -60,23 +60,30 @@ function stubFetch(routes: Record<string, Reply | Reply[]>) {
     ]),
   );
 
-  global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
+  // Not `async`: every branch answers synchronously, and `fetch` only has to
+  // return a promise — which `Promise.resolve` does without the lint noise of
+  // an async function that never awaits.
+  global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    // `input` is a string in every call here; `URL` and `Request` both have a
+    // meaningful `toString`, so this never degrades to "[object Object]".
+    const url = input instanceof Request ? input.url : input.toString();
     calls.push({
       url,
       headers: (init?.headers ?? {}) as Record<string, string>,
     });
     const queue = remaining.get(url);
-    const reply = queue && queue.length > 0 ? (queue.shift() as Reply) : null;
+    const reply = queue && queue.length > 0 ? queue.shift() : undefined;
     if (!reply) {
-      return new Response('not found', { status: 404 });
+      return Promise.resolve(new Response('not found', { status: 404 }));
     }
     const status = reply.status ?? 200;
-    return new Response(status === 304 ? null : JSON.stringify(reply.body), {
-      status,
-      headers: reply.headers,
-    });
-  }) as unknown as typeof fetch;
+    return Promise.resolve(
+      new Response(status === 304 ? null : JSON.stringify(reply.body), {
+        status,
+        headers: reply.headers,
+      }),
+    );
+  });
 
   return calls;
 }
@@ -127,7 +134,10 @@ describe('RepoIndexClient', () => {
 
       const result = await client.fetchIndex(BASE);
 
-      expect(result).toMatchObject({ kind: 'index', url: `${BASE}/index.json` });
+      expect(result).toMatchObject({
+        kind: 'index',
+        url: `${BASE}/index.json`,
+      });
       expect(calls.map((c) => c.url)).toEqual([`${BASE}/index.json`]);
     });
 
@@ -181,7 +191,11 @@ describe('RepoIndexClient', () => {
         [`${BASE}/index.json`]: { status: 304 },
       });
 
-      const result = await client.fetchIndex(BASE, `${BASE}/index.json`, 'W/"v1"');
+      const result = await client.fetchIndex(
+        BASE,
+        `${BASE}/index.json`,
+        'W/"v1"',
+      );
 
       expect(result).toEqual({ kind: 'unchanged' });
       expect(calls[0].headers['If-None-Match']).toBe('W/"v1"');

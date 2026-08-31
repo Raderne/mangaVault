@@ -187,7 +187,10 @@ export class SourceRegistryService
     await this.repos.delete({ id });
   }
 
-  async setRepoEnabled(id: string, enabled: boolean): Promise<ExtensionRepoDto> {
+  async setRepoEnabled(
+    id: string,
+    enabled: boolean,
+  ): Promise<ExtensionRepoDto> {
     const row = await this.repos.findOne({ where: { id } });
     if (!row) throw new NotFoundException('repository not found');
     row.enabled = enabled;
@@ -455,7 +458,7 @@ export class SourceRegistryService
       // Withdrawn: this repo used to list it and no longer does. The row stays
       // — the vault is full of titles pointing at it — but it is now marked,
       // and the health checker will call it `removed` without a request.
-      const delisted = (await mgr.query(
+      const delisted = await mgr.query<unknown[]>(
         `UPDATE known_source
             SET registry_state = 'delisted'
           WHERE repo_id = $1
@@ -463,7 +466,7 @@ export class SourceRegistryService
             AND registry_state <> 'delisted'
           RETURNING source_id`,
         [repo.id, seenAt],
-      )) as unknown[];
+      );
 
       return { delisted: delisted.length };
     });
@@ -483,7 +486,7 @@ export class SourceRegistryService
    */
   async backfillSourceNames(): Promise<number> {
     return withSyncLock(this.dataSource, async (mgr) => {
-      const rows = (await mgr.query(
+      const rows = await mgr.query<unknown[]>(
         `UPDATE manga m
             SET source_name = ks.name
            FROM known_source ks
@@ -491,7 +494,7 @@ export class SourceRegistryService
             AND btrim(COALESCE(m.source_name, '')) = ''
             AND btrim(ks.name) <> ''
           RETURNING m.id`,
-      )) as unknown[];
+      );
       if (rows.length > 0) {
         this.logger.log(`backfilled ${rows.length} blank source names`);
       }
@@ -513,7 +516,7 @@ export class SourceRegistryService
   }
 
   private async querySources(): Promise<SourceDto[]> {
-    return (await this.dataSource.query(
+    return await this.dataSource.query<SourceDto[]>(
       `SELECT ks.source_id                              AS "sourceId",
               COALESCE(NULLIF(ks.name, ''), ks.source_id) AS name,
               COALESCE(ks.lang, '')                     AS lang,
@@ -548,7 +551,7 @@ export class SourceRegistryService
                  END,
                  COALESCE(t.title_count, 0) DESC,
                  lower(ks.name) ASC`,
-    )) as SourceDto[];
+    );
   }
 
   /**
@@ -574,7 +577,9 @@ export class SourceRegistryService
     // the user actually reads.
     const preferredLang = this.dominantLang(rows);
 
-    const listed = (await this.dataSource.query(
+    const listed = await this.dataSource.query<
+      Array<Omit<SourceSuggestionDto, 'similarity'>>
+    >(
       `SELECT ks.source_id AS "sourceId", ks.name, COALESCE(ks.lang, '') AS lang,
               ks.base_url AS "homeUrl", ks.icon_url AS "iconUrl",
               COALESCE(t.n, 0)::int AS "titleCount"
@@ -583,7 +588,7 @@ export class SourceRegistryService
              SELECT source_id, COUNT(*) AS n FROM manga GROUP BY source_id
          ) t ON t.source_id = ks.source_id
         WHERE ks.registry_state = 'listed'`,
-    )) as Array<Omit<SourceSuggestionDto, 'similarity'>>;
+    );
 
     for (const orphan of orphans) {
       // A numeric "name" is really a missing name — the id printed as a
@@ -676,12 +681,12 @@ export class SourceRegistryService
     }
     const clause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
-    const totalRows = (await this.dataSource.query(
+    const totalRows = await this.dataSource.query<Array<{ n: number }>>(
       `SELECT COUNT(*)::int AS n FROM extension e ${clause}`,
       args,
-    )) as Array<{ n: number }>;
+    );
 
-    const items = (await this.dataSource.query(
+    const items = await this.dataSource.query<ExtensionDto[]>(
       `SELECT e.package_name    AS "packageName",
               e.name            AS name,
               e.version_name    AS "versionName",
@@ -702,7 +707,7 @@ export class SourceRegistryService
         ORDER BY lower(e.name) ASC
         LIMIT $${args.length + 1} OFFSET $${args.length + 2}`,
       [...args, params.limit, params.offset],
-    )) as ExtensionDto[];
+    );
 
     return {
       items,

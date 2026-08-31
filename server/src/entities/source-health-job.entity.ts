@@ -7,11 +7,7 @@ import { bigIntToNumber } from '../common/transformers';
  * `interrupted` included — a `running` row whose owning process died.
  */
 export type SourceHealthJobStatus =
-  | 'running'
-  | 'finished'
-  | 'cancelled'
-  | 'failed'
-  | 'interrupted';
+  'running' | 'finished' | 'cancelled' | 'failed' | 'interrupted';
 
 /** What asked for the run. `schedule` is the daily background pass. */
 export type SourceHealthJobTrigger = 'manual' | 'schedule' | 'resume';

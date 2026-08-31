@@ -28,12 +28,7 @@ export type SourceRegistryState = 'listed' | 'delisted' | 'unknown';
  * fine while every cover fetch 403s.
  */
 export type SourceHealth =
-  | 'ok'
-  | 'degraded'
-  | 'blocked'
-  | 'unreachable'
-  | 'removed'
-  | 'unknown';
+  'ok' | 'degraded' | 'blocked' | 'unreachable' | 'removed' | 'unknown';
 
 /**
  * A source the vault has seen — from a backup's `backupSources` list, from an

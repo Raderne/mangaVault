@@ -161,7 +161,11 @@ export class SourceHealthService
     });
     // Not awaited: the caller gets a job id to poll, the run proceeds behind it.
     void this.run(job.jobId, candidates);
-    return { jobId: job.jobId, total: candidates.length, alreadyRunning: false };
+    return {
+      jobId: job.jobId,
+      total: candidates.length,
+      alreadyRunning: false,
+    };
   }
 
   private async run(jobId: string, candidates: Candidate[]): Promise<void> {
@@ -339,7 +343,7 @@ export class SourceHealthService
       args.push(Date.now() - maxAgeMs);
       staleClause = `AND (ks.health_checked_at IS NULL OR ks.health_checked_at < $1)`;
     }
-    return (await this.dataSource.query(
+    return await this.dataSource.query<Candidate[]>(
       `SELECT ks.source_id       AS "sourceId",
               ks.name            AS name,
               ks.base_url        AS "homeUrl",
@@ -362,7 +366,7 @@ export class SourceHealthService
         WHERE TRUE ${staleClause}
         ORDER BY t.title_count DESC`,
       args,
-    )) as Candidate[];
+    );
   }
 
   /**
