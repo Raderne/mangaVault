@@ -32,8 +32,8 @@ place still works, and move titles off one that doesn't.
 - Source health verdicts — working, degraded, blocked, unreachable or removed — including sources that answer normally but whose cover images have all stopped loading.
 - Replacement suggestions for a source no repository publishes any more, so a renamed source points at its successor.
 - Source migration: move titles off a dead source onto one that works, keeping every chapter, read position, category and archive record. Confident matches are pre-selected, uncertain ones are left for you, and anything moved can be undone.
-- Manual migration targets: pick a different match, or paste a title's address on the new source.
-- Merge for a title that is already in your library on the target source, carrying reading progress across.
+- Manual migration targets: pick a different match, or paste a title's address on the new source
+- Merge for a title that is already in your library on the target source, carrying reading progress across
 - Extensions browser: search the 1,380 published extensions and copy an install link.
 
 ### Fixed
