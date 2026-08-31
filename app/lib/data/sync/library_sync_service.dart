@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../backup_apps/backup_app_models.dart';
 import '../library/library_models.dart';
+import '../sources/source_models.dart';
 import '../stats/stats_models.dart';
 import '../local/app_database.dart';
 import 'sync_models.dart';
@@ -123,12 +124,14 @@ class LibrarySyncService {
       if (!result.hasMore) break;
     }
 
-    // Categories, imports and the backup-app registry are small and effectively
-    // append-only, so they are replaced wholesale rather than versioned.
+    // Categories, imports and the backup-app and source registries are small
+    // and effectively append-only, so they are replaced wholesale rather than
+    // versioned.
     await _db.transaction(() async {
       await _replaceCategories(meta.categories);
       await _replaceImports(meta.imports);
       await _replaceBackupApps(meta.backupApps);
+      await _replaceSources(meta.sources);
       await _writeMeta(
         cursor: cursor,
         epoch: meta.serverEpoch,
@@ -227,6 +230,7 @@ class LibrarySyncService {
     await _db.delete(_db.localCategory).go();
     await _db.delete(_db.localImportRecord).go();
     await _db.delete(_db.localBackupApp).go();
+    await _db.delete(_db.localSource).go();
   }
 
   Future<void> _replaceCategories(List<Category> categories) async {
@@ -269,6 +273,35 @@ class LibrarySyncService {
               displayName: a.displayName,
               accent: Value(a.accent),
               curated: Value(a.curated),
+            ),
+          );
+    }
+  }
+
+  /// Replace the source registry.
+  ///
+  /// Wholesale, like the app registry above: a few dozen rows that the server
+  /// recomputes on every request anyway, and a delete-then-insert keeps a
+  /// source the server has dropped from lingering with a stale verdict.
+  Future<void> _replaceSources(List<VaultSource> sources) async {
+    await _db.delete(_db.localSource).go();
+    for (final s in sources) {
+      await _db.into(_db.localSource).insertOnConflictUpdate(
+            LocalSourceCompanion.insert(
+              id: s.sourceId,
+              name: s.name,
+              lang: Value(s.lang),
+              homeUrl: Value(s.homeUrl),
+              iconUrl: Value(s.iconUrl),
+              packageName: Value(s.packageName),
+              repoName: Value(s.repoName),
+              contentWarning: Value(s.contentWarning),
+              registryState: Value(s.registryState.name),
+              health: Value(s.health.name),
+              healthNote: Value(s.healthNote),
+              healthCheckedAt: Value(s.healthCheckedAt),
+              titleCount: Value(s.titleCount),
+              coverFailedCount: Value(s.coverFailedCount),
             ),
           );
     }

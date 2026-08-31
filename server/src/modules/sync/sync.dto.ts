@@ -8,6 +8,7 @@ import type {
 } from '../../entities/manga.entity';
 import type { BackupAppDto } from '../backup-apps/backup-apps.dto';
 import type { CategoryDto, ChapterRefDto } from '../library/library.dto';
+import type { SourceDto } from '../sources/source.dto';
 import type { VaultStorageDto } from '../stats/stats.dto';
 
 /** Default titles per delta page (override with `?limit=`). */
@@ -82,6 +83,16 @@ export interface SyncMetaDto {
    * with the server unreachable.
    */
   backupApps: BackupAppDto[];
+  /**
+   * The source registry: a real name, language, icon and health verdict for
+   * every source the vault holds titles from.
+   *
+   * Carried here rather than on each title for the same reason as the app
+   * registry above — a few dozen rows, replaced wholesale, so `/sync/library`
+   * gains no per-title cost and the sources screen works with the server
+   * unreachable. `manga.source_name` stays the per-title fallback.
+   */
+  sources: SourceDto[];
   /** Postgres + archived backups + cover files, in bytes (server-only). */
   vaultSizeBytes: number;
   /** The same total split by database / covers / backups (server-only). */

@@ -4,6 +4,7 @@
 
 import '../backup_apps/backup_app_models.dart';
 import '../library/library_models.dart';
+import '../sources/source_models.dart';
 import '../stats/stats_models.dart';
 
 /// One mirrored title: the union of what the grid and details screens render.
@@ -175,6 +176,7 @@ class SyncMetaSnapshot {
     required this.imports,
     required this.vaultSizeBytes,
     this.backupApps = const [],
+    this.sources = const [],
     this.vaultStorage = const VaultStorage(),
   });
 
@@ -187,6 +189,11 @@ class SyncMetaSnapshot {
   /// The backup-app registry, replaced wholesale like categories and imports.
   /// It only names ids — a title's apps are derived from its import links.
   final List<BackupApp> backupApps;
+
+  /// The source registry: a name, icon and health verdict per source the vault
+  /// holds titles from. Replaced wholesale for the same reason as the app
+  /// registry — a few dozen rows, and it keeps `/sync/library` untouched.
+  final List<VaultSource> sources;
   final int vaultSizeBytes;
 
   /// Database / covers / backups split — the mirror stores the parts so the
@@ -205,6 +212,9 @@ class SyncMetaSnapshot {
             .toList(),
         backupApps: ((j['backupApps'] as List?) ?? const [])
             .map((e) => BackupApp.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        sources: ((j['sources'] as List?) ?? const [])
+            .map((e) => VaultSource.fromJson(e as Map<String, dynamic>))
             .toList(),
         vaultSizeBytes: (j['vaultSizeBytes'] as num?)?.toInt() ?? 0,
         vaultStorage: VaultStorage.fromJson(

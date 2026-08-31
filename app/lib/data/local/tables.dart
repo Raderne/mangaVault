@@ -118,6 +118,43 @@ class LocalBackupApp extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// The source registry, mirrored from `/sync/meta`.
+///
+/// Small (a few dozen rows — one per source the vault actually holds titles
+/// from) and replaced wholesale on every sync, like the category and
+/// backup-app registries. It is what lets the Sources screen name a source,
+/// show its icon and say whether it still works while the server is
+/// unreachable; `local_manga.sourceName` remains the per-title fallback for a
+/// source no repository has ever listed.
+class LocalSource extends Table {
+  /// Mihon 64-bit source id as a decimal string — joins `local_manga.sourceId`.
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get lang => text().withDefault(const Constant(''))();
+  TextColumn get homeUrl => text().nullable()();
+  TextColumn get iconUrl => text().nullable()();
+  TextColumn get packageName => text().nullable()();
+  TextColumn get repoName => text().nullable()();
+  TextColumn get contentWarning => text().nullable()();
+
+  /// `listed` / `delisted` / `unknown` — whether a repository still has it.
+  TextColumn get registryState =>
+      text().withDefault(const Constant('unknown'))();
+
+  /// `ok` / `degraded` / `blocked` / `unreachable` / `removed` / `unknown`.
+  TextColumn get health => text().withDefault(const Constant('unknown'))();
+  TextColumn get healthNote => text().nullable()();
+  IntColumn get healthCheckedAt => integer().nullable()();
+
+  /// Server-side counts. The mirror can derive the title count itself, but
+  /// carrying it keeps the sources list a single scan of this table.
+  IntColumn get titleCount => integer().withDefault(const Constant(0))();
+  IntColumn get coverFailedCount => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Single-row table (`id` is always 0) holding sync bookkeeping.
 class SyncMeta extends Table {
   IntColumn get id => integer().withDefault(const Constant(0))();

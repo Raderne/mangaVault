@@ -51,6 +51,27 @@ Migration `1753900000000-sync-row-version.ts` (the second migration ever). See [
   `row_version` rewinds. That case is caught client-side instead — a stored cursor **ahead** of the
   server's reported maximum is impossible while versions only increase, and forces a full resync.
 
+  **It also does not cover a `TRUNCATE`.** Wiping the library by truncating the tables fires no row
+  triggers, so no tombstones are written, `row_version` does not move, and the epoch is untouched —
+  a client would delta-sync, be told correctly that nothing changed, and keep its full stale mirror
+  forever. Rotate the epoch in the same transaction so every device wipes and rebuilds:
+
+  ```sql
+  BEGIN;
+  TRUNCATE TABLE manga, chapter, manga_import, manga_category, category, tracking,
+    import_record, cover_job, deleted_manga, sync_tombstone, known_source
+    RESTART IDENTITY CASCADE;
+  UPDATE sync_state SET server_epoch = gen_random_uuid();
+  COMMIT;
+  ```
+
+  Keep `migrations` (truncating it re-runs every migration on boot, which then fails), `sync_state`
+  (one row, created by a migration) and `backup_app` (harmless either way — `BackupAppsService`
+  re-seeds the curated list on every boot). Cover files and archived uploads in the storage volume
+  are **not** covered: `manga.cover_path` and `import_record` are the only pointers to them, so a
+  truncate orphans the lot permanently — clear `covers/` and `imports/` in the same pass or the
+  dashboard's storage figure stays wrong. See [[deployment]].
+
 `row_version` is deliberately **not mapped** on `MangaEntity` (like `search_tsv`): TypeORM must never
 write it, and `migration:generate` may propose dropping it — always review the diff.
 
@@ -98,6 +119,17 @@ wholesale like the other two. A title's *apps* need no protocol change (they're 
 `importIds` → `imports[].sourceApp`); only the display names had to ship, so filter chips read
 "Mihon" rather than "app.mihon" offline. `LocalBackupApp` joined the drift schema —
 **`schemaVersion` 2 → 3**, so the first launch after the update does a full re-pull, by design.
+
+**2026-08-30:** and `sources` — the [[source-registry]], same wholesale treatment. A few dozen rows
+carrying each source's real name, icon, language and health verdict, so the Sources screen names
+everything and shows its last known state offline. Deliberately **not** on the per-title payload:
+`manga.source_name` already denormalizes the name a title needs, and putting a registry lookup on
+`/sync/library` would cost something on every one of 1,242 rows to serve a screen that lists twenty.
+`LocalSource` joined the drift schema — **`schemaVersion` 3 → 4**, another by-design full re-pull.
+
+Note what did *not* need a protocol change: [[source-migration]] rewrites a title's `source_id` and
+`manga_url` in place, so the migrated row is stamped by `mv_stamp_manga` and arrives through the
+ordinary delta like any other edit.
 
 `/sync/meta` carries categories and import records **whole** (both are small and append-only, so
 they're replaced rather than versioned) plus `vaultSizeBytes` — the one dashboard figure the device

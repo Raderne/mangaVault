@@ -20,6 +20,26 @@ use only the six below, and keep every item a single `- ` bullet on one line.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-30
+
+Sources gain an identity. The vault can now tell you where each title came from, whether that
+place still works, and move titles off one that doesn't.
+
+### Added
+
+- Source registry: every source now shows a real name, icon, language and website, read from the Keiyoushi extension repository index instead of a bare 64-bit id.
+- Sources screen (Library → Sources): every source your library depends on, ranked by whether it still works, with a health check you can run on demand.
+- Source health verdicts — working, degraded, blocked, unreachable or removed — including sources that answer normally but whose cover images have all stopped loading.
+- Replacement suggestions for a source no repository publishes any more, so a renamed source points at its successor.
+- Source migration: move titles off a dead source onto one that works, keeping every chapter, read position, category and archive record. Confident matches are pre-selected, uncertain ones are left for you, and anything moved can be undone.
+- Manual migration targets: pick a different match, or paste a title's address on the new source.
+- Merge for a title that is already in your library on the target source, carrying reading progress across.
+- Extensions browser: search the 1,380 published extensions and copy an install link.
+
+### Fixed
+
+- Titles imported from a backup with no source list (every legacy `.json` backup) stayed permanently nameless even after a later backup named the source. Existing blank names are filled in automatically.
+
 ## [1.0.0] - 2026-08-09
 
 First public release. The archive is feature-complete for a single-user vault: import, browse,
@@ -49,5 +69,6 @@ export, and keep the collection alive independently of the reading apps it came 
 - Change server and disconnect, from About. Switching servers clears the offline copy of the
   library on the device; nothing on either server is touched.
 
-[Unreleased]: https://github.com/Raderne/mangaVault/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Raderne/mangaVault/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Raderne/mangaVault/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Raderne/mangaVault/releases/tag/v1.0.0

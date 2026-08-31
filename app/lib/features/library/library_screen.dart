@@ -168,8 +168,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           tooltip: 'More',
           onSelected: (value) {
             if (value == 'deleted') context.push('/library/deleted');
+            if (value == 'sources') context.push('/library/sources');
           },
           itemBuilder: (context) => const [
+            // Where the library's titles come from, and whether those places
+            // still work. Rare enough for the overflow, but it is the only
+            // route to migrating off a source that has died.
+            PopupMenuItem(
+              value: 'sources',
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.hub_outlined),
+                title: Text('Sources'),
+              ),
+            ),
             PopupMenuItem(
               value: 'deleted',
               child: ListTile(

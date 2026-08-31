@@ -5,8 +5,24 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-08-30 17:05] session | Extension registry, source health, migration
+Touched: source-registry, source-migration, index
+Ingested the Keiyoushi v2 extension index (1,380 extensions / 2,156 sources) into a new
+`extension_repo`/`extension` registry hung off `known_source`, added a durable health checker
+modelled on `cover_job`, and built two-phase source migration (plan → review → apply, with undo)
+that re-points a title in place so chapters, progress, categories and import history survive.
+New `src/extrepo/` pure lib, `modules/sources/`, two migrations, three app screens, `local_source`
+mirror table (schemaVersion 4). Also fixed the long-standing blank `source_name` on legacy-JSON
+imports. Verified end to end on the real 1,242-title vault.
+
 ## [2026-08-30 16:25] session | Added Android launcher icon
 Touched: none
+
+## [2026-08-23 11:45] session | Truncated the prod vault to a clean database
+Touched: local-library-mirror
+Wiped 2,003 titles / 190,563 chapters on the VM at the user's request (no backup taken — the
+nightly dumps still hold the old data for 3 nights). Kept migrations/sync_state/backup_app and
+rotated `server_epoch` so every device rebuilds its mirror. Cover + import files left orphaned.
 
 ## [2026-08-14 16:30] session | VM audit and hardening pass, both apps
 Touched: deployment, backend, index

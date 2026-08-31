@@ -4,19 +4,22 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ALL_ENTITIES } from '../../entities';
 import { BackupAppsModule } from '../backup-apps/backup-apps.module';
 import { LibraryModule } from '../library/library.module';
+import { SourcesModule } from '../sources/sources.module';
 import { StatsModule } from '../stats/stats.module';
 import { SyncController } from './sync.controller';
 import { SyncService } from './sync.service';
 
 @Module({
   // LibraryModule supplies the category list; StatsModule the vault size;
-  // BackupAppsModule the app registry — all already computed there, so the sync
-  // payload reuses them rather than duplicating the queries.
+  // BackupAppsModule the app registry; SourcesModule the source registry — all
+  // already computed there, so the sync payload reuses them rather than
+  // duplicating the queries.
   imports: [
     TypeOrmModule.forFeature(ALL_ENTITIES),
     LibraryModule,
     StatsModule,
     BackupAppsModule,
+    SourcesModule,
   ],
   controllers: [SyncController],
   providers: [SyncService],

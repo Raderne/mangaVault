@@ -8,7 +8,7 @@ publish_to: 'none'
 # Keep in lockstep with the top entry of the repo-root CHANGELOG.md and the
 # `v<version>` git tag that triggers the release workflow. The build number
 # after `+` becomes Android's versionCode and must increase every release.
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.12.0

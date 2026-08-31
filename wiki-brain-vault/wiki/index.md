@@ -34,6 +34,12 @@ the first time substantial work happens on a topic.
   download → install), APK signing, and the GitHub Releases workflow.
 - [[server-connection]] — the setup screen and runtime server config: why the URL/token are no
   longer compiled in, keystore storage, the two-step connection check, and the router gate.
+- [[source-registry]] — what a `source_id` actually is: the keiyoushi v2 index (and the stub that
+  replaced the old one), delisting, the health ladder incl. cover corroboration, and how a renamed
+  source is matched back to its successor.
+- [[source-migration]] — moving titles off a dead source: the two-phase plan/apply split, the two
+  confidence thresholds, in-place re-pointing (why progress survives here and not in Mihon), and
+  conflict merging.
 - [[deployment]] — the server on the shared Oracle VM: `vault.expensy-app.org`, the one-Caddy /
   two-apps `edge` network, env, ARM64 build rule, backups + off-box copy, the hardening baseline
   (non-root, limits, healthchecks, DOCKER-USER firewall), and why not Traefik.

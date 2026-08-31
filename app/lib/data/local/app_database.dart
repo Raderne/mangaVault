@@ -24,6 +24,7 @@ part 'app_database.g.dart';
     LocalImportRecord,
     LocalMangaImport,
     LocalBackupApp,
+    LocalSource,
     SyncMeta,
   ],
 )
@@ -35,8 +36,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// 2 (2026-07-31): `sync_meta` gained the vault storage breakdown.
   /// 3 (2026-08-02): added `local_backup_app` — the backup-app registry.
+  /// 4 (2026-08-30): added `local_source` — the source registry and health.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

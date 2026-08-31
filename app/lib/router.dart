@@ -7,9 +7,12 @@ import 'features/about/about_screen.dart';
 import 'features/backups/backups_screen.dart';
 import 'features/backups/export/export_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
+import 'features/extensions/extensions_screen.dart';
 import 'features/library/deleted_titles_screen.dart';
 import 'features/library/library_screen.dart';
 import 'features/setup/setup_screen.dart';
+import 'features/sources/migration_plan_screen.dart';
+import 'features/sources/sources_screen.dart';
 import 'features/title_details/title_details_screen.dart';
 import 'widgets/entrance_fade.dart';
 import 'widgets/app_shell.dart';
@@ -81,6 +84,25 @@ final routerProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: 'deleted',
                   builder: (_, _) => const DeletedTitlesScreen(),
+                ),
+                // Nested under Library, not a fourth tab: sources are a
+                // property of the library you are looking at, and the bottom
+                // nav is already at its three-item budget.
+                GoRoute(
+                  path: 'sources',
+                  builder: (_, _) => const SourcesScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'migrate/:jobId',
+                      builder: (_, state) => MigrationPlanScreen(
+                        jobId: state.pathParameters['jobId']!,
+                      ),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: 'extensions',
+                  builder: (_, _) => const ExtensionsScreen(),
                 ),
                 GoRoute(
                   path: 'title/:id',

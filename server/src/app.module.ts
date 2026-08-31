@@ -11,6 +11,7 @@ import { CoverModule } from './modules/covers/cover.module';
 import { ExportModule } from './modules/export/export.module';
 import { ImportModule } from './modules/import/import.module';
 import { LibraryModule } from './modules/library/library.module';
+import { SourcesModule } from './modules/sources/sources.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { SyncModule } from './modules/sync/sync.module';
 
@@ -31,6 +32,7 @@ import { SyncModule } from './modules/sync/sync.module';
     ExportModule,
     LibraryModule,
     CoverModule,
+    SourcesModule,
     StatsModule,
     SyncModule,
   ],

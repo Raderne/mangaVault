@@ -3024,6 +3024,838 @@ class LocalBackupAppCompanion extends UpdateCompanion<LocalBackupAppData> {
   }
 }
 
+class $LocalSourceTable extends LocalSource
+    with TableInfo<$LocalSourceTable, LocalSourceData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalSourceTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _langMeta = const VerificationMeta('lang');
+  @override
+  late final GeneratedColumn<String> lang = GeneratedColumn<String>(
+    'lang',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _homeUrlMeta = const VerificationMeta(
+    'homeUrl',
+  );
+  @override
+  late final GeneratedColumn<String> homeUrl = GeneratedColumn<String>(
+    'home_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _iconUrlMeta = const VerificationMeta(
+    'iconUrl',
+  );
+  @override
+  late final GeneratedColumn<String> iconUrl = GeneratedColumn<String>(
+    'icon_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _packageNameMeta = const VerificationMeta(
+    'packageName',
+  );
+  @override
+  late final GeneratedColumn<String> packageName = GeneratedColumn<String>(
+    'package_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _repoNameMeta = const VerificationMeta(
+    'repoName',
+  );
+  @override
+  late final GeneratedColumn<String> repoName = GeneratedColumn<String>(
+    'repo_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentWarningMeta = const VerificationMeta(
+    'contentWarning',
+  );
+  @override
+  late final GeneratedColumn<String> contentWarning = GeneratedColumn<String>(
+    'content_warning',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _registryStateMeta = const VerificationMeta(
+    'registryState',
+  );
+  @override
+  late final GeneratedColumn<String> registryState = GeneratedColumn<String>(
+    'registry_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('unknown'),
+  );
+  static const VerificationMeta _healthMeta = const VerificationMeta('health');
+  @override
+  late final GeneratedColumn<String> health = GeneratedColumn<String>(
+    'health',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('unknown'),
+  );
+  static const VerificationMeta _healthNoteMeta = const VerificationMeta(
+    'healthNote',
+  );
+  @override
+  late final GeneratedColumn<String> healthNote = GeneratedColumn<String>(
+    'health_note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _healthCheckedAtMeta = const VerificationMeta(
+    'healthCheckedAt',
+  );
+  @override
+  late final GeneratedColumn<int> healthCheckedAt = GeneratedColumn<int>(
+    'health_checked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _titleCountMeta = const VerificationMeta(
+    'titleCount',
+  );
+  @override
+  late final GeneratedColumn<int> titleCount = GeneratedColumn<int>(
+    'title_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _coverFailedCountMeta = const VerificationMeta(
+    'coverFailedCount',
+  );
+  @override
+  late final GeneratedColumn<int> coverFailedCount = GeneratedColumn<int>(
+    'cover_failed_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    lang,
+    homeUrl,
+    iconUrl,
+    packageName,
+    repoName,
+    contentWarning,
+    registryState,
+    health,
+    healthNote,
+    healthCheckedAt,
+    titleCount,
+    coverFailedCount,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_source';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalSourceData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('lang')) {
+      context.handle(
+        _langMeta,
+        lang.isAcceptableOrUnknown(data['lang']!, _langMeta),
+      );
+    }
+    if (data.containsKey('home_url')) {
+      context.handle(
+        _homeUrlMeta,
+        homeUrl.isAcceptableOrUnknown(data['home_url']!, _homeUrlMeta),
+      );
+    }
+    if (data.containsKey('icon_url')) {
+      context.handle(
+        _iconUrlMeta,
+        iconUrl.isAcceptableOrUnknown(data['icon_url']!, _iconUrlMeta),
+      );
+    }
+    if (data.containsKey('package_name')) {
+      context.handle(
+        _packageNameMeta,
+        packageName.isAcceptableOrUnknown(
+          data['package_name']!,
+          _packageNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('repo_name')) {
+      context.handle(
+        _repoNameMeta,
+        repoName.isAcceptableOrUnknown(data['repo_name']!, _repoNameMeta),
+      );
+    }
+    if (data.containsKey('content_warning')) {
+      context.handle(
+        _contentWarningMeta,
+        contentWarning.isAcceptableOrUnknown(
+          data['content_warning']!,
+          _contentWarningMeta,
+        ),
+      );
+    }
+    if (data.containsKey('registry_state')) {
+      context.handle(
+        _registryStateMeta,
+        registryState.isAcceptableOrUnknown(
+          data['registry_state']!,
+          _registryStateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('health')) {
+      context.handle(
+        _healthMeta,
+        health.isAcceptableOrUnknown(data['health']!, _healthMeta),
+      );
+    }
+    if (data.containsKey('health_note')) {
+      context.handle(
+        _healthNoteMeta,
+        healthNote.isAcceptableOrUnknown(data['health_note']!, _healthNoteMeta),
+      );
+    }
+    if (data.containsKey('health_checked_at')) {
+      context.handle(
+        _healthCheckedAtMeta,
+        healthCheckedAt.isAcceptableOrUnknown(
+          data['health_checked_at']!,
+          _healthCheckedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('title_count')) {
+      context.handle(
+        _titleCountMeta,
+        titleCount.isAcceptableOrUnknown(data['title_count']!, _titleCountMeta),
+      );
+    }
+    if (data.containsKey('cover_failed_count')) {
+      context.handle(
+        _coverFailedCountMeta,
+        coverFailedCount.isAcceptableOrUnknown(
+          data['cover_failed_count']!,
+          _coverFailedCountMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalSourceData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalSourceData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      lang: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lang'],
+      )!,
+      homeUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}home_url'],
+      ),
+      iconUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_url'],
+      ),
+      packageName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}package_name'],
+      ),
+      repoName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}repo_name'],
+      ),
+      contentWarning: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_warning'],
+      ),
+      registryState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}registry_state'],
+      )!,
+      health: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}health'],
+      )!,
+      healthNote: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}health_note'],
+      ),
+      healthCheckedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}health_checked_at'],
+      ),
+      titleCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}title_count'],
+      )!,
+      coverFailedCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cover_failed_count'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalSourceTable createAlias(String alias) {
+    return $LocalSourceTable(attachedDatabase, alias);
+  }
+}
+
+class LocalSourceData extends DataClass implements Insertable<LocalSourceData> {
+  /// Mihon 64-bit source id as a decimal string — joins `local_manga.sourceId`.
+  final String id;
+  final String name;
+  final String lang;
+  final String? homeUrl;
+  final String? iconUrl;
+  final String? packageName;
+  final String? repoName;
+  final String? contentWarning;
+
+  /// `listed` / `delisted` / `unknown` — whether a repository still has it.
+  final String registryState;
+
+  /// `ok` / `degraded` / `blocked` / `unreachable` / `removed` / `unknown`.
+  final String health;
+  final String? healthNote;
+  final int? healthCheckedAt;
+
+  /// Server-side counts. The mirror can derive the title count itself, but
+  /// carrying it keeps the sources list a single scan of this table.
+  final int titleCount;
+  final int coverFailedCount;
+  const LocalSourceData({
+    required this.id,
+    required this.name,
+    required this.lang,
+    this.homeUrl,
+    this.iconUrl,
+    this.packageName,
+    this.repoName,
+    this.contentWarning,
+    required this.registryState,
+    required this.health,
+    this.healthNote,
+    this.healthCheckedAt,
+    required this.titleCount,
+    required this.coverFailedCount,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['lang'] = Variable<String>(lang);
+    if (!nullToAbsent || homeUrl != null) {
+      map['home_url'] = Variable<String>(homeUrl);
+    }
+    if (!nullToAbsent || iconUrl != null) {
+      map['icon_url'] = Variable<String>(iconUrl);
+    }
+    if (!nullToAbsent || packageName != null) {
+      map['package_name'] = Variable<String>(packageName);
+    }
+    if (!nullToAbsent || repoName != null) {
+      map['repo_name'] = Variable<String>(repoName);
+    }
+    if (!nullToAbsent || contentWarning != null) {
+      map['content_warning'] = Variable<String>(contentWarning);
+    }
+    map['registry_state'] = Variable<String>(registryState);
+    map['health'] = Variable<String>(health);
+    if (!nullToAbsent || healthNote != null) {
+      map['health_note'] = Variable<String>(healthNote);
+    }
+    if (!nullToAbsent || healthCheckedAt != null) {
+      map['health_checked_at'] = Variable<int>(healthCheckedAt);
+    }
+    map['title_count'] = Variable<int>(titleCount);
+    map['cover_failed_count'] = Variable<int>(coverFailedCount);
+    return map;
+  }
+
+  LocalSourceCompanion toCompanion(bool nullToAbsent) {
+    return LocalSourceCompanion(
+      id: Value(id),
+      name: Value(name),
+      lang: Value(lang),
+      homeUrl: homeUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(homeUrl),
+      iconUrl: iconUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(iconUrl),
+      packageName: packageName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(packageName),
+      repoName: repoName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(repoName),
+      contentWarning: contentWarning == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentWarning),
+      registryState: Value(registryState),
+      health: Value(health),
+      healthNote: healthNote == null && nullToAbsent
+          ? const Value.absent()
+          : Value(healthNote),
+      healthCheckedAt: healthCheckedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(healthCheckedAt),
+      titleCount: Value(titleCount),
+      coverFailedCount: Value(coverFailedCount),
+    );
+  }
+
+  factory LocalSourceData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalSourceData(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      lang: serializer.fromJson<String>(json['lang']),
+      homeUrl: serializer.fromJson<String?>(json['homeUrl']),
+      iconUrl: serializer.fromJson<String?>(json['iconUrl']),
+      packageName: serializer.fromJson<String?>(json['packageName']),
+      repoName: serializer.fromJson<String?>(json['repoName']),
+      contentWarning: serializer.fromJson<String?>(json['contentWarning']),
+      registryState: serializer.fromJson<String>(json['registryState']),
+      health: serializer.fromJson<String>(json['health']),
+      healthNote: serializer.fromJson<String?>(json['healthNote']),
+      healthCheckedAt: serializer.fromJson<int?>(json['healthCheckedAt']),
+      titleCount: serializer.fromJson<int>(json['titleCount']),
+      coverFailedCount: serializer.fromJson<int>(json['coverFailedCount']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'lang': serializer.toJson<String>(lang),
+      'homeUrl': serializer.toJson<String?>(homeUrl),
+      'iconUrl': serializer.toJson<String?>(iconUrl),
+      'packageName': serializer.toJson<String?>(packageName),
+      'repoName': serializer.toJson<String?>(repoName),
+      'contentWarning': serializer.toJson<String?>(contentWarning),
+      'registryState': serializer.toJson<String>(registryState),
+      'health': serializer.toJson<String>(health),
+      'healthNote': serializer.toJson<String?>(healthNote),
+      'healthCheckedAt': serializer.toJson<int?>(healthCheckedAt),
+      'titleCount': serializer.toJson<int>(titleCount),
+      'coverFailedCount': serializer.toJson<int>(coverFailedCount),
+    };
+  }
+
+  LocalSourceData copyWith({
+    String? id,
+    String? name,
+    String? lang,
+    Value<String?> homeUrl = const Value.absent(),
+    Value<String?> iconUrl = const Value.absent(),
+    Value<String?> packageName = const Value.absent(),
+    Value<String?> repoName = const Value.absent(),
+    Value<String?> contentWarning = const Value.absent(),
+    String? registryState,
+    String? health,
+    Value<String?> healthNote = const Value.absent(),
+    Value<int?> healthCheckedAt = const Value.absent(),
+    int? titleCount,
+    int? coverFailedCount,
+  }) => LocalSourceData(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    lang: lang ?? this.lang,
+    homeUrl: homeUrl.present ? homeUrl.value : this.homeUrl,
+    iconUrl: iconUrl.present ? iconUrl.value : this.iconUrl,
+    packageName: packageName.present ? packageName.value : this.packageName,
+    repoName: repoName.present ? repoName.value : this.repoName,
+    contentWarning: contentWarning.present
+        ? contentWarning.value
+        : this.contentWarning,
+    registryState: registryState ?? this.registryState,
+    health: health ?? this.health,
+    healthNote: healthNote.present ? healthNote.value : this.healthNote,
+    healthCheckedAt: healthCheckedAt.present
+        ? healthCheckedAt.value
+        : this.healthCheckedAt,
+    titleCount: titleCount ?? this.titleCount,
+    coverFailedCount: coverFailedCount ?? this.coverFailedCount,
+  );
+  LocalSourceData copyWithCompanion(LocalSourceCompanion data) {
+    return LocalSourceData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      lang: data.lang.present ? data.lang.value : this.lang,
+      homeUrl: data.homeUrl.present ? data.homeUrl.value : this.homeUrl,
+      iconUrl: data.iconUrl.present ? data.iconUrl.value : this.iconUrl,
+      packageName: data.packageName.present
+          ? data.packageName.value
+          : this.packageName,
+      repoName: data.repoName.present ? data.repoName.value : this.repoName,
+      contentWarning: data.contentWarning.present
+          ? data.contentWarning.value
+          : this.contentWarning,
+      registryState: data.registryState.present
+          ? data.registryState.value
+          : this.registryState,
+      health: data.health.present ? data.health.value : this.health,
+      healthNote: data.healthNote.present
+          ? data.healthNote.value
+          : this.healthNote,
+      healthCheckedAt: data.healthCheckedAt.present
+          ? data.healthCheckedAt.value
+          : this.healthCheckedAt,
+      titleCount: data.titleCount.present
+          ? data.titleCount.value
+          : this.titleCount,
+      coverFailedCount: data.coverFailedCount.present
+          ? data.coverFailedCount.value
+          : this.coverFailedCount,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalSourceData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('lang: $lang, ')
+          ..write('homeUrl: $homeUrl, ')
+          ..write('iconUrl: $iconUrl, ')
+          ..write('packageName: $packageName, ')
+          ..write('repoName: $repoName, ')
+          ..write('contentWarning: $contentWarning, ')
+          ..write('registryState: $registryState, ')
+          ..write('health: $health, ')
+          ..write('healthNote: $healthNote, ')
+          ..write('healthCheckedAt: $healthCheckedAt, ')
+          ..write('titleCount: $titleCount, ')
+          ..write('coverFailedCount: $coverFailedCount')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    lang,
+    homeUrl,
+    iconUrl,
+    packageName,
+    repoName,
+    contentWarning,
+    registryState,
+    health,
+    healthNote,
+    healthCheckedAt,
+    titleCount,
+    coverFailedCount,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalSourceData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.lang == this.lang &&
+          other.homeUrl == this.homeUrl &&
+          other.iconUrl == this.iconUrl &&
+          other.packageName == this.packageName &&
+          other.repoName == this.repoName &&
+          other.contentWarning == this.contentWarning &&
+          other.registryState == this.registryState &&
+          other.health == this.health &&
+          other.healthNote == this.healthNote &&
+          other.healthCheckedAt == this.healthCheckedAt &&
+          other.titleCount == this.titleCount &&
+          other.coverFailedCount == this.coverFailedCount);
+}
+
+class LocalSourceCompanion extends UpdateCompanion<LocalSourceData> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> lang;
+  final Value<String?> homeUrl;
+  final Value<String?> iconUrl;
+  final Value<String?> packageName;
+  final Value<String?> repoName;
+  final Value<String?> contentWarning;
+  final Value<String> registryState;
+  final Value<String> health;
+  final Value<String?> healthNote;
+  final Value<int?> healthCheckedAt;
+  final Value<int> titleCount;
+  final Value<int> coverFailedCount;
+  final Value<int> rowid;
+  const LocalSourceCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.lang = const Value.absent(),
+    this.homeUrl = const Value.absent(),
+    this.iconUrl = const Value.absent(),
+    this.packageName = const Value.absent(),
+    this.repoName = const Value.absent(),
+    this.contentWarning = const Value.absent(),
+    this.registryState = const Value.absent(),
+    this.health = const Value.absent(),
+    this.healthNote = const Value.absent(),
+    this.healthCheckedAt = const Value.absent(),
+    this.titleCount = const Value.absent(),
+    this.coverFailedCount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalSourceCompanion.insert({
+    required String id,
+    required String name,
+    this.lang = const Value.absent(),
+    this.homeUrl = const Value.absent(),
+    this.iconUrl = const Value.absent(),
+    this.packageName = const Value.absent(),
+    this.repoName = const Value.absent(),
+    this.contentWarning = const Value.absent(),
+    this.registryState = const Value.absent(),
+    this.health = const Value.absent(),
+    this.healthNote = const Value.absent(),
+    this.healthCheckedAt = const Value.absent(),
+    this.titleCount = const Value.absent(),
+    this.coverFailedCount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name);
+  static Insertable<LocalSourceData> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? lang,
+    Expression<String>? homeUrl,
+    Expression<String>? iconUrl,
+    Expression<String>? packageName,
+    Expression<String>? repoName,
+    Expression<String>? contentWarning,
+    Expression<String>? registryState,
+    Expression<String>? health,
+    Expression<String>? healthNote,
+    Expression<int>? healthCheckedAt,
+    Expression<int>? titleCount,
+    Expression<int>? coverFailedCount,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (lang != null) 'lang': lang,
+      if (homeUrl != null) 'home_url': homeUrl,
+      if (iconUrl != null) 'icon_url': iconUrl,
+      if (packageName != null) 'package_name': packageName,
+      if (repoName != null) 'repo_name': repoName,
+      if (contentWarning != null) 'content_warning': contentWarning,
+      if (registryState != null) 'registry_state': registryState,
+      if (health != null) 'health': health,
+      if (healthNote != null) 'health_note': healthNote,
+      if (healthCheckedAt != null) 'health_checked_at': healthCheckedAt,
+      if (titleCount != null) 'title_count': titleCount,
+      if (coverFailedCount != null) 'cover_failed_count': coverFailedCount,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalSourceCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? lang,
+    Value<String?>? homeUrl,
+    Value<String?>? iconUrl,
+    Value<String?>? packageName,
+    Value<String?>? repoName,
+    Value<String?>? contentWarning,
+    Value<String>? registryState,
+    Value<String>? health,
+    Value<String?>? healthNote,
+    Value<int?>? healthCheckedAt,
+    Value<int>? titleCount,
+    Value<int>? coverFailedCount,
+    Value<int>? rowid,
+  }) {
+    return LocalSourceCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      lang: lang ?? this.lang,
+      homeUrl: homeUrl ?? this.homeUrl,
+      iconUrl: iconUrl ?? this.iconUrl,
+      packageName: packageName ?? this.packageName,
+      repoName: repoName ?? this.repoName,
+      contentWarning: contentWarning ?? this.contentWarning,
+      registryState: registryState ?? this.registryState,
+      health: health ?? this.health,
+      healthNote: healthNote ?? this.healthNote,
+      healthCheckedAt: healthCheckedAt ?? this.healthCheckedAt,
+      titleCount: titleCount ?? this.titleCount,
+      coverFailedCount: coverFailedCount ?? this.coverFailedCount,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (lang.present) {
+      map['lang'] = Variable<String>(lang.value);
+    }
+    if (homeUrl.present) {
+      map['home_url'] = Variable<String>(homeUrl.value);
+    }
+    if (iconUrl.present) {
+      map['icon_url'] = Variable<String>(iconUrl.value);
+    }
+    if (packageName.present) {
+      map['package_name'] = Variable<String>(packageName.value);
+    }
+    if (repoName.present) {
+      map['repo_name'] = Variable<String>(repoName.value);
+    }
+    if (contentWarning.present) {
+      map['content_warning'] = Variable<String>(contentWarning.value);
+    }
+    if (registryState.present) {
+      map['registry_state'] = Variable<String>(registryState.value);
+    }
+    if (health.present) {
+      map['health'] = Variable<String>(health.value);
+    }
+    if (healthNote.present) {
+      map['health_note'] = Variable<String>(healthNote.value);
+    }
+    if (healthCheckedAt.present) {
+      map['health_checked_at'] = Variable<int>(healthCheckedAt.value);
+    }
+    if (titleCount.present) {
+      map['title_count'] = Variable<int>(titleCount.value);
+    }
+    if (coverFailedCount.present) {
+      map['cover_failed_count'] = Variable<int>(coverFailedCount.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalSourceCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('lang: $lang, ')
+          ..write('homeUrl: $homeUrl, ')
+          ..write('iconUrl: $iconUrl, ')
+          ..write('packageName: $packageName, ')
+          ..write('repoName: $repoName, ')
+          ..write('contentWarning: $contentWarning, ')
+          ..write('registryState: $registryState, ')
+          ..write('health: $health, ')
+          ..write('healthNote: $healthNote, ')
+          ..write('healthCheckedAt: $healthCheckedAt, ')
+          ..write('titleCount: $titleCount, ')
+          ..write('coverFailedCount: $coverFailedCount, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SyncMetaTable extends SyncMeta
     with TableInfo<$SyncMetaTable, SyncMetaData> {
   @override
@@ -3624,6 +4456,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $LocalBackupAppTable localBackupApp = $LocalBackupAppTable(this);
+  late final $LocalSourceTable localSource = $LocalSourceTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -3636,6 +4469,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localImportRecord,
     localMangaImport,
     localBackupApp,
+    localSource,
     syncMeta,
   ];
 }
@@ -5226,6 +6060,391 @@ typedef $$LocalBackupAppTableProcessedTableManager =
       LocalBackupAppData,
       PrefetchHooks Function()
     >;
+typedef $$LocalSourceTableCreateCompanionBuilder =
+    LocalSourceCompanion Function({
+      required String id,
+      required String name,
+      Value<String> lang,
+      Value<String?> homeUrl,
+      Value<String?> iconUrl,
+      Value<String?> packageName,
+      Value<String?> repoName,
+      Value<String?> contentWarning,
+      Value<String> registryState,
+      Value<String> health,
+      Value<String?> healthNote,
+      Value<int?> healthCheckedAt,
+      Value<int> titleCount,
+      Value<int> coverFailedCount,
+      Value<int> rowid,
+    });
+typedef $$LocalSourceTableUpdateCompanionBuilder =
+    LocalSourceCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> lang,
+      Value<String?> homeUrl,
+      Value<String?> iconUrl,
+      Value<String?> packageName,
+      Value<String?> repoName,
+      Value<String?> contentWarning,
+      Value<String> registryState,
+      Value<String> health,
+      Value<String?> healthNote,
+      Value<int?> healthCheckedAt,
+      Value<int> titleCount,
+      Value<int> coverFailedCount,
+      Value<int> rowid,
+    });
+
+class $$LocalSourceTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalSourceTable> {
+  $$LocalSourceTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lang => $composableBuilder(
+    column: $table.lang,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get homeUrl => $composableBuilder(
+    column: $table.homeUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconUrl => $composableBuilder(
+    column: $table.iconUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get packageName => $composableBuilder(
+    column: $table.packageName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get repoName => $composableBuilder(
+    column: $table.repoName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentWarning => $composableBuilder(
+    column: $table.contentWarning,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get registryState => $composableBuilder(
+    column: $table.registryState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get health => $composableBuilder(
+    column: $table.health,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get healthNote => $composableBuilder(
+    column: $table.healthNote,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get healthCheckedAt => $composableBuilder(
+    column: $table.healthCheckedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get titleCount => $composableBuilder(
+    column: $table.titleCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get coverFailedCount => $composableBuilder(
+    column: $table.coverFailedCount,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalSourceTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalSourceTable> {
+  $$LocalSourceTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lang => $composableBuilder(
+    column: $table.lang,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get homeUrl => $composableBuilder(
+    column: $table.homeUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iconUrl => $composableBuilder(
+    column: $table.iconUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get packageName => $composableBuilder(
+    column: $table.packageName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get repoName => $composableBuilder(
+    column: $table.repoName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentWarning => $composableBuilder(
+    column: $table.contentWarning,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get registryState => $composableBuilder(
+    column: $table.registryState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get health => $composableBuilder(
+    column: $table.health,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get healthNote => $composableBuilder(
+    column: $table.healthNote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get healthCheckedAt => $composableBuilder(
+    column: $table.healthCheckedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get titleCount => $composableBuilder(
+    column: $table.titleCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get coverFailedCount => $composableBuilder(
+    column: $table.coverFailedCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalSourceTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalSourceTable> {
+  $$LocalSourceTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get lang =>
+      $composableBuilder(column: $table.lang, builder: (column) => column);
+
+  GeneratedColumn<String> get homeUrl =>
+      $composableBuilder(column: $table.homeUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get iconUrl =>
+      $composableBuilder(column: $table.iconUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get packageName => $composableBuilder(
+    column: $table.packageName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get repoName =>
+      $composableBuilder(column: $table.repoName, builder: (column) => column);
+
+  GeneratedColumn<String> get contentWarning => $composableBuilder(
+    column: $table.contentWarning,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get registryState => $composableBuilder(
+    column: $table.registryState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get health =>
+      $composableBuilder(column: $table.health, builder: (column) => column);
+
+  GeneratedColumn<String> get healthNote => $composableBuilder(
+    column: $table.healthNote,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get healthCheckedAt => $composableBuilder(
+    column: $table.healthCheckedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get titleCount => $composableBuilder(
+    column: $table.titleCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get coverFailedCount => $composableBuilder(
+    column: $table.coverFailedCount,
+    builder: (column) => column,
+  );
+}
+
+class $$LocalSourceTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalSourceTable,
+          LocalSourceData,
+          $$LocalSourceTableFilterComposer,
+          $$LocalSourceTableOrderingComposer,
+          $$LocalSourceTableAnnotationComposer,
+          $$LocalSourceTableCreateCompanionBuilder,
+          $$LocalSourceTableUpdateCompanionBuilder,
+          (
+            LocalSourceData,
+            BaseReferences<_$AppDatabase, $LocalSourceTable, LocalSourceData>,
+          ),
+          LocalSourceData,
+          PrefetchHooks Function()
+        > {
+  $$LocalSourceTableTableManager(_$AppDatabase db, $LocalSourceTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalSourceTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalSourceTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalSourceTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> lang = const Value.absent(),
+                Value<String?> homeUrl = const Value.absent(),
+                Value<String?> iconUrl = const Value.absent(),
+                Value<String?> packageName = const Value.absent(),
+                Value<String?> repoName = const Value.absent(),
+                Value<String?> contentWarning = const Value.absent(),
+                Value<String> registryState = const Value.absent(),
+                Value<String> health = const Value.absent(),
+                Value<String?> healthNote = const Value.absent(),
+                Value<int?> healthCheckedAt = const Value.absent(),
+                Value<int> titleCount = const Value.absent(),
+                Value<int> coverFailedCount = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalSourceCompanion(
+                id: id,
+                name: name,
+                lang: lang,
+                homeUrl: homeUrl,
+                iconUrl: iconUrl,
+                packageName: packageName,
+                repoName: repoName,
+                contentWarning: contentWarning,
+                registryState: registryState,
+                health: health,
+                healthNote: healthNote,
+                healthCheckedAt: healthCheckedAt,
+                titleCount: titleCount,
+                coverFailedCount: coverFailedCount,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String> lang = const Value.absent(),
+                Value<String?> homeUrl = const Value.absent(),
+                Value<String?> iconUrl = const Value.absent(),
+                Value<String?> packageName = const Value.absent(),
+                Value<String?> repoName = const Value.absent(),
+                Value<String?> contentWarning = const Value.absent(),
+                Value<String> registryState = const Value.absent(),
+                Value<String> health = const Value.absent(),
+                Value<String?> healthNote = const Value.absent(),
+                Value<int?> healthCheckedAt = const Value.absent(),
+                Value<int> titleCount = const Value.absent(),
+                Value<int> coverFailedCount = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalSourceCompanion.insert(
+                id: id,
+                name: name,
+                lang: lang,
+                homeUrl: homeUrl,
+                iconUrl: iconUrl,
+                packageName: packageName,
+                repoName: repoName,
+                contentWarning: contentWarning,
+                registryState: registryState,
+                health: health,
+                healthNote: healthNote,
+                healthCheckedAt: healthCheckedAt,
+                titleCount: titleCount,
+                coverFailedCount: coverFailedCount,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalSourceTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalSourceTable,
+      LocalSourceData,
+      $$LocalSourceTableFilterComposer,
+      $$LocalSourceTableOrderingComposer,
+      $$LocalSourceTableAnnotationComposer,
+      $$LocalSourceTableCreateCompanionBuilder,
+      $$LocalSourceTableUpdateCompanionBuilder,
+      (
+        LocalSourceData,
+        BaseReferences<_$AppDatabase, $LocalSourceTable, LocalSourceData>,
+      ),
+      LocalSourceData,
+      PrefetchHooks Function()
+    >;
 typedef $$SyncMetaTableCreateCompanionBuilder =
     SyncMetaCompanion Function({
       Value<int> id,
@@ -5526,6 +6745,8 @@ class $AppDatabaseManager {
       $$LocalMangaImportTableTableManager(_db, _db.localMangaImport);
   $$LocalBackupAppTableTableManager get localBackupApp =>
       $$LocalBackupAppTableTableManager(_db, _db.localBackupApp);
+  $$LocalSourceTableTableManager get localSource =>
+      $$LocalSourceTableTableManager(_db, _db.localSource);
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
 }

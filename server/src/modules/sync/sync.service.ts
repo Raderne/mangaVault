@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { BackupAppsService } from '../backup-apps/backup-apps.service';
 import type { ChapterRefDto } from '../library/library.dto';
 import { LibraryService } from '../library/library.service';
+import { SourceRegistryService } from '../sources/source-registry.service';
 import { StatsService } from '../stats/stats.service';
 import {
   SYNC_DEFAULT_LIMIT,
@@ -81,6 +82,7 @@ export class SyncService {
     private readonly library: LibraryService,
     private readonly stats: StatsService,
     private readonly backupApps: BackupAppsService,
+    private readonly sources: SourceRegistryService,
   ) {}
 
   /** Changes strictly above `since`, oldest version first. */
@@ -198,6 +200,7 @@ export class SyncService {
       importRows,
       storage,
       backupApps,
+      sources,
     ] = await Promise.all([
       this.serverEpoch(),
       this.dataSource.query<{ cursor: string | null }[]>(
@@ -219,6 +222,7 @@ export class SyncService {
       ),
       this.stats.vaultStorage(),
       this.backupApps.list(),
+      this.sources.listSources(),
     ]);
 
     return {
@@ -237,6 +241,7 @@ export class SyncService {
         stats: r.stats ?? {},
       })),
       backupApps,
+      sources,
       vaultSizeBytes: storage.totalBytes,
       vaultStorage: storage,
     };

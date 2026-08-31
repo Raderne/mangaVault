@@ -527,6 +527,16 @@ export class ImportService {
 
     const { merged } = this.merge.applyMerge(entityToMergeable(existing), m);
     Object.assign(existing, mergeableScalars(merged));
+    // `source_name` is not a merge field — it belongs to the source, not the
+    // title, so `MergeEngine` never sees it. But it was also never written
+    // after row creation, which left every title imported from a backup with no
+    // `backupSources` list (all legacy JSON backups) permanently nameless, even
+    // once a later backup named the same source. Fill a blank one in, and never
+    // overwrite a name with an empty string — the same rule the merge itself
+    // follows for scalars.
+    if (!existing.sourceName?.trim() && m.sourceName.trim()) {
+      existing.sourceName = m.sourceName;
+    }
     await repo.save(existing);
     await this.writeChapters(mgr, existing.id, merged.chapters);
     await this.writeTracking(mgr, existing.id, merged.tracking);
