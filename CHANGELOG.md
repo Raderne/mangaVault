@@ -20,7 +20,7 @@ use only the six below, and keep every item a single `- ` bullet on one line.
 
 ## [Unreleased]
 
-## [1.0.2] - 2026-08-30
+## [1.0.2] - 2026-08-31
 
 Sources gain an identity. The vault can now tell you where each title came from, whether that
 place still works, and move titles off one that doesn't.
