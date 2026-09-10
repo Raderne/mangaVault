@@ -528,7 +528,12 @@ export class SourceRegistryService
               ks.registry_state                         AS "registryState",
               ks.health                                 AS health,
               ks.health_note                            AS "healthNote",
-              ks.health_checked_at                      AS "healthCheckedAt",
+              -- node-postgres hands int8 back as a *string*, so a bare
+              -- health_checked_at ships "1788208072894" and every client that
+              -- expects a number breaks. Epoch millis fit exactly in a float8
+              -- (well under 2^53), which the driver does return as a number.
+              -- Same reason the counts below are cast rather than left as int8.
+              ks.health_checked_at::float8              AS "healthCheckedAt",
               COALESCE(t.title_count, 0)::int           AS "titleCount",
               COALESCE(t.cover_failed_count, 0)::int    AS "coverFailedCount"
          FROM known_source ks

@@ -5,6 +5,15 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-09-10 12:30] session | Fix: 1.0.2 sync abort hid the whole library
+Touched: local-library-mirror
+`known_source.health_checked_at` (BIGINT) went out of `/sync/meta` as a string, the app's
+`as num?` cast threw, and since meta is fetched before the first page the entire sync aborted —
+with `schemaVersion` 3 → 4 having just dropped the mirror, the library vanished and imports never
+appeared. Cast to `::float8` server-side, made the Dart parse accept either form, added
+`app/test/sync_meta_parsing_test.dart`. Reproduced by replaying live `/sync/meta` + `/sync/library`
+payloads through `LibrarySyncService`. The server fix alone unbricks the shipped v1.0.2 APK.
+
 ## [2026-08-30 17:05] session | Extension registry, source health, migration
 Touched: source-registry, source-migration, index
 Ingested the Keiyoushi v2 extension index (1,380 extensions / 2,156 sources) into a new

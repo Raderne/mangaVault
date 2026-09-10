@@ -62,6 +62,19 @@ SourceHealth _healthFrom(String? raw) => switch (raw) {
       _ => SourceHealth.unknown,
     };
 
+/// An epoch that may arrive as a number or as a decimal string.
+///
+/// A hard `as num?` here once cost the whole library: Postgres int8 comes back
+/// from the driver as a string, so one unconverted column threw inside
+/// `/sync/meta` parsing, which aborts the sync *before* the first page — and
+/// with the mirror just dropped by a schema bump, nothing was left to show.
+/// A field this cosmetic must never be able to do that again.
+int? _epoch(Object? raw) => switch (raw) {
+      num n => n.toInt(),
+      String s => int.tryParse(s),
+      _ => null,
+    };
+
 SourceRegistryState _stateFrom(String? raw) => switch (raw) {
       'listed' => SourceRegistryState.listed,
       'delisted' => SourceRegistryState.delisted,
@@ -161,7 +174,7 @@ class VaultSource {
         registryState: _stateFrom(j['registryState'] as String?),
         health: _healthFrom(j['health'] as String?),
         healthNote: j['healthNote'] as String?,
-        healthCheckedAt: (j['healthCheckedAt'] as num?)?.toInt(),
+        healthCheckedAt: _epoch(j['healthCheckedAt']),
         titleCount: (j['titleCount'] as num?)?.toInt() ?? 0,
         coverFailedCount: (j['coverFailedCount'] as num?)?.toInt() ?? 0,
         suggestedReplacements:

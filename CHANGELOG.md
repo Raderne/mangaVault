@@ -20,6 +20,12 @@ use only the six below, and keep every item a single `- ` bullet on one line.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-10
+
+### Fixed
+
+- The library could go empty after updating to 1.0.2, and newly imported titles never appeared. Nothing was lost — the vault on your server was always intact, and the app refills its copy on the next sync.
+
 ## [1.0.2] - 2026-08-31
 
 Sources gain an identity. The vault can now tell you where each title came from, whether that
@@ -69,6 +75,8 @@ export, and keep the collection alive independently of the reading apps it came 
 - Change server and disconnect, from About. Switching servers clears the offline copy of the
   library on the device; nothing on either server is touched.
 
-[Unreleased]: https://github.com/Raderne/mangaVault/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Raderne/mangaVault/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/Raderne/mangaVault/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/Raderne/mangaVault/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Raderne/mangaVault/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Raderne/mangaVault/releases/tag/v1.0.0

@@ -108,6 +108,18 @@ would skip or repeat rows as they mutate mid-sync. Chapter aggregates and the tw
 from `LEFT JOIN LATERAL`s (the pattern from [[dashboard-stats]]); category/import ids from
 `array_agg` laterals. BIGINTs arrive as **strings** from raw `dataSource.query`.
 
+> **This rule bit us in 1.0.2, and it bricks the whole app when broken.** The source registry's
+> `querySources` selected `health_checked_at` (BIGINT) raw, so `/sync/meta` shipped
+> `"1788208072894"` and the Dart `as num?` cast threw. `/sync/meta` is fetched **before the first
+> delta page**, so the throw aborts the entire sync — and `schemaVersion` 3 → 4 had just dropped
+> the mirror, leaving no library at all and no way to refill it. Imports kept landing in Postgres
+> and never reached the device.
+>
+> Two guards now: raw SQL casts epoch columns (`::float8` — epoch millis are exact below 2^53, and
+> the driver returns float8 as a number), and `_epoch()` in `data/sources/source_models.dart`
+> accepts either form. `test/sync_meta_parsing_test.dart` pins it. **Any new epoch column added to
+> a raw `/sync/*` query needs the cast** — a cosmetic field must never be able to hide the library.
+
 **Cursor arithmetic (subtle).** Changes and tombstones are two independently-limited streams over the
 same version axis, so the returned cursor may only advance to a point below which **both** are
 complete. A full page of changes at v1..v500 alongside a tombstone at v700 must not move the cursor
