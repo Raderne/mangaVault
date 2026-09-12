@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/files/file_access.dart';
+import '../../core/files/watched_folders.dart';
 import '../../data/backup_apps/backup_app_models.dart';
 import '../../data/backup_apps/backup_apps_repository.dart';
 import '../../data/import/import_models.dart';
@@ -15,6 +16,7 @@ import '../../widgets/pill_button.dart';
 import '../../widgets/status_chip.dart';
 import '../files/file_access_gate.dart';
 import '../files/file_browser_route.dart';
+import 'auto_import_controller.dart';
 import 'import_controller.dart';
 import 'import_ticker.dart';
 import 'source_app_sheet.dart';
@@ -51,6 +53,8 @@ class BackupsScreen extends ConsumerWidget {
             const SizedBox(height: AppDimens.gutter),
           ],
           _ImportStateSection(state: state),
+          const _AutoImportCell(),
+          const SizedBox(height: AppDimens.gutter),
           const _ExportCtaCell(),
           const SizedBox(height: AppDimens.gutter),
           const _HistoryCell(),
@@ -189,6 +193,68 @@ class _ImportCtaCell extends ConsumerWidget {
 /// The pairing is the point: an archive you can only put things into is a trap,
 /// so "create a backup" lives at the same level as "import one" rather than
 /// behind a settings menu.
+/// The watcher's presence on the hub: what it is set to, and what it last did.
+///
+/// The import it performs is reported by the states above this cell — it drives
+/// the same [ImportController], so the ticker, progress and history render an
+/// unattended import exactly as they render a manual one. This cell only has to
+/// say whether the thing is switched on.
+class _AutoImportCell extends ConsumerWidget {
+  const _AutoImportCell();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final settings = ref.watch(autoImportSettingsProvider);
+    final auto = ref.watch(autoImportProvider);
+
+    return BentoCell(
+      // Cyan between the import cell's violet and the export cell's emerald.
+      accent: VaultAccent.cyan,
+      onTap: () => context.go('/backups/auto'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Expanded(child: CellLabel('Auto-import')),
+              AccentIconWell(
+                icon: Icons.folder_special_outlined,
+                accent: VaultAccent.cyan,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            _headline(settings),
+            style: theme.textTheme.headlineMedium!
+                .copyWith(color: VaultAccent.cyan.color),
+          ),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            auto.scanning
+                ? 'Checking for new backups…'
+                : auto.message ??
+                    'Watch a reading app folder and import each new backup on '
+                        'its own.',
+            style: theme.textTheme.bodyMedium!
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _headline(AutoImportSettings settings) {
+    if (settings.folders.isEmpty) return 'Set Up Auto-Import';
+    final count = settings.folders.length;
+    final where = '$count folder${count == 1 ? '' : 's'}';
+    return settings.intervalHours == 0
+        ? 'Paused · $where'
+        : 'Every ${settings.intervalHours}h · $where';
+  }
+}
+
 class _ExportCtaCell extends StatelessWidget {
   const _ExportCtaCell();
 

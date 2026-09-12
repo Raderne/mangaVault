@@ -27,6 +27,8 @@ the first time substantial work happens on a topic.
   split, cell wash/border/fill alphas, per-cell hue map, and the contrast test that bounds it.
 - [[local-library-mirror]] — on-device SQLite mirror + `/sync/*` delta feed: `row_version` triggers,
   the advisory lock, drift schema, and why `updated_at` can't be a cursor.
+- [[auto-import]] — watching a device folder for new backups: the resume-driven scanner, why it has
+  no import pipeline of its own, `newestUnseen`, `isBusy`, and folder-carried app ids.
 - [[file-selector]] — MangaVault's own file browser for import/save: all-files access over SAF, the
   resume re-check that makes the grant land, the `VaultFileSystem` test seam, quick folders.
 - [[database]] — Postgres schema, migrations, indexes, int64 discipline, unmapped columns, restores.

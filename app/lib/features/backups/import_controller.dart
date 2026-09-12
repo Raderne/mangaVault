@@ -19,6 +19,16 @@ const _recentCap = 4;
 
 sealed class ImportState {
   const ImportState();
+
+  /// Whether work is in flight or the user owes an answer.
+  ///
+  /// The three terminal states are display-only — the auto-import watcher may
+  /// replace them, and must not replace anything else. Without this it would
+  /// deadlock on its own [ImportDone] the moment it ran once.
+  bool get isBusy => switch (this) {
+        ImportIdle() || ImportDone() || ImportFailed() => false,
+        _ => true,
+      };
 }
 
 class ImportIdle extends ImportState {
@@ -231,6 +241,55 @@ class ImportController extends Notifier<ImportState> {
     } catch (e) {
       state = ImportFailed(_message(e));
     }
+  }
+
+  /// Stage, tag and commit one backup with no user in the loop.
+  ///
+  /// The auto-import watcher's only way in. It deliberately drives the *same*
+  /// states as a manual import rather than running a parallel pipeline: the
+  /// ticker, progress, history, cover-job trigger and error handling all render
+  /// an unattended import for free, and the two ways in cannot drift.
+  ///
+  /// Returns `null` on success (a file already in the vault counts — there is
+  /// nothing left to do with it), or a message to show on the watcher's cell.
+  Future<String?> autoImport(String path, String appId) async {
+    if (state.isBusy) return 'An import is already in progress.';
+
+    await stagePaths([path]);
+    final afterStage = state;
+    if (afterStage is ImportFailed) return afterStage.message;
+    final staged = switch (afterStage) {
+      ImportNeedsApp(:final queue) => queue,
+      ImportReview(:final queue) => queue,
+      _ => const <StagedImport>[],
+    };
+    if (staged.isEmpty) return 'That file could not be staged.';
+
+    // The filename usually names the app; the folder's id is what covers the
+    // backups it doesn't, since there is nobody here to ask.
+    final file = staged.first;
+    if (file.fileMeta.sourceApp.isEmpty && appId.isNotEmpty) {
+      await (state is ImportNeedsApp
+          ? setSourceApp(file.id, appId)
+          : retagStaged(file.id, appId));
+    }
+
+    final review = state;
+    if (review is ImportFailed) return review.message;
+    if (review is! ImportReview) return 'That file could not be staged.';
+
+    // Already in the vault (`import_record.sha256` is unique, so staging said
+    // so). Discarding rather than committing an empty queue keeps the screen
+    // from reporting an import of nothing — and the caller still treats this as
+    // success, so the file is marked seen and not re-uploaded every resume.
+    if (review.queue.every((s) => s.isDuplicate)) {
+      await discardAll();
+      return null;
+    }
+
+    await commitAll();
+    final done = state;
+    return done is ImportFailed ? done.message : null;
   }
 
   /// Commit every staged import sequentially, folding SSE events into state.

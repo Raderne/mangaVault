@@ -2,7 +2,8 @@
 
 Created: 2026-08-09
 
-Related: [[index]] · [[flutter-app]] · [[import-pipeline]] · [[backup-export]] · [[backup-apps]]
+Related: [[index]] · [[flutter-app]] · [[import-pipeline]] · [[backup-export]] · [[backup-apps]] ·
+[[auto-import]]
 
 Both ends of the backup flow used to hand off to Android's system dialogs — the only place in the
 app where the user left Minimalist Slate. They now open a first-party browser instead:
@@ -113,6 +114,7 @@ covering the tab bar is correct for a blocking task.
 | Flow | Granted | Not granted |
 |---|---|---|
 | Import | `openFileBrowser` → `ImportController.stagePaths(paths)` | `pickAndStage()` (unchanged) |
+| Watch folder | `openFolderBrowser` → `AutoImportSettingsController.addFolder` ([[auto-import]]) | no fallback — the watcher needs the grant to read the folder anyway |
 | Export | `openSaveBrowser` → controller writes via `VaultFileSystem` | `FilePicker.saveFile` writes it |
 
 - `ImportState` and `ExportState` are **unchanged**. `stagePaths` and `pickAndStage` share one

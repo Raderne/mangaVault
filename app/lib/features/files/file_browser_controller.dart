@@ -12,6 +12,11 @@ enum FileBrowserMode {
 
   /// Pick a folder and a name to write an export into.
   save,
+
+  /// Pick a folder itself — the auto-import watcher's way of asking where to
+  /// look. Files are shown (so the user can confirm their backups are in
+  /// there) but nothing is selectable; the current folder is the answer.
+  pickFolder,
 }
 
 /// The whole browser in one immutable value.

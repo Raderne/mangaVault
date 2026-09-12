@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-09-12 14:41] session | Auto-import watcher for backup folders
+Touched: auto-import (new), index, backup-apps, file-selector, import-pipeline
+
 ## [2026-09-10 12:30] session | Fix: 1.0.2 sync abort hid the whole library
 Touched: local-library-mirror
 `known_source.health_checked_at` (BIGINT) went out of `/sync/meta` as a string, the app's

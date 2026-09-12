@@ -229,9 +229,13 @@ class _FileBrowserScreenState extends ConsumerState<FileBrowserScreen> {
                     Navigator.of(context).pop();
                     widget.onUseSystemPicker!();
                   },
-            systemPickerLabel: widget.mode == FileBrowserMode.open
-                ? 'Use the system picker instead'
-                : 'Use the system save dialog instead',
+            systemPickerLabel: switch (widget.mode) {
+              FileBrowserMode.open => 'Use the system picker instead',
+              FileBrowserMode.save => 'Use the system save dialog instead',
+              // There is no platform fallback for picking a watch folder, and
+              // the watcher needs this grant to read it anyway.
+              FileBrowserMode.pickFolder => 'Auto-import needs this access',
+            },
           ),
         ],
       );
@@ -418,9 +422,11 @@ class _FileBrowserScreenState extends ConsumerState<FileBrowserScreen> {
             AppDimens.gutter,
             AppDimens.unit * 1.5,
           ),
-          child: widget.mode == FileBrowserMode.open
-              ? _openFooter(state)
-              : _saveFooter(),
+          child: switch (widget.mode) {
+            FileBrowserMode.open => _openFooter(state),
+            FileBrowserMode.save => _saveFooter(),
+            FileBrowserMode.pickFolder => _folderFooter(state),
+          },
         ),
       ),
     );
@@ -446,6 +452,49 @@ class _FileBrowserScreenState extends ConsumerState<FileBrowserScreen> {
           icon: Icons.upload_file,
           accent: widget.accent,
           onPressed: count == 0 ? null : _confirmOpen,
+        ),
+      ],
+    );
+  }
+
+  /// Folder mode confirms the folder you are *standing in*, so the label spells
+  /// it out — "Use this folder" next to a list of files reads ambiguously if it
+  /// doesn't name which one.
+  Widget _folderFooter(FileBrowserState state) {
+    final backups = state.visible.where((e) => e.isBackup).length;
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                p.posix.basename(state.directory),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              Text(
+                backups == 0
+                    ? 'No backups in here yet'
+                    : '$backups backup${backups == 1 ? '' : 's'} here now',
+                style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppDimens.unit),
+        PillButton(
+          label: 'Watch this folder',
+          icon: Icons.folder_open,
+          accent: widget.accent,
+          onPressed: () {
+            _controller.rememberCurrentFolder();
+            Navigator.of(context).pop(state.directory);
+          },
         ),
       ],
     );

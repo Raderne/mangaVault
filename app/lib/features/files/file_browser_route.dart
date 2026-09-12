@@ -40,7 +40,23 @@ Future<String?> openSaveBrowser(
   );
 }
 
-/// The same two entry points, against a [NavigatorState] captured earlier.
+/// Pick a folder for the auto-import watcher to keep an eye on.
+///
+/// Resolves to the folder's path, or `null` if dismissed. The detected
+/// `<AppName>/autobackup` quick-folders cover the common forks; this is what
+/// covers everyone else, and the user story is explicitly "the user specifies
+/// where MangaVault will look".
+Future<String?> openFolderBrowser(
+  BuildContext context, {
+  VaultAccent accent = VaultAccent.cyan,
+}) {
+  return pushFolderBrowser(
+    Navigator.of(context, rootNavigator: true),
+    accent: accent,
+  );
+}
+
+/// The same entry points, against a [NavigatorState] captured earlier.
 ///
 /// A caller that only reaches the browser *after* an await needs these: the
 /// widget it started from may be gone by then, and a `BuildContext` looked up
@@ -59,6 +75,21 @@ Future<List<FileEntry>?> pushFileBrowser(
         accent: accent,
         title: 'Select Backup',
         onUseSystemPicker: onUseSystemPicker,
+      ),
+    ),
+  );
+}
+
+Future<String?> pushFolderBrowser(
+  NavigatorState navigator, {
+  VaultAccent accent = VaultAccent.cyan,
+}) {
+  return navigator.push<String>(
+    MaterialPageRoute(
+      builder: (_) => FileBrowserScreen(
+        mode: FileBrowserMode.pickFolder,
+        accent: accent,
+        title: 'Choose Folder',
       ),
     ),
   );

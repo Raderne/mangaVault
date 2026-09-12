@@ -112,7 +112,12 @@ the only carrier of app identity in the format, that closes the loop — a file 
 and later re-imported is attributed to Komikku by the very `BACKUP_NAME_RE` above. `targetApp` is
 validated with `BACKUP_APP_ID_RE`, the same regex `ensure()`/`create()` use.
 
-## Groundwork for auto-backup monitoring (not built)
+## Groundwork for auto-backup monitoring (**built 2026-09-12 — see [[auto-import]]**)
+
+> Everything below was the plan, and it held: the app watches the device, polls a plain path, dedup
+> came free from `sha256`, and WorkManager was never added. [[auto-import]] records what was actually
+> built, including the two things this page didn't foresee — `ImportState.isBusy`, and that
+> `newestUnseen` has to filter *before* it sorts.
 
 Decision (2026-08-02): **the Flutter app watches the device folder**, not the server.
 

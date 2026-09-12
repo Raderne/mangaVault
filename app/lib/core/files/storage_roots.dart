@@ -201,3 +201,21 @@ final folderMemoryProvider =
 final storageVolumesProvider = FutureProvider<List<StorageVolume>>(
   (ref) => discoverVolumes(ref.watch(vaultFileSystemProvider)),
 );
+
+/// The `<AppName>/autobackup` folders that actually exist, across every volume.
+///
+/// These are the one-tap suggestions the auto-import screen offers before
+/// making anyone browse: automatic backups land here by the reading app's own
+/// convention, which is exactly what the watcher wants to see. Manual exports
+/// go wherever the user's picker put them, so `Download` is deliberately not
+/// suggested — watching it would pick up files the user only meant to move.
+final autoBackupFoldersProvider = FutureProvider<List<QuickFolder>>((ref) async {
+  final fs = ref.watch(vaultFileSystemProvider);
+  final found = <QuickFolder>[];
+  for (final volume in await discoverVolumes(fs)) {
+    for (final folder in await discoverQuickFolders(fs, volume.path, const [])) {
+      if (p.posix.basename(folder.path) == 'autobackup') found.add(folder);
+    }
+  }
+  return found;
+});
