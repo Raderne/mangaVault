@@ -5,7 +5,7 @@ date, files touched, one-line summary.
 
 ---
 
-## [2026-09-12 14:41] session | Auto-import watcher for backup folders
+## [2026-09-12 14:41] session | Auto-import watcher; cut v1.1.0
 Touched: auto-import (new), index, backup-apps, file-selector, import-pipeline
 
 ## [2026-09-10 12:30] session | Fix: 1.0.2 sync abort hid the whole library

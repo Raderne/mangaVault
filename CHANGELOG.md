@@ -20,6 +20,21 @@ use only the six below, and keep every item a single `- ` bullet on one line.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-12
+
+The vault can now feed itself. Point Manga Vault at the folder your reading app drops its
+automatic backups into, and each new one is imported on its own.
+
+### Added
+
+- Auto-import: name the folders your reading apps write automatic backups into, and Manga Vault imports each new backup for you — no picking a file, no review step.
+- A folder can be chosen from the detected `autobackup` folders in one tap, or browsed to anywhere on the device for a fork Manga Vault doesn't know by name.
+- Each watched folder is tagged with the app it belongs to, so a backup whose filename doesn't identify its app is still filed correctly with nobody there to ask.
+- Check for new backups every 6, 12 or 24 hours, or turn the schedule off and scan only when you tap Scan now.
+- Only the newest backup in a folder is imported — a backup is a complete snapshot, so the older ones hold nothing it doesn't — and a file already in your vault is never imported twice.
+- Auto-import cell on Backups & Sources showing what is being watched and what the last check found.
+- Auto-import checks when you open Manga Vault, at most once per chosen interval — it cannot wake the app by itself while it is closed, so open it now and then if your reading app only keeps its last few backups.
+
 ## [1.0.3] - 2026-09-10
 
 ### Fixed
@@ -75,7 +90,8 @@ export, and keep the collection alive independently of the reading apps it came 
 - Change server and disconnect, from About. Switching servers clears the offline copy of the
   library on the device; nothing on either server is touched.
 
-[Unreleased]: https://github.com/Raderne/mangaVault/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/Raderne/mangaVault/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Raderne/mangaVault/compare/v1.0.3...v1.1.0
 [1.0.3]: https://github.com/Raderne/mangaVault/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/Raderne/mangaVault/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Raderne/mangaVault/compare/v1.0.0...v1.0.1
