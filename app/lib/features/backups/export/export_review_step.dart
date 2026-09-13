@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/format.dart';
+import '../../../core/google/google_account.dart';
+import '../../../data/drive/drive_store.dart';
 import '../../../data/export/export_models.dart';
+import '../../../theme/app_accents.dart';
 import '../../../theme/app_dimens.dart';
 import '../../../widgets/bento_cell.dart';
+import '../../../widgets/pill_button.dart';
 import '../../../widgets/status_chip.dart';
 import 'export_controller.dart';
 import 'export_widgets.dart';
@@ -47,6 +51,11 @@ class ExportReviewStep extends ConsumerWidget {
                               ExportStep.options,
                             ),
                   ),
+                ),
+              if (ref.watch(googleAccountProvider).available)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppDimens.gutter),
+                  child: _DriveCell(enabled: state.canBuild),
                 ),
               if (preview.sample.isNotEmpty)
                 _SampleCell(preview: preview),
@@ -262,6 +271,45 @@ class _ExclusionsCell extends StatelessWidget {
         _ =>
           '${words.sublist(0, words.length - 1).join(', ')} or ${words.last}',
       };
+}
+
+/// The second destination: the same file, sent to Google Drive instead of a
+/// folder on this phone. Sits in the review body rather than the action bar,
+/// which has no room for a second pill at phone width.
+class _DriveCell extends ConsumerWidget {
+  const _DriveCell({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return BentoCell(
+      accent: VaultAccent.violet,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CellLabel('Or keep it in the cloud'),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            'Upload this backup to the “$kDriveFolderName” folder of your '
+            'Google Drive. Uploads you send by hand are never pruned.',
+            style: theme.textTheme.bodyMedium!
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppDimens.unit * 2),
+          PillButton(
+            label: 'Save to Google Drive',
+            icon: Icons.cloud_upload_outlined,
+            accent: VaultAccent.violet,
+            onPressed: enabled
+                ? ref.read(exportControllerProvider.notifier).buildAndUpload
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SampleCell extends StatelessWidget {

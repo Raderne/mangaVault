@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/server_config.dart';
 import 'core/config/server_config_controller.dart';
 import 'core/config/server_config_store.dart';
+import 'features/backups/auto_import_controller.dart';
+import 'features/backups/drive/drive_backup_controller.dart';
 import 'features/updates/update_controller.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
@@ -43,6 +45,20 @@ Future<void> main() async {
   // GitHub, not to the user's server, so it runs even before setup.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(container.read(updateControllerProvider.notifier).autoCheck());
+
+    // Auto-import and Drive uploads both run "when you open Manga Vault", so
+    // they must exist from launch — not from the first visit to the Backups
+    // tab, which is the only thing that used to create them. Both talk to the
+    // server, so they wait until setup is done (possibly later this session).
+    container.listen<bool>(
+      isConfiguredProvider,
+      (_, configured) {
+        if (!configured) return;
+        container.read(autoImportProvider);
+        container.read(driveBackupProvider);
+      },
+      fireImmediately: true,
+    );
   });
 }
 

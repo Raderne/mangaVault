@@ -140,9 +140,13 @@ class AutoImportSettingsController extends Notifier<AutoImportSettings> {
   /// drop the folder they added.
   bool _touched = false;
 
+  /// Completes once saved settings are loaded. The launch scan awaits it —
+  /// reading before then sees the defaults (no folders) and skips the scan.
+  Future<void> ready = Future.value();
+
   @override
   AutoImportSettings build() {
-    Future<void>.microtask(_load);
+    ready = Future<void>.microtask(_load);
     return const AutoImportSettings();
   }
 

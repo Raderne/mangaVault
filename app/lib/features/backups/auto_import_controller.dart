@@ -64,6 +64,9 @@ class AutoImportController extends Notifier<AutoImportState> {
   Future<void> scan({bool force = false}) async {
     if (state.scanning) return;
 
+    // The launch scan runs before prefs have loaded; without this it read the
+    // empty defaults and never scanned at cold start.
+    await _settings.ready;
     final settings = ref.read(autoImportSettingsProvider);
     if (settings.folders.isEmpty) return;
     if (!force && !settings.isDue(DateTime.now())) return;

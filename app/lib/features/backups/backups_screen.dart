@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/files/file_access.dart';
 import '../../core/files/watched_folders.dart';
+import '../../core/google/google_account.dart';
 import '../../data/backup_apps/backup_app_models.dart';
 import '../../data/backup_apps/backup_apps_repository.dart';
 import '../../data/import/import_models.dart';
@@ -17,6 +18,8 @@ import '../../widgets/status_chip.dart';
 import '../files/file_access_gate.dart';
 import '../files/file_browser_route.dart';
 import 'auto_import_controller.dart';
+import 'drive/drive_backup_controller.dart';
+import 'drive/drive_backup_settings.dart';
 import 'import_controller.dart';
 import 'import_ticker.dart';
 import 'source_app_sheet.dart';
@@ -56,6 +59,8 @@ class BackupsScreen extends ConsumerWidget {
           const _AutoImportCell(),
           const SizedBox(height: AppDimens.gutter),
           const _ExportCtaCell(),
+          const SizedBox(height: AppDimens.gutter),
+          const _DriveBackupCell(),
           const SizedBox(height: AppDimens.gutter),
           const _HistoryCell(),
         ],
@@ -297,6 +302,64 @@ class _ExportCtaCell extends StatelessWidget {
             icon: Icons.download,
             accent: VaultAccent.emerald,
             onPressed: () => context.go('/backups/export'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Google Drive on the hub: whether it's connected, how uploads run, and what
+/// the last one did. Violet sits between the export cell's emerald and the
+/// history cell's amber.
+class _DriveBackupCell extends ConsumerWidget {
+  const _DriveBackupCell();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final account = ref.watch(googleAccountProvider);
+    final settings = ref.watch(driveBackupSettingsProvider);
+    final drive = ref.watch(driveBackupProvider);
+
+    final headline = !account.connected
+        ? 'Back Up to Drive'
+        : settings.isAutomatic
+            ? 'Every ${settings.intervalHours}h to Drive'
+            : 'Manual Drive Uploads';
+    final body = drive.working
+        ? 'Uploading to Google Drive…'
+        : drive.message ??
+            (settings.lastFileName.isNotEmpty
+                ? 'Last: ${settings.lastFileName}'
+                : 'Keep copies of your backups in your own Google Drive.');
+
+    return BentoCell(
+      accent: VaultAccent.violet,
+      onTap: () => context.go('/backups/drive'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Expanded(child: CellLabel('Google Drive')),
+              AccentIconWell(
+                icon: Icons.cloud_outlined,
+                accent: VaultAccent.violet,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            headline,
+            style: theme.textTheme.headlineMedium!
+                .copyWith(color: VaultAccent.violet.color),
+          ),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            body,
+            style: theme.textTheme.bodyMedium!
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),

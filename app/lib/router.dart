@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'core/config/server_config_controller.dart';
 import 'features/about/about_screen.dart';
 import 'features/backups/auto_import_screen.dart';
+import 'features/backups/drive/drive_backup_screen.dart';
 import 'features/backups/backups_screen.dart';
 import 'features/backups/export/export_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -140,6 +141,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: 'auto',
                   builder: (_, _) => const AutoImportScreen(),
+                ),
+                GoRoute(
+                  path: 'drive',
+                  builder: (_, _) => const DriveBackupScreen(),
                 ),
               ],
             ),

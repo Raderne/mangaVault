@@ -5,6 +5,9 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-09-13 13:03] session | Google Drive backup; auto-import launch fix
+Touched: google-drive-backup (new), index, auto-import
+
 ## [2026-09-12 14:41] session | Auto-import watcher; cut v1.1.0
 Touched: auto-import (new), index, backup-apps, file-selector, import-pipeline
 

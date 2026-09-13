@@ -360,7 +360,9 @@ class _FailedBody extends ConsumerWidget {
                   PillButton(
                     label: 'Try again',
                     icon: Icons.refresh,
-                    onPressed: () => _buildAndSave(context, ref),
+                    // Repeats the last attempt — a failed Drive upload retries
+                    // to Drive, not to the phone.
+                    onPressed: controller.retry,
                   ),
                   const SizedBox(width: AppDimens.unit),
                   TextButton(

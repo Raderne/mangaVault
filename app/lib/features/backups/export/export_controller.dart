@@ -7,8 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/files/vault_file_system.dart';
+import '../../../core/google/google_account.dart';
+import '../../../data/drive/drive_store.dart';
 import '../../../data/export/export_models.dart';
 import '../../../data/export/export_repository.dart';
+import '../drive/drive_backup_settings.dart';
 
 /// The wizard's three steps.
 enum ExportStep {
@@ -128,6 +131,10 @@ class ExportController extends Notifier<ExportState> {
   /// ordering guarantee across awaits, and an out-of-order response would show
   /// counts for a scope the user has already changed.
   int _requestSeq = 0;
+
+  /// The build the user last asked for, so "Try again" repeats *that* — a
+  /// failed Drive upload must not quietly retry as a save to the phone.
+  Future<void> Function()? _lastAttempt;
 
   @override
   ExportState build() {
@@ -261,7 +268,62 @@ class ExportController extends Notifier<ExportState> {
   /// platform save dialog does, and writes them itself.
   Future<void> buildAndSave({
     Future<String?> Function(String suggestedName)? chooseDestination,
-  }) async {
+  }) {
+    _lastAttempt = () => buildAndSave(chooseDestination: chooseDestination);
+    return _buildAndDeliver((built) async {
+      if (chooseDestination == null) {
+        return FilePicker.platform.saveFile(
+          dialogTitle: 'Save backup',
+          fileName: built.fileName,
+          bytes: built.bytes,
+        );
+      }
+      final path = await chooseDestination(built.fileName);
+      if (path != null) {
+        await ref.read(vaultFileSystemProvider).writeBytes(path, built.bytes);
+      }
+      return path;
+    });
+  }
+
+  /// Repeat whichever build last ran — the failure screen's "Try again".
+  Future<void> retry() => _lastAttempt?.call() ?? Future.value();
+
+  /// Build the backup and upload it to the connected Google Drive.
+  ///
+  /// Authorizes *before* building, so Google's account sheet answers the tap
+  /// immediately rather than after a long server build — and a cancelled
+  /// sign-in costs no build at all.
+  Future<void> buildAndUpload() async {
+    if (state.isBusy) return;
+    _lastAttempt = buildAndUpload;
+    final DriveStore? store;
+    try {
+      store = await ref.read(driveOpenerProvider)(interactive: true);
+    } catch (e) {
+      state = state.copyWith(status: ExportStatus.failed, error: _message(e));
+      return;
+    }
+    if (store == null) return; // cancelled — stay on the review step
+
+    try {
+      await _buildAndDeliver((built) async {
+        await store!.upload(built.fileName, built.bytes, automatic: false);
+        ref
+            .read(driveBackupSettingsProvider.notifier)
+            .markUploaded(built.fileName, DateTime.now());
+        return 'Google Drive/$kDriveFolderName/${built.fileName}';
+      });
+    } finally {
+      store.close();
+    }
+  }
+
+  /// Build the file, then hand it to [deliver], which returns where it went or
+  /// null when the user backed out.
+  Future<void> _buildAndDeliver(
+    Future<String?> Function(ExportedBackup built) deliver,
+  ) async {
     if (state.isBusy) return;
     _debounce?.cancel();
     state = state.copyWith(
@@ -282,19 +344,7 @@ class ExportController extends Notifier<ExportState> {
             },
           );
 
-      final String? path;
-      if (chooseDestination != null) {
-        path = await chooseDestination(built.fileName);
-        if (path != null) {
-          await ref.read(vaultFileSystemProvider).writeBytes(path, built.bytes);
-        }
-      } else {
-        path = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save backup',
-          fileName: built.fileName,
-          bytes: built.bytes,
-        );
-      }
+      final path = await deliver(built);
 
       if (path == null) {
         // Dismissed the save dialog — not an error. Drop straight back to the
@@ -391,6 +441,8 @@ class ExportController extends Notifier<ExportState> {
   }
 
   static String _message(Object e) {
+    final drive = describeDriveError(e);
+    if (drive != null) return drive;
     if (e is DioException) {
       final data = e.response?.data;
       if (data is Map && data['message'] is String) {
