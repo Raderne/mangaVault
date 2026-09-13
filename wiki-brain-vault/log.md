@@ -5,6 +5,10 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-09-13 13:03] session | Google Drive backup; cut v1.1.1
+Touched: google-drive-backup
+Client id set, version bumped to 1.1.1+6, CHANGELOG entry written.
+
 ## [2026-09-13 13:03] session | Google Drive backup; auto-import launch fix
 Touched: google-drive-backup (new), index, auto-import
 

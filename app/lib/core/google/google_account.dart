@@ -15,7 +15,8 @@ import '../../data/drive/drive_store.dart';
 /// public identifier, not a secret, and Google expects it to ship inside apps.
 /// Empty means this build has no Google project, and the Drive feature says so
 /// instead of failing. Setup steps: `wiki-brain-vault/wiki/google-drive-backup.md`.
-const kGoogleServerClientId = '';
+const kGoogleServerClientId =
+    '864314578885-1fq07eitr8vblnl6m535rqa8e1opbabp.apps.googleusercontent.com';
 
 /// Only files this app creates. Non-sensitive, so no Google verification or
 /// security assessment — the full `drive` scope would need both.
@@ -75,8 +76,8 @@ class GoogleAccountController extends Notifier<GoogleAccountState> {
     }
   }
 
-  Future<void> _ensureInitialized() => _initialized ??=
-      GoogleSignIn.instance.initialize(serverClientId: kGoogleServerClientId);
+  Future<void> _ensureInitialized() => _initialized ??= GoogleSignIn.instance
+      .initialize(serverClientId: kGoogleServerClientId);
 
   /// Sign in and grant Drive access. Must be called from a user action.
   Future<void> connect() async {
@@ -85,8 +86,9 @@ class GoogleAccountController extends Notifier<GoogleAccountState> {
     state = GoogleAccountState(email: state.email, busy: true);
     try {
       await _ensureInitialized();
-      final user =
-          await GoogleSignIn.instance.authenticate(scopeHint: kDriveScopes);
+      final user = await GoogleSignIn.instance.authenticate(
+        scopeHint: kDriveScopes,
+      );
       await user.authorizationClient.authorizeScopes(kDriveScopes);
       _setUser(user);
     } on GoogleSignInException catch (e) {
@@ -120,7 +122,8 @@ class GoogleAccountController extends Notifier<GoogleAccountState> {
     if (!state.available) return null;
     try {
       await _ensureInitialized();
-      var user = _user ??
+      var user =
+          _user ??
           await (GoogleSignIn.instance.attemptLightweightAuthentication() ??
               Future<GoogleSignInAccount?>.value());
       if (user == null && interactive) {
@@ -131,7 +134,8 @@ class GoogleAccountController extends Notifier<GoogleAccountState> {
       _setUser(user);
 
       final client = user.authorizationClient;
-      final authorization = await client.authorizationForScopes(kDriveScopes) ??
+      final authorization =
+          await client.authorizationForScopes(kDriveScopes) ??
           (interactive ? await client.authorizeScopes(kDriveScopes) : null);
       if (authorization == null) return null;
 
@@ -168,8 +172,8 @@ class GoogleAccountController extends Notifier<GoogleAccountState> {
 
 final googleAccountProvider =
     NotifierProvider<GoogleAccountController, GoogleAccountState>(
-  GoogleAccountController.new,
-);
+      GoogleAccountController.new,
+    );
 
 /// The seam tests override — nothing else should call Google directly.
 final driveOpenerProvider = Provider<DriveOpener>(

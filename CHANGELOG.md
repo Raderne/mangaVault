@@ -20,6 +20,30 @@ use only the six below, and keep every item a single `- ` bullet on one line.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-13
+
+Your backups can now live somewhere other than your phone and your server. Connect a Google account
+and Manga Vault keeps copies of your library in your own Google Drive.
+
+### Added
+
+- Google Drive backup: connect a Google account and send any backup from Create Backup straight to a "Manga Vault" folder in your Drive.
+- Manga Vault only asks to see the files it creates — it can't read anything else in your Drive.
+- Automatic Drive uploads of your whole vault every 6, 12 or 24 hours, and right after each import if you want.
+- An automatic upload is skipped when nothing in your vault has changed since the last one, so your Drive doesn't fill with identical copies.
+- The newest 5 automatic uploads are kept on Drive; backups you send by hand are never removed.
+- Upload now sends the whole vault to Drive immediately, whatever the schedule.
+- Google Drive cell on Backups & Sources showing how uploads are set up and what the last one did.
+
+### Fixed
+
+- Auto-import now checks for new backups as soon as Manga Vault opens — before, nothing happened until you visited the Backups tab.
+- Try again after a failed backup now retries the same destination instead of always saving to the phone.
+
+### Changed
+
+- Manga Vault now requires Android 7.0 or newer, which Google sign-in needs.
+
 ## [1.1.0] - 2026-09-12
 
 The vault can now feed itself. Point Manga Vault at the folder your reading app drops its
