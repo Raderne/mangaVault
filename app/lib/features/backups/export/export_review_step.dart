@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/format.dart';
-import '../../../core/google/google_account.dart';
-import '../../../data/drive/drive_store.dart';
 import '../../../data/export/export_models.dart';
-import '../../../theme/app_accents.dart';
 import '../../../theme/app_dimens.dart';
 import '../../../widgets/bento_cell.dart';
-import '../../../widgets/pill_button.dart';
 import '../../../widgets/status_chip.dart';
+import '../drive/drive_backup_plan.dart';
 import 'export_controller.dart';
 import 'export_widgets.dart';
 
@@ -46,19 +43,17 @@ class ExportReviewStep extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: AppDimens.gutter),
                   child: _ExclusionsCell(
                     includes: state.scope.includes,
-                    onEdit: () =>
-                        ref.read(exportControllerProvider.notifier).goTo(
-                              ExportStep.options,
-                            ),
+                    onEdit: () => ref
+                        .read(exportControllerProvider.notifier)
+                        .goTo(ExportStep.options),
                   ),
                 ),
-              if (ref.watch(googleAccountProvider).available)
+              if (state.driveLayout != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppDimens.gutter),
-                  child: _DriveCell(enabled: state.canBuild),
+                  child: _DrivePlanNote(layout: state.driveLayout!),
                 ),
-              if (preview.sample.isNotEmpty)
-                _SampleCell(preview: preview),
+              if (preview.sample.isNotEmpty) _SampleCell(preview: preview),
             ],
           ),
         ),
@@ -67,8 +62,9 @@ class ExportReviewStep extends ConsumerWidget {
           'The file is built on the server and saved wherever you choose. '
           'Nothing is kept server-side.',
           textAlign: TextAlign.center,
-          style: theme.textTheme.labelSmall!
-              .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.labelSmall!.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -80,19 +76,19 @@ class _ReviewLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const BentoCell(
-        tone: BentoTone.high,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            SizedBox(width: AppDimens.gutter),
-            Text('Working out what this covers…'),
-          ],
+    tone: BentoTone.high,
+    child: Row(
+      children: [
+        SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
-      );
+        SizedBox(width: AppDimens.gutter),
+        Text('Working out what this covers…'),
+      ],
+    ),
+  );
 }
 
 class _ReviewError extends StatelessWidget {
@@ -110,15 +106,18 @@ class _ReviewError extends StatelessWidget {
             children: [
               Icon(Icons.error_outline, color: theme.colorScheme.error),
               const SizedBox(width: AppDimens.unit),
-              Text('Could not size this export',
-                  style: theme.textTheme.titleMedium),
+              Text(
+                'Could not size this export',
+                style: theme.textTheme.titleMedium,
+              ),
             ],
           ),
           const SizedBox(height: AppDimens.unit),
           Text(
             message,
-            style: theme.textTheme.bodyMedium!
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -155,8 +154,9 @@ class _SummaryCell extends StatelessWidget {
           Text(
             'About ${formatBytes(preview.estimatedBytes)} · '
             'gzipped protobuf, readable by Mihon and its forks.',
-            style:
-                theme.textTheme.bodyMedium!.copyWith(color: scheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: AppDimens.gutter),
           NestedWell(
@@ -238,8 +238,10 @@ class _ExclusionsCell extends StatelessWidget {
               Icon(Icons.warning_amber_rounded, size: 18, color: scheme.error),
               const SizedBox(width: AppDimens.unit),
               Expanded(
-                child: Text('This is a partial backup',
-                    style: theme.textTheme.titleMedium),
+                child: Text(
+                  'This is a partial backup',
+                  style: theme.textTheme.titleMedium,
+                ),
               ),
             ],
           ),
@@ -247,8 +249,9 @@ class _ExclusionsCell extends StatelessWidget {
           Text(
             'It will not contain ${_joinWords(missing)}. Restoring it into a '
             'reading app will not bring those back.',
-            style:
-                theme.textTheme.bodyMedium!.copyWith(color: scheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: AppDimens.unit),
           Align(
@@ -265,46 +268,41 @@ class _ExclusionsCell extends StatelessWidget {
   }
 
   static String _joinWords(List<String> words) => switch (words.length) {
-        0 => 'anything',
-        1 => words.first,
-        2 => '${words[0]} or ${words[1]}',
-        _ =>
-          '${words.sublist(0, words.length - 1).join(', ')} or ${words.last}',
-      };
+    0 => 'anything',
+    1 => words.first,
+    2 => '${words[0]} or ${words[1]}',
+    _ => '${words.sublist(0, words.length - 1).join(', ')} or ${words.last}',
+  };
 }
 
-/// The second destination: the same file, sent to Google Drive instead of a
-/// folder on this phone. Sits in the review body rather than the action bar,
-/// which has no room for a second pill at phone width.
-class _DriveCell extends ConsumerWidget {
-  const _DriveCell({required this.enabled});
+class _DrivePlanNote extends StatelessWidget {
+  const _DrivePlanNote({required this.layout});
 
-  final bool enabled;
+  final DriveOutputLayout layout;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final detail = switch (layout) {
+      DriveOutputLayout.single => 'This selection is saved as one file.',
+      DriveOutputLayout.splitByApp =>
+        'Each reading app gets its own file. A title imported by more than '
+            'one app is included in each of those files.',
+      DriveOutputLayout.splitByFavorite =>
+        'Favorites and other titles are saved as separate files.',
+    };
     return BentoCell(
-      accent: VaultAccent.violet,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CellLabel('Or keep it in the cloud'),
+          const CellLabel('Google Drive'),
           const SizedBox(height: AppDimens.unit),
           Text(
-            'Upload this backup to the “$kDriveFolderName” folder of your '
-            'Google Drive. Uploads you send by hand are never pruned.',
-            style: theme.textTheme.bodyMedium!
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: AppDimens.unit * 2),
-          PillButton(
-            label: 'Save to Google Drive',
-            icon: Icons.cloud_upload_outlined,
-            accent: VaultAccent.violet,
-            onPressed: enabled
-                ? ref.read(exportControllerProvider.notifier).buildAndUpload
-                : null,
+            '$detail Upload now and automatic uploads both use it. Nothing is '
+            'uploaded until you leave this screen and choose Upload now.',
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -337,8 +335,9 @@ class _SampleCell extends StatelessWidget {
             const SizedBox(height: AppDimens.unit * 1.5),
             Text(
               '…and ${groupedNumber(more)} more',
-              style: theme.textTheme.labelSmall!
-                  .copyWith(color: scheme.onSurfaceVariant),
+              style: theme.textTheme.labelSmall!.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ],
         ],
@@ -380,8 +379,9 @@ class _SampleRow extends StatelessWidget {
                   item.sourceName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall!
-                      .copyWith(color: scheme.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall!.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
             ],
           ),

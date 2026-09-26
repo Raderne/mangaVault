@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/format.dart';
 import '../../../core/google/google_account.dart';
@@ -10,6 +11,8 @@ import '../../../widgets/bento_cell.dart';
 import '../../../widgets/entrance_fade.dart';
 import '../../../widgets/pill_button.dart';
 import '../../../widgets/selectable_chip.dart';
+import '../export/export_controller.dart';
+import '../export/export_screen.dart';
 import 'drive_backup_controller.dart';
 import 'drive_backup_settings.dart';
 
@@ -27,10 +30,21 @@ class DriveBackupScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Google Drive')),
       body: ListView(
-        padding:
-            const EdgeInsets.fromLTRB(AppDimens.gutter, 0, AppDimens.gutter, 96),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.gutter,
+          0,
+          AppDimens.gutter,
+          96,
+        ),
         children: [
           const EntranceFade(child: _AccountCell()),
+          if (ref.watch(googleAccountProvider).available) ...[
+            const SizedBox(height: AppDimens.gutter),
+            const EntranceFade(
+              delay: Duration(milliseconds: 40),
+              child: _SelectionCell(),
+            ),
+          ],
           if (connected) ...[
             const SizedBox(height: AppDimens.gutter),
             const EntranceFade(
@@ -50,8 +64,9 @@ class _AccountCell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final muted = theme.textTheme.bodyMedium!
-        .copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final muted = theme.textTheme.bodyMedium!.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     final account = ref.watch(googleAccountProvider);
     final controller = ref.read(googleAccountProvider.notifier);
 
@@ -107,10 +122,50 @@ class _AccountCell extends ConsumerWidget {
             const SizedBox(height: AppDimens.unit),
             Text(
               account.error!,
-              style: theme.textTheme.bodySmall!
-                  .copyWith(color: theme.colorScheme.error),
+              style: theme.textTheme.bodySmall!.copyWith(
+                color: theme.colorScheme.error,
+              ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectionCell extends ConsumerWidget {
+  const _SelectionCell();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final settings = ref.watch(driveBackupSettingsProvider);
+    final working = ref.watch(driveBackupProvider).working;
+
+    return BentoCell(
+      accent: VaultAccent.amber,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CellLabel('WHAT TO UPLOAD'),
+          const SizedBox(height: AppDimens.unit * 1.5),
+          Text(settings.plan.summary, style: theme.textTheme.titleMedium),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            'The same selection is used for Upload now and automatic uploads.',
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppDimens.unit * 2),
+          PillButton(
+            label: 'Choose what to upload',
+            icon: Icons.tune,
+            accent: VaultAccent.amber,
+            onPressed: working
+                ? null
+                : () => context.push('/backups/drive/configure'),
+          ),
         ],
       ),
     );
@@ -123,8 +178,9 @@ class _UploadsCell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final muted = theme.textTheme.bodySmall!
-        .copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final muted = theme.textTheme.bodySmall!.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     final settings = ref.watch(driveBackupSettingsProvider);
     final settingsController = ref.read(driveBackupSettingsProvider.notifier);
     final drive = ref.watch(driveBackupProvider);
@@ -177,8 +233,10 @@ class _UploadsCell extends ConsumerWidget {
               value: settings.afterImport,
               onChanged: settingsController.setAfterImport,
               contentPadding: EdgeInsets.zero,
-              title: Text('Also after each import',
-                  style: theme.textTheme.bodyLarge),
+              title: Text(
+                'Also after each import',
+                style: theme.textTheme.bodyLarge,
+              ),
             ),
           ],
           const SizedBox(height: AppDimens.unit),
@@ -186,12 +244,12 @@ class _UploadsCell extends ConsumerWidget {
           // on a schedule, so "every 12 hours" would be a promise it can't keep.
           Text(
             settings.isAutomatic
-                ? 'The whole vault is uploaded when you open Manga Vault, at '
-                    'most once every ${settings.intervalHours} hours, and only '
-                    'if something changed. The newest $kDriveKeepAutomatic are '
-                    'kept.'
-                : 'Send a backup from Create Backup, or upload the whole vault '
-                    'below. Nothing is uploaded on its own.',
+                ? '${settings.plan.summary} Uploaded when you open Manga Vault, '
+                      'at most once every ${settings.intervalHours} hours, and only '
+                      'if something changed. The newest $kDriveKeepAutomatic backup '
+                      'runs are kept.'
+                : '${settings.plan.summary} Nothing is uploaded on its own. '
+                      'Upload now keeps the newest $kDriveKeepAutomatic backup runs.',
             style: muted,
           ),
           const SizedBox(height: AppDimens.unit * 2),
@@ -202,10 +260,10 @@ class _UploadsCell extends ConsumerWidget {
                   drive.working
                       ? 'Working…'
                       : drive.message ??
-                          (settings.lastUploadAtMs == 0
-                              ? 'Nothing uploaded yet.'
-                              : 'Last upload '
-                                  '${relativeDate(settings.lastUploadAtMs)}.'),
+                            (settings.lastUploadAtMs == 0
+                                ? 'Nothing uploaded yet.'
+                                : 'Last upload '
+                                      '${relativeDate(settings.lastUploadAtMs)}.'),
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
@@ -216,14 +274,58 @@ class _UploadsCell extends ConsumerWidget {
                 accent: VaultAccent.cyan,
                 onPressed: drive.working
                     ? null
-                    : () => ref.read(driveBackupProvider.notifier).check(
-                          force: true,
-                        ),
+                    : () => ref
+                          .read(driveBackupProvider.notifier)
+                          .check(force: true),
               ),
             ],
           ),
         ],
       ),
     );
+  }
+}
+
+/// The export wizard, pointed at the saved Drive plan.
+///
+/// Its provider scope is created once, after settings have loaded. Rebuilding
+/// it on every parent frame would wipe the selection being edited.
+class DriveBackupConfigureScreen extends ConsumerStatefulWidget {
+  const DriveBackupConfigureScreen({super.key});
+
+  @override
+  ConsumerState<DriveBackupConfigureScreen> createState() =>
+      _DriveBackupConfigureScreenState();
+}
+
+class _DriveBackupConfigureScreenState
+    extends ConsumerState<DriveBackupConfigureScreen> {
+  Widget? _wizard;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>(() async {
+      await ref.read(driveBackupSettingsProvider.notifier).ready;
+      if (!mounted) return;
+      final plan = ref.read(driveBackupSettingsProvider).plan;
+      setState(() {
+        _wizard = ProviderScope(
+          overrides: [
+            exportLaunchProvider.overrideWithValue(
+              ExportLaunch(scope: plan.scope, layout: plan.layout),
+            ),
+            exportControllerProvider.overrideWith(ExportController.new),
+          ],
+          child: const ExportScreen(),
+        );
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _wizard ??
+        const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

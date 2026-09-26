@@ -3,13 +3,15 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'drive_backup_plan.dart';
+
 enum DriveUploadMode { manual, automatic }
 
 /// Hours between automatic checks. No "off" — that is [DriveUploadMode.manual].
 const kDriveIntervals = <int>[6, 12, 24];
 
-/// Automatic uploads kept on Drive. Pruned only after a new one succeeds, and
-/// never touches a file the user sent by hand.
+/// Complete Drive backup runs kept. A split backup counts as one run, and a
+/// file sent by the old export wizard is never pruned.
 const kDriveKeepAutomatic = 5;
 
 /// Everything the Drive uploader persists. Device-local, like
@@ -22,9 +24,10 @@ class DriveBackupSettings {
     this.afterImport = true,
     this.lastCheckAtMs = 0,
     this.lastUploadAtMs = 0,
-    this.lastFileName = '',
+    this.lastFileNames = const [],
     this.lastEpoch = '',
     this.lastCursor = '',
+    this.plan = const DriveBackupPlan(),
   });
 
   final DriveUploadMode mode;
@@ -39,7 +42,16 @@ class DriveBackupSettings {
   final int lastCheckAtMs;
 
   final int lastUploadAtMs;
-  final String lastFileName;
+  final List<String> lastFileNames;
+
+  /// What both manual and automatic uploads send.
+  final DriveBackupPlan plan;
+
+  String get lastUploadLabel => switch (lastFileNames.length) {
+    0 => '',
+    1 => lastFileNames.single,
+    _ => '${lastFileNames.length} files',
+  };
 
   /// The server's `/sync/meta` epoch and cursor at the last automatic upload.
   /// The cursor is the vault's `row_version` high-water mark, so an unchanged
@@ -64,31 +76,34 @@ class DriveBackupSettings {
     bool? afterImport,
     int? lastCheckAtMs,
     int? lastUploadAtMs,
-    String? lastFileName,
+    List<String>? lastFileNames,
     String? lastEpoch,
     String? lastCursor,
-  }) =>
-      DriveBackupSettings(
-        mode: mode ?? this.mode,
-        intervalHours: intervalHours ?? this.intervalHours,
-        afterImport: afterImport ?? this.afterImport,
-        lastCheckAtMs: lastCheckAtMs ?? this.lastCheckAtMs,
-        lastUploadAtMs: lastUploadAtMs ?? this.lastUploadAtMs,
-        lastFileName: lastFileName ?? this.lastFileName,
-        lastEpoch: lastEpoch ?? this.lastEpoch,
-        lastCursor: lastCursor ?? this.lastCursor,
-      );
+    DriveBackupPlan? plan,
+  }) => DriveBackupSettings(
+    mode: mode ?? this.mode,
+    intervalHours: intervalHours ?? this.intervalHours,
+    afterImport: afterImport ?? this.afterImport,
+    lastCheckAtMs: lastCheckAtMs ?? this.lastCheckAtMs,
+    lastUploadAtMs: lastUploadAtMs ?? this.lastUploadAtMs,
+    lastFileNames: lastFileNames ?? this.lastFileNames,
+    lastEpoch: lastEpoch ?? this.lastEpoch,
+    lastCursor: lastCursor ?? this.lastCursor,
+    plan: plan ?? this.plan,
+  );
 
   Map<String, dynamic> toJson() => {
-        'mode': mode.name,
-        'intervalHours': intervalHours,
-        'afterImport': afterImport,
-        'lastCheckAtMs': lastCheckAtMs,
-        'lastUploadAtMs': lastUploadAtMs,
-        'lastFileName': lastFileName,
-        'lastEpoch': lastEpoch,
-        'lastCursor': lastCursor,
-      };
+    'mode': mode.name,
+    'intervalHours': intervalHours,
+    'afterImport': afterImport,
+    'lastCheckAtMs': lastCheckAtMs,
+    'lastUploadAtMs': lastUploadAtMs,
+    'lastFileNames': lastFileNames,
+    'lastFileName': lastUploadLabel,
+    'lastEpoch': lastEpoch,
+    'lastCursor': lastCursor,
+    'plan': plan.toJson(),
+  };
 
   /// Corrupt or missing values fall back to defaults rather than bricking the
   /// screen.
@@ -103,10 +118,23 @@ class DriveBackupSettings {
       afterImport: json['afterImport'] as bool? ?? true,
       lastCheckAtMs: (json['lastCheckAtMs'] as num?)?.toInt() ?? 0,
       lastUploadAtMs: (json['lastUploadAtMs'] as num?)?.toInt() ?? 0,
-      lastFileName: json['lastFileName'] as String? ?? '',
+      lastFileNames: _fileNames(json),
       lastEpoch: json['lastEpoch'] as String? ?? '',
       lastCursor: json['lastCursor'] as String? ?? '',
+      plan: DriveBackupPlan.fromJson(json['plan']),
     );
+  }
+
+  static List<String> _fileNames(Map json) {
+    final names = json['lastFileNames'];
+    if (names is List) {
+      return [
+        for (final name in names)
+          if (name is String && name.isNotEmpty) name,
+      ];
+    }
+    final legacy = json['lastFileName'];
+    return legacy is String && legacy.isNotEmpty ? [legacy] : const [];
   }
 }
 
@@ -142,36 +170,60 @@ class DriveBackupSettingsController extends Notifier<DriveBackupSettings> {
 
   /// Switching to automatic restarts the clock, so the first check is due at
   /// once rather than an interval after some long-past run.
-  void setMode(DriveUploadMode mode) => _write(state.copyWith(
-        mode: mode,
-        lastCheckAtMs:
-            mode == DriveUploadMode.automatic && !state.isAutomatic ? 0 : null,
-      ));
+  void setMode(DriveUploadMode mode) => _write(
+    state.copyWith(
+      mode: mode,
+      lastCheckAtMs: mode == DriveUploadMode.automatic && !state.isAutomatic
+          ? 0
+          : null,
+    ),
+  );
 
   void setInterval(int hours) => _write(state.copyWith(intervalHours: hours));
 
-  void setAfterImport(bool value) =>
-      _write(state.copyWith(afterImport: value));
+  void setAfterImport(bool value) => _write(state.copyWith(afterImport: value));
 
-  void markChecked(DateTime at) =>
-      _write(state.copyWith(lastCheckAtMs: at.millisecondsSinceEpoch));
+  /// A different selection invalidates the "already backed up" cursor, so the
+  /// next check uploads it instead of reporting that nothing changed.
+  void setPlan(DriveBackupPlan plan) {
+    final changed = plan.signature != state.plan.signature;
+    _write(
+      changed
+          ? DriveBackupSettings(
+              mode: state.mode,
+              intervalHours: state.intervalHours,
+              afterImport: state.afterImport,
+              lastUploadAtMs: state.lastUploadAtMs,
+              lastFileNames: state.lastFileNames,
+              plan: plan,
+            )
+          : state.copyWith(plan: plan),
+    );
+  }
 
-  /// Record a finished upload. Only an automatic (full-vault) upload carries
-  /// [epoch]/[cursor]: a hand-picked slice from the wizard says nothing about
-  /// whether the *whole* vault is on Drive.
+  void markChecked(DateTime at, {String? epoch, String? cursor}) => _write(
+    state.copyWith(
+      lastCheckAtMs: at.millisecondsSinceEpoch,
+      lastEpoch: epoch,
+      lastCursor: cursor,
+    ),
+  );
+
+  /// Record a finished upload of the current plan.
   void markUploaded(
-    String fileName,
+    List<String> fileNames,
     DateTime at, {
     String? epoch,
     String? cursor,
-  }) =>
-      _write(state.copyWith(
-        lastFileName: fileName,
-        lastUploadAtMs: at.millisecondsSinceEpoch,
-        lastCheckAtMs: cursor == null ? null : at.millisecondsSinceEpoch,
-        lastEpoch: epoch,
-        lastCursor: cursor,
-      ));
+  }) => _write(
+    state.copyWith(
+      lastFileNames: fileNames,
+      lastUploadAtMs: at.millisecondsSinceEpoch,
+      lastCheckAtMs: cursor == null ? null : at.millisecondsSinceEpoch,
+      lastEpoch: epoch,
+      lastCursor: cursor,
+    ),
+  );
 
   void _write(DriveBackupSettings next) {
     _touched = true;
@@ -191,5 +243,5 @@ class DriveBackupSettingsController extends Notifier<DriveBackupSettings> {
 
 final driveBackupSettingsProvider =
     NotifierProvider<DriveBackupSettingsController, DriveBackupSettings>(
-  DriveBackupSettingsController.new,
-);
+      DriveBackupSettingsController.new,
+    );

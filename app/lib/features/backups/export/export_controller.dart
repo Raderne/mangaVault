@@ -7,11 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/files/vault_file_system.dart';
-import '../../../core/google/google_account.dart';
-import '../../../data/drive/drive_store.dart';
 import '../../../data/export/export_models.dart';
 import '../../../data/export/export_repository.dart';
-import '../drive/drive_backup_settings.dart';
+import '../drive/drive_backup_plan.dart';
 
 /// The wizard's three steps.
 enum ExportStep {
@@ -27,10 +25,10 @@ enum ExportStep {
   static const last = ExportStep.review;
 
   String get label => switch (this) {
-        ExportStep.select => 'Select',
-        ExportStep.options => 'Options',
-        ExportStep.review => 'Review',
-      };
+    ExportStep.select => 'Select',
+    ExportStep.options => 'Options',
+    ExportStep.review => 'Review',
+  };
 }
 
 enum ExportStatus { editing, building, saved, failed }
@@ -67,6 +65,7 @@ class ExportState {
     this.progress,
     this.result,
     this.error,
+    this.driveLayout,
   });
 
   final ExportScope scope;
@@ -83,6 +82,9 @@ class ExportState {
   final ExportResult? result;
   final String? error;
 
+  /// Set only while configuring the shared Drive plan. Null is a local export.
+  final DriveOutputLayout? driveLayout;
+
   bool get isBusy => status == ExportStatus.building;
 
   /// Whether the current step allows moving on. A scope that matches nothing
@@ -91,8 +93,7 @@ class ExportState {
       step != ExportStep.last && !(preview.value?.isEmpty ?? false);
 
   bool get canBuild =>
-      status != ExportStatus.building &&
-      (preview.value?.titles ?? 0) > 0;
+      status != ExportStatus.building && (preview.value?.titles ?? 0) > 0;
 
   ExportState copyWith({
     ExportScope? scope,
@@ -104,17 +105,33 @@ class ExportState {
     ExportResult? result,
     String? error,
     bool clearError = false,
-  }) =>
-      ExportState(
-        scope: scope ?? this.scope,
-        step: step ?? this.step,
-        preview: preview ?? this.preview,
-        status: status ?? this.status,
-        progress: clearProgress ? null : (progress ?? this.progress),
-        result: result ?? this.result,
-        error: clearError ? null : (error ?? this.error),
-      );
+    DriveOutputLayout? driveLayout,
+  }) => ExportState(
+    scope: scope ?? this.scope,
+    step: step ?? this.step,
+    preview: preview ?? this.preview,
+    status: status ?? this.status,
+    progress: clearProgress ? null : (progress ?? this.progress),
+    result: result ?? this.result,
+    error: clearError ? null : (error ?? this.error),
+    driveLayout: driveLayout ?? this.driveLayout,
+  );
 }
+
+/// What opened the wizard. The Drive route overrides this so its edits cannot
+/// leak into Create Backup.
+class ExportLaunch {
+  const ExportLaunch({this.scope = const ExportScope(), this.layout});
+
+  final ExportScope scope;
+  final DriveOutputLayout? layout;
+
+  bool get isDrivePlan => layout != null;
+}
+
+final exportLaunchProvider = Provider<ExportLaunch>(
+  (ref) => const ExportLaunch(),
+);
 
 /// Debounce on scope edits. Chip taps arrive in bursts as the user builds a
 /// selection; previewing each one would put a query per tap on the server and
@@ -132,8 +149,7 @@ class ExportController extends Notifier<ExportState> {
   /// counts for a scope the user has already changed.
   int _requestSeq = 0;
 
-  /// The build the user last asked for, so "Try again" repeats *that* — a
-  /// failed Drive upload must not quietly retry as a save to the phone.
+  /// The build the user last asked for, so "Try again" repeats it.
   Future<void> Function()? _lastAttempt;
 
   @override
@@ -142,10 +158,11 @@ class ExportController extends Notifier<ExportState> {
       _debounce?.cancel();
       _inFlight?.cancel();
     });
-    // Kick off the first preview — the default scope is "everything", and the
-    // user should land on a screen that already knows how big that is.
+    final launch = ref.watch(exportLaunchProvider);
+    // Kick off the first preview — the user should land on a screen that
+    // already knows how big the selection is.
     scheduleMicrotask(_refreshPreview);
-    return const ExportState();
+    return ExportState(scope: launch.scope, driveLayout: launch.layout);
   }
 
   // ---- scope edits ----
@@ -183,32 +200,35 @@ class ExportController extends Notifier<ExportState> {
       _editFilters(state.scope.filters.copyWith(text: text.trim()));
 
   void toggleApp(String id) => _editFilters(
-        state.scope.filters
-            .copyWith(sourceApps: _toggled(state.scope.filters.sourceApps, id)),
-      );
+    state.scope.filters.copyWith(
+      sourceApps: _toggled(state.scope.filters.sourceApps, id),
+    ),
+  );
 
   void toggleSource(String id) => _editFilters(
-        state.scope.filters
-            .copyWith(sourceIds: _toggled(state.scope.filters.sourceIds, id)),
-      );
+    state.scope.filters.copyWith(
+      sourceIds: _toggled(state.scope.filters.sourceIds, id),
+    ),
+  );
 
   void toggleCategory(String id) => _editFilters(
-        state.scope.filters.copyWith(
-          categoryIds: _toggled(state.scope.filters.categoryIds, id),
-        ),
-      );
+    state.scope.filters.copyWith(
+      categoryIds: _toggled(state.scope.filters.categoryIds, id),
+    ),
+  );
 
   void toggleStatus(String id) => _editFilters(
-        state.scope.filters
-            .copyWith(status: _toggled(state.scope.filters.status, id)),
-      );
+    state.scope.filters.copyWith(
+      status: _toggled(state.scope.filters.status, id),
+    ),
+  );
 
   /// Tri-state: favorites → non-favorites → both, by tapping the same control.
   void setFavorite(bool? value) => _editFilters(
-        value == null
-            ? state.scope.filters.copyWith(clearFavorite: true)
-            : state.scope.filters.copyWith(favorite: value),
-      );
+    value == null
+        ? state.scope.filters.copyWith(clearFavorite: true)
+        : state.scope.filters.copyWith(favorite: value),
+  );
 
   void setUnreadOnly(bool value) =>
       _editFilters(state.scope.filters.copyWith(unreadOnly: value));
@@ -221,22 +241,49 @@ class ExportController extends Notifier<ExportState> {
 
   // ---- options ----
 
-  void setIncludeChapters(bool value) =>
-      _edit(state.scope.copyWith(includes: state.scope.includes.copyWith(chapters: value)));
+  void setIncludeChapters(bool value) => _edit(
+    state.scope.copyWith(
+      includes: state.scope.includes.copyWith(chapters: value),
+    ),
+  );
 
-  void setIncludeReadProgress(bool value) => _edit(state.scope
-      .copyWith(includes: state.scope.includes.copyWith(readProgress: value)));
+  void setIncludeReadProgress(bool value) => _edit(
+    state.scope.copyWith(
+      includes: state.scope.includes.copyWith(readProgress: value),
+    ),
+  );
 
-  void setIncludeCategories(bool value) => _edit(state.scope
-      .copyWith(includes: state.scope.includes.copyWith(categories: value)));
+  void setIncludeCategories(bool value) => _edit(
+    state.scope.copyWith(
+      includes: state.scope.includes.copyWith(categories: value),
+    ),
+  );
 
-  void setIncludeTracking(bool value) =>
-      _edit(state.scope.copyWith(includes: state.scope.includes.copyWith(tracking: value)));
+  void setIncludeTracking(bool value) => _edit(
+    state.scope.copyWith(
+      includes: state.scope.includes.copyWith(tracking: value),
+    ),
+  );
 
   /// Which app the file is named for. Changing it changes the filename, which
   /// the preview shows, so it re-previews like any other edit.
   void setTargetApp(String appId) =>
       _edit(state.scope.copyWith(targetApp: appId));
+
+  void setDriveLayout(DriveOutputLayout layout) {
+    if (state.driveLayout == null || state.driveLayout == layout) return;
+    var scope = state.scope;
+    final clearFavorite =
+        layout == DriveOutputLayout.splitByFavorite &&
+        scope.filters.favorite != null;
+    if (clearFavorite) {
+      scope = scope.copyWith(
+        filters: scope.filters.copyWith(clearFavorite: true),
+      );
+    }
+    state = state.copyWith(scope: scope, driveLayout: layout, clearError: true);
+    if (clearFavorite) _schedulePreview();
+  }
 
   // ---- navigation ----
 
@@ -289,36 +336,6 @@ class ExportController extends Notifier<ExportState> {
   /// Repeat whichever build last ran — the failure screen's "Try again".
   Future<void> retry() => _lastAttempt?.call() ?? Future.value();
 
-  /// Build the backup and upload it to the connected Google Drive.
-  ///
-  /// Authorizes *before* building, so Google's account sheet answers the tap
-  /// immediately rather than after a long server build — and a cancelled
-  /// sign-in costs no build at all.
-  Future<void> buildAndUpload() async {
-    if (state.isBusy) return;
-    _lastAttempt = buildAndUpload;
-    final DriveStore? store;
-    try {
-      store = await ref.read(driveOpenerProvider)(interactive: true);
-    } catch (e) {
-      state = state.copyWith(status: ExportStatus.failed, error: _message(e));
-      return;
-    }
-    if (store == null) return; // cancelled — stay on the review step
-
-    try {
-      await _buildAndDeliver((built) async {
-        await store!.upload(built.fileName, built.bytes, automatic: false);
-        ref
-            .read(driveBackupSettingsProvider.notifier)
-            .markUploaded(built.fileName, DateTime.now());
-        return 'Google Drive/$kDriveFolderName/${built.fileName}';
-      });
-    } finally {
-      store.close();
-    }
-  }
-
   /// Build the file, then hand it to [deliver], which returns where it went or
   /// null when the user backed out.
   Future<void> _buildAndDeliver(
@@ -334,7 +351,9 @@ class ExportController extends Notifier<ExportState> {
 
     final cancel = CancelToken();
     try {
-      final built = await ref.read(exportRepositoryProvider).build(
+      final built = await ref
+          .read(exportRepositoryProvider)
+          .build(
             state.scope,
             cancelToken: cancel,
             onProgress: (received, total) {
@@ -381,16 +400,17 @@ class ExportController extends Notifier<ExportState> {
   void reset() {
     _debounce?.cancel();
     _inFlight?.cancel();
-    state = const ExportState();
+    final launch = ref.read(exportLaunchProvider);
+    state = ExportState(scope: launch.scope, driveLayout: launch.layout);
     _refreshPreview();
   }
 
   /// Return to the builder after a failure, keeping the scope.
   void dismissError() => state = state.copyWith(
-        status: ExportStatus.editing,
-        step: ExportStep.review,
-        clearError: true,
-      );
+    status: ExportStatus.editing,
+    step: ExportStep.review,
+    clearError: true,
+  );
 
   // ---- internals ----
 
@@ -441,8 +461,6 @@ class ExportController extends Notifier<ExportState> {
   }
 
   static String _message(Object e) {
-    final drive = describeDriveError(e);
-    if (drive != null) return drive;
     if (e is DioException) {
       final data = e.response?.data;
       if (data is Map && data['message'] is String) {

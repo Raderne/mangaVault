@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/files/file_access.dart';
 import '../../../core/format.dart';
 import '../../../theme/app_accents.dart';
+import '../drive/drive_backup_plan.dart';
+import '../drive/drive_backup_settings.dart';
 import '../../../theme/app_dimens.dart';
 import '../../../widgets/bento_cell.dart';
 import '../../../widgets/entrance_fade.dart';
@@ -31,9 +33,11 @@ class ExportScreen extends ConsumerWidget {
     final state = ref.watch(exportControllerProvider);
     final controller = ref.read(exportControllerProvider.notifier);
 
+    final drive = ref.watch(exportLaunchProvider).isDrivePlan;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Backup'),
+        title: Text(drive ? 'Drive backup' : 'Create Backup'),
         actions: [
           if (state.status == ExportStatus.editing &&
               state.step != ExportStep.select)
@@ -74,13 +78,15 @@ class ExportScreen extends ConsumerWidget {
 Future<void> _buildAndSave(BuildContext context, WidgetRef ref) {
   final granted = ref.read(fileAccessProvider).isGranted;
   final navigator = Navigator.of(context, rootNavigator: true);
-  return ref.read(exportControllerProvider.notifier).buildAndSave(
+  return ref
+      .read(exportControllerProvider.notifier)
+      .buildAndSave(
         chooseDestination: granted
             ? (suggested) => pushSaveBrowser(
-                  navigator,
-                  suggestedName: suggested,
-                  accent: VaultAccent.emerald,
-                )
+                navigator,
+                suggestedName: suggested,
+                accent: VaultAccent.emerald,
+              )
             : null,
       );
 }
@@ -178,21 +184,55 @@ class _ActionBar extends ConsumerWidget {
                       label: const Text('Back'),
                     ),
                   const Spacer(),
-                  if (last)
-                    PillButton(
-                      label: 'Create backup',
-                      icon: Icons.download,
-                      onPressed:
-                          state.canBuild ? () => _buildAndSave(context, ref) : null,
-                    )
-                  else
-                    PillButton(
-                      label: 'Next',
-                      icon: Icons.arrow_forward,
-                      onPressed: state.canAdvance ? controller.next : null,
-                    ),
+                  if (!(last && state.driveLayout != null))
+                    last
+                        ? PillButton(
+                            label: 'Create backup',
+                            icon: Icons.download,
+                            onPressed: state.canBuild
+                                ? () => _buildAndSave(context, ref)
+                                : null,
+                          )
+                        : PillButton(
+                            label: 'Next',
+                            icon: Icons.arrow_forward,
+                            onPressed: state.canAdvance
+                                ? controller.next
+                                : null,
+                          ),
                 ],
               ),
+              if (last && state.driveLayout != null) ...[
+                const SizedBox(height: AppDimens.unit),
+                SizedBox(
+                  width: double.infinity,
+                  child: PillButton(
+                    label: 'Save configuration',
+                    icon: Icons.check,
+                    accent: VaultAccent.violet,
+                    onPressed: state.canBuild
+                        ? () {
+                            final layout = state.driveLayout!;
+                            final scope =
+                                layout == DriveOutputLayout.splitByFavorite &&
+                                    state.scope.filters.favorite != null
+                                ? state.scope.copyWith(
+                                    filters: state.scope.filters.copyWith(
+                                      clearFavorite: true,
+                                    ),
+                                  )
+                                : state.scope;
+                            ref
+                                .read(driveBackupSettingsProvider.notifier)
+                                .setPlan(
+                                  DriveBackupPlan(scope: scope, layout: layout),
+                                );
+                            Navigator.of(context).maybePop();
+                          }
+                        : null,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -238,8 +278,9 @@ class _BuildingBody extends StatelessWidget {
                     // animating a bar that means nothing.
                     ? 'Reading the vault and compressing…'
                     : 'Downloading — ${(state.progress! * 100).round()}%',
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodyMedium!.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -279,15 +320,18 @@ class _SavedBody extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Backup created',
-                                style: theme.textTheme.titleMedium),
+                            Text(
+                              'Backup created',
+                              style: theme.textTheme.titleMedium,
+                            ),
                             const SizedBox(height: 2),
                             Text(
                               '${groupedNumber(result.titles)} '
                               '${result.titles == 1 ? 'title' : 'titles'} · '
                               '${formatBytes(result.sizeBytes)}',
-                              style: theme.textTheme.bodyMedium!
-                                  .copyWith(color: scheme.onSurfaceVariant),
+                              style: theme.textTheme.bodyMedium!.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
@@ -298,16 +342,14 @@ class _SavedBody extends ConsumerWidget {
                 const SizedBox(height: AppDimens.gutter),
                 const CellLabel('Saved to'),
                 const SizedBox(height: AppDimens.unit),
-                Text(
-                  result.path,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text(result.path, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: AppDimens.gutter),
                 Text(
                   'Restore it from your reading app: Settings → Data and '
                   'storage → Restore backup.',
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(color: scheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyMedium!.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: AppDimens.gutter),
                 PillButton(
@@ -351,8 +393,9 @@ class _FailedBody extends ConsumerWidget {
               const SizedBox(height: AppDimens.unit),
               Text(
                 state.error ?? 'Something went wrong.',
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodyMedium!.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: AppDimens.gutter),
               Row(

@@ -20,6 +20,21 @@ use only the six below, and keep every item a single `- ` bullet on one line.
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-26
+
+Google Drive backups can follow the same selection as Create Backup, instead of always sending the whole vault as one file.
+
+### Added
+
+- Choose what a Google Drive backup contains — by reading app, favorite, source, category or status — and use that selection for both Upload now and automatic uploads.
+- A Drive backup can be one file, a separate file for each reading app, or separate files for favorites and everything else.
+- A title imported by more than one reading app is included in each of those files when you split by app.
+
+### Changed
+
+- The newest 5 complete Drive backup runs are kept. A split backup counts as one run, so its files are not deleted one by one.
+- Create Backup saves to your phone. Google Drive uploads use the selection saved on the Google Drive screen.
+
 ## [1.1.1] - 2026-09-13
 
 Your backups can now live somewhere other than your phone and your server. Connect a Google account

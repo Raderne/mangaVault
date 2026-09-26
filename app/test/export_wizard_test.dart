@@ -10,16 +10,19 @@ import 'package:mangavault/data/backup_apps/backup_app_models.dart';
 import 'package:mangavault/data/backup_apps/backup_apps_repository.dart';
 import 'package:mangavault/data/export/export_models.dart';
 import 'package:mangavault/data/export/export_repository.dart';
+import 'package:mangavault/features/backups/drive/drive_backup_plan.dart';
+import 'package:mangavault/features/backups/drive/drive_backup_settings.dart';
 import 'package:mangavault/features/backups/export/export_controller.dart';
 import 'package:mangavault/features/backups/export/export_screen.dart';
 import 'package:mangavault/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_file_system.dart';
 
 /// Fake repository: records the scopes it was asked about, answers instantly.
 class FakeExportRepository extends ExportRepository {
   FakeExportRepository({this.facetsResult, this.previewTitles = 12})
-      : super(Dio());
+    : super(Dio());
 
   final ExportFacets? facetsResult;
   final int previewTitles;
@@ -33,8 +36,10 @@ class FakeExportRepository extends ExportRepository {
   Future<ExportFacets> facets() async => facetsResult ?? _facets();
 
   @override
-  Future<ExportPreview> preview(ExportScope scope,
-      {CancelToken? cancelToken}) async {
+  Future<ExportPreview> preview(
+    ExportScope scope, {
+    CancelToken? cancelToken,
+  }) async {
     previewed.add(scope);
     return ExportPreview(
       titles: previewTitles,
@@ -43,7 +48,8 @@ class FakeExportRepository extends ExportRepository {
       categories: 2,
       sources: 1,
       trackedTitles: 1,
-      fileName: '${scope.targetApp.isEmpty ? 'mangavault' : scope.targetApp}'
+      fileName:
+          '${scope.targetApp.isEmpty ? 'mangavault' : scope.targetApp}'
           '_2026-08-06_12-00.tachibk',
       estimatedBytes: 4096,
       sample: const [
@@ -66,29 +72,27 @@ class FakeExportRepository extends ExportRepository {
     CancelToken? cancelToken,
   }) async {
     built.add(scope);
-    throw UnimplementedError('the save dialog is not exercised in widget tests');
+    throw UnimplementedError(
+      'the save dialog is not exercised in widget tests',
+    );
   }
 }
 
 ExportFacets _facets() => const ExportFacets(
-      totalTitles: 120,
-      favoriteTitles: 40,
-      totalChapters: 5000,
-      apps: [
-        ExportFacetOption(id: 'app.mihon', label: 'Mihon', count: 90),
-        ExportFacetOption(id: 'app.komikku', label: 'Komikku', count: 30),
-      ],
-      sources: [
-        ExportFacetOption(id: '1234', label: 'MangaDex', count: 100),
-        ExportFacetOption(id: '5678', label: 'Other', count: 20),
-      ],
-      categories: [
-        ExportFacetOption(id: 'c1', label: 'Reading', count: 12),
-      ],
-      statuses: [
-        ExportFacetOption(id: 'ongoing', label: 'ongoing', count: 80),
-      ],
-    );
+  totalTitles: 120,
+  favoriteTitles: 40,
+  totalChapters: 5000,
+  apps: [
+    ExportFacetOption(id: 'app.mihon', label: 'Mihon', count: 90),
+    ExportFacetOption(id: 'app.komikku', label: 'Komikku', count: 30),
+  ],
+  sources: [
+    ExportFacetOption(id: '1234', label: 'MangaDex', count: 100),
+    ExportFacetOption(id: '5678', label: 'Other', count: 20),
+  ],
+  categories: [ExportFacetOption(id: 'c1', label: 'Reading', count: 12)],
+  statuses: [ExportFacetOption(id: 'ongoing', label: 'ongoing', count: 80)],
+);
 
 /// Like [FakeExportRepository], but [build] actually returns a file — needed by
 /// the save tests, which the widget tests deliberately never reach.
@@ -122,16 +126,16 @@ class _GrantedAccess extends FileAccessController {
 }
 
 Widget _app(FakeExportRepository repo, {FakeFileSystem? fs}) => ProviderScope(
-      overrides: [
-        exportRepositoryProvider.overrideWithValue(repo),
-        backupAppsProvider.overrideWith((ref) async => _registry),
-        if (fs != null) ...[
-          vaultFileSystemProvider.overrideWithValue(fs),
-          fileAccessProvider.overrideWith(_GrantedAccess.new),
-        ],
-      ],
-      child: MaterialApp(theme: buildAppTheme(), home: const ExportScreen()),
-    );
+  overrides: [
+    exportRepositoryProvider.overrideWithValue(repo),
+    backupAppsProvider.overrideWith((ref) async => _registry),
+    if (fs != null) ...[
+      vaultFileSystemProvider.overrideWithValue(fs),
+      fileAccessProvider.overrideWith(_GrantedAccess.new),
+    ],
+  ],
+  child: MaterialApp(theme: buildAppTheme(), home: const ExportScreen()),
+);
 
 /// Settle past the controller's preview debounce.
 Future<void> _settle(WidgetTester tester) async {
@@ -193,8 +197,9 @@ void main() {
   });
 
   group('Export wizard', () {
-    testWidgets('opens on Select with a live count of the whole vault',
-        (tester) async {
+    testWidgets('opens on Select with a live count of the whole vault', (
+      tester,
+    ) async {
       _phoneViewport(tester);
       final repo = FakeExportRepository();
       await tester.pumpWidget(_app(repo));
@@ -208,8 +213,9 @@ void main() {
       expect(repo.previewed.first.mode, ExportMode.all);
     });
 
-    testWidgets('the favorites preset narrows the scope it previews',
-        (tester) async {
+    testWidgets('the favorites preset narrows the scope it previews', (
+      tester,
+    ) async {
       _phoneViewport(tester);
       final repo = FakeExportRepository();
       await tester.pumpWidget(_app(repo));
@@ -283,6 +289,7 @@ void main() {
       await tester.tap(find.text('Next'));
       await _settle(tester);
       expect(find.text('INCLUDE IN THE BACKUP'), findsOneWidget);
+      expect(find.text('One file'), findsNothing);
       expect(find.text('Reading progress'), findsOneWidget);
 
       await tester.tap(find.text('Next'));
@@ -296,8 +303,9 @@ void main() {
       expect(find.text('INCLUDE IN THE BACKUP'), findsOneWidget);
     });
 
-    testWidgets('turning off chapters disables the progress switch',
-        (tester) async {
+    testWidgets('turning off chapters disables the progress switch', (
+      tester,
+    ) async {
       _phoneViewport(tester);
       final repo = FakeExportRepository();
       await tester.pumpWidget(_app(repo));
@@ -309,8 +317,10 @@ void main() {
       await _settle(tester);
 
       expect(repo.previewed.last.includes.chapters, isFalse);
-      expect(find.text('Needs chapters — progress lives on them.'),
-          findsOneWidget);
+      expect(
+        find.text('Needs chapters — progress lives on them.'),
+        findsOneWidget,
+      );
       // Inert, not merely dimmed.
       final progress = tester.widget<SwitchListTile>(
         find.widgetWithText(SwitchListTile, 'Reading progress'),
@@ -351,10 +361,7 @@ void main() {
       await _settle(tester);
 
       expect(repo.previewed.last.targetApp, 'app.komikku');
-      expect(
-        find.text('app.komikku_2026-08-06_12-00.tachibk'),
-        findsOneWidget,
-      );
+      expect(find.text('app.komikku_2026-08-06_12-00.tachibk'), findsOneWidget);
     });
 
     testWidgets('an empty scope blocks Next and says so', (tester) async {
@@ -370,6 +377,51 @@ void main() {
       expect(next.onPressed, isNull);
     });
 
+    testWidgets('drive configuration saves the shared plan', (tester) async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferences.setMockInitialValues({});
+      _phoneViewport(tester);
+      final repo = FakeExportRepository();
+      final container = ProviderContainer(
+        overrides: [
+          exportRepositoryProvider.overrideWithValue(repo),
+          backupAppsProvider.overrideWith((ref) async => _registry),
+          exportLaunchProvider.overrideWithValue(
+            const ExportLaunch(layout: DriveOutputLayout.single),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: buildAppTheme(),
+            home: const ExportScreen(),
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      expect(find.text('Drive backup'), findsOneWidget);
+      await tester.tap(find.text('Next'));
+      await _settle(tester);
+      expect(find.text('By reading app'), findsOneWidget);
+      await tester.tap(find.text('By reading app'));
+      await _settle(tester);
+      await tester.tap(find.text('Next'));
+      await _settle(tester);
+
+      await tester.tap(find.text('Save configuration'));
+      await _settle(tester);
+
+      expect(
+        container.read(driveBackupSettingsProvider).plan.layout,
+        DriveOutputLayout.splitByApp,
+      );
+      expect(repo.built, isEmpty);
+    });
   });
 
   group('ExportController', () {
@@ -406,10 +458,10 @@ void main() {
 
       // Three edits, one request — carrying all three selections.
       expect(repo.previewed.length - before, 1);
-      expect(
-        repo.previewed.last.filters.sourceApps,
-        {'app.mihon', 'app.komikku'},
-      );
+      expect(repo.previewed.last.filters.sourceApps, {
+        'app.mihon',
+        'app.komikku',
+      });
       expect(repo.previewed.last.filters.sourceIds, {'1234'});
       expect(repo.previewed.last.mode, ExportMode.filter);
     });
@@ -460,7 +512,9 @@ void main() {
     /// file existed the context was unmounted, the callback returned null, and
     /// the browser silently never appeared. Only a test that drives the real
     /// screen catches this; the controller-level tests below pass either way.
-    testWidgets('tapping Create backup pushes the save browser', (tester) async {
+    testWidgets('tapping Create backup pushes the save browser', (
+      tester,
+    ) async {
       _phoneViewport(tester);
       final fs = FakeFileSystem()..addDirectory('/storage/emulated/0');
       final repo = BuildingExportRepository();
@@ -489,10 +543,14 @@ void main() {
       required Future<String?> Function(String) chooseDestination,
     }) async {
       final fs = FakeFileSystem()..addDirectory('/storage/emulated/0/Download');
-      final container = ProviderContainer(overrides: [
-        exportRepositoryProvider.overrideWithValue(BuildingExportRepository()),
-        vaultFileSystemProvider.overrideWithValue(fs),
-      ]);
+      final container = ProviderContainer(
+        overrides: [
+          exportRepositoryProvider.overrideWithValue(
+            BuildingExportRepository(),
+          ),
+          vaultFileSystemProvider.overrideWithValue(fs),
+        ],
+      );
       addTearDown(container.dispose);
       final controller = container.read(exportControllerProvider.notifier);
       await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -504,9 +562,7 @@ void main() {
 
     test('writes the bytes where the browser said', () async {
       const path = '/storage/emulated/0/Download/app.mihon_x.tachibk';
-      final (controller, fs) = await boot(
-        chooseDestination: (_) async => path,
-      );
+      final (controller, fs) = await boot(chooseDestination: (_) async => path);
 
       expect(fs.written[path], isNotNull);
       expect(controller.state.status, ExportStatus.saved);
@@ -527,10 +583,14 @@ void main() {
 
     test('an unwritable destination fails the export, not silently', () async {
       final fs = FakeFileSystem();
-      final container = ProviderContainer(overrides: [
-        exportRepositoryProvider.overrideWithValue(BuildingExportRepository()),
-        vaultFileSystemProvider.overrideWithValue(fs..readOnly = true),
-      ]);
+      final container = ProviderContainer(
+        overrides: [
+          exportRepositoryProvider.overrideWithValue(
+            BuildingExportRepository(),
+          ),
+          vaultFileSystemProvider.overrideWithValue(fs..readOnly = true),
+        ],
+      );
       addTearDown(container.dispose);
       final controller = container.read(exportControllerProvider.notifier);
       await Future<void>.delayed(const Duration(milliseconds: 50));

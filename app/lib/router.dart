@@ -46,109 +46,123 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       // Outside the shell: there is no library to browse yet, so the bottom
       // nav would be three dead ends.
-      GoRoute(
-        path: kSetupRoute,
-        builder: (_, _) => const SetupScreen(),
-      ),
+      GoRoute(path: kSetupRoute, builder: (_, _) => const SetupScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/',
-              builder: (_, _) => const DashboardScreen(),
-              routes: [
-                // Nested under Dashboard: About is reached from its app bar, so
-                // the tab stays selected and back lands on the dashboard.
-                GoRoute(
-                  path: 'about',
-                  builder: (_, _) => const AboutScreen(),
-                  routes: [
-                    // Changing servers reuses the setup form. A separate route
-                    // from `/setup`, which the redirect above bounces away from
-                    // once configured.
-                    GoRoute(
-                      path: 'server',
-                      builder: (_, _) =>
-                          const SetupScreen(isReconfiguring: true),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/library',
-              builder: (_, _) => const LibraryScreen(),
-              routes: [
-                GoRoute(
-                  path: 'deleted',
-                  builder: (_, _) => const DeletedTitlesScreen(),
-                ),
-                // Nested under Library, not a fourth tab: sources are a
-                // property of the library you are looking at, and the bottom
-                // nav is already at its three-item budget.
-                GoRoute(
-                  path: 'sources',
-                  builder: (_, _) => const SourcesScreen(),
-                  routes: [
-                    GoRoute(
-                      path: 'migrate/:jobId',
-                      builder: (_, state) => MigrationPlanScreen(
-                        jobId: state.pathParameters['jobId']!,
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (_, _) => const DashboardScreen(),
+                routes: [
+                  // Nested under Dashboard: About is reached from its app bar, so
+                  // the tab stays selected and back lands on the dashboard.
+                  GoRoute(
+                    path: 'about',
+                    builder: (_, _) => const AboutScreen(),
+                    routes: [
+                      // Changing servers reuses the setup form. A separate route
+                      // from `/setup`, which the redirect above bounces away from
+                      // once configured.
+                      GoRoute(
+                        path: 'server',
+                        builder: (_, _) =>
+                            const SetupScreen(isReconfiguring: true),
                       ),
-                    ),
-                  ],
-                ),
-                GoRoute(
-                  path: 'extensions',
-                  builder: (_, _) => const ExtensionsScreen(),
-                ),
-                GoRoute(
-                  path: 'title/:id',
-                  pageBuilder: (context, state) => CustomTransitionPage<void>(
-                    key: state.pageKey,
-                    child:
-                        TitleDetailsScreen(titleId: state.pathParameters['id']!),
-                    transitionDuration: const Duration(milliseconds: 260),
-                    reverseTransitionDuration: const Duration(milliseconds: 220),
-                    // A soft fade lets the shared-element cover Hero lead the
-                    // eye, instead of the platform slide competing with it.
-                    transitionsBuilder: (_, animation, _, child) =>
-                        FadeTransition(
-                      opacity: CurvedAnimation(
-                          parent: animation, curve: kEntranceCurve),
-                      child: child,
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/library',
+                builder: (_, _) => const LibraryScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'deleted',
+                    builder: (_, _) => const DeletedTitlesScreen(),
+                  ),
+                  // Nested under Library, not a fourth tab: sources are a
+                  // property of the library you are looking at, and the bottom
+                  // nav is already at its three-item budget.
+                  GoRoute(
+                    path: 'sources',
+                    builder: (_, _) => const SourcesScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'migrate/:jobId',
+                        builder: (_, state) => MigrationPlanScreen(
+                          jobId: state.pathParameters['jobId']!,
+                        ),
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'extensions',
+                    builder: (_, _) => const ExtensionsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'title/:id',
+                    pageBuilder: (context, state) => CustomTransitionPage<void>(
+                      key: state.pageKey,
+                      child: TitleDetailsScreen(
+                        titleId: state.pathParameters['id']!,
+                      ),
+                      transitionDuration: const Duration(milliseconds: 260),
+                      reverseTransitionDuration: const Duration(
+                        milliseconds: 220,
+                      ),
+                      // A soft fade lets the shared-element cover Hero lead the
+                      // eye, instead of the platform slide competing with it.
+                      transitionsBuilder: (_, animation, _, child) =>
+                          FadeTransition(
+                            opacity: CurvedAnimation(
+                              parent: animation,
+                              curve: kEntranceCurve,
+                            ),
+                            child: child,
+                          ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/backups',
-              builder: (_, _) => const BackupsScreen(),
-              routes: [
-                // Nested, so the wizard keeps the Backups tab selected and a
-                // back-swipe returns to the hub it was launched from.
-                GoRoute(
-                  path: 'export',
-                  builder: (_, _) => const ExportScreen(),
-                ),
-                GoRoute(
-                  path: 'auto',
-                  builder: (_, _) => const AutoImportScreen(),
-                ),
-                GoRoute(
-                  path: 'drive',
-                  builder: (_, _) => const DriveBackupScreen(),
-                ),
-              ],
-            ),
-          ]),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/backups',
+                builder: (_, _) => const BackupsScreen(),
+                routes: [
+                  // Nested, so the wizard keeps the Backups tab selected and a
+                  // back-swipe returns to the hub it was launched from.
+                  GoRoute(
+                    path: 'export',
+                    builder: (_, _) => const ExportScreen(),
+                  ),
+                  GoRoute(
+                    path: 'auto',
+                    builder: (_, _) => const AutoImportScreen(),
+                  ),
+                  GoRoute(
+                    path: 'drive',
+                    builder: (_, _) => const DriveBackupScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'configure',
+                        builder: (_, _) => const DriveBackupConfigureScreen(),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
     ],

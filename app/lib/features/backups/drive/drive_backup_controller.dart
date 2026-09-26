@@ -5,18 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/server_config_controller.dart';
 import '../../../core/google/google_account.dart';
 import '../../../data/drive/drive_store.dart';
-import '../../../data/export/export_models.dart';
 import '../../../data/export/export_repository.dart';
 import '../../../data/sync/sync_repository.dart';
 import '../import_controller.dart';
+import 'drive_backup_plan.dart';
 import 'drive_backup_settings.dart';
 
 @immutable
 class DriveBackupState {
-  const DriveBackupState({
-    this.working = false,
-    this.message,
-  });
+  const DriveBackupState({this.working = false, this.message});
 
   final bool working;
 
@@ -24,15 +21,15 @@ class DriveBackupState {
   final String? message;
 }
 
-/// Uploads a full-vault backup to Google Drive.
+/// Uploads the saved Drive plan to Google Drive.
 ///
 /// **Foreground only**, exactly like `AutoImportController`: at launch, on every
 /// resume (throttled by the interval), and after an import commits. The same
 /// reasons apply — a headless WorkManager isolate has no Riverpod graph, so the
 /// server config and the export call would have to be re-plumbed outside it.
 ///
-/// Manual uploads from the export wizard don't come through here: they carry
-/// the wizard's own scope, and `ExportController.buildAndUpload` owns them.
+/// Manual and automatic modes share one plan. Manual only means nothing runs
+/// until Upload now.
 class DriveBackupController extends Notifier<DriveBackupState> {
   AppLifecycleListener? _lifecycle;
 
@@ -80,6 +77,8 @@ class DriveBackupController extends Notifier<DriveBackupState> {
       if (ref.read(importControllerProvider).isBusy) return;
     }
 
+    final plan = settings.plan;
+    final signature = plan.signature;
     state = const DriveBackupState(working: true);
     try {
       // Before building anything: a multi-MB export of an unchanged vault
@@ -93,6 +92,26 @@ class DriveBackupController extends Notifier<DriveBackupState> {
         return;
       }
 
+      final exports = ref.read(exportRepositoryProvider);
+      final appIds = plan.layout == DriveOutputLayout.splitByApp
+          ? [for (final app in (await exports.facets()).apps) app.id]
+          : const <String>[];
+      final planned = expandDrivePlan(plan, appIds: appIds);
+      final parts = <DriveBackupPart>[];
+      for (final part in planned) {
+        final preview = await exports.preview(part.scope);
+        if (preview.titles > 0) parts.add(part);
+      }
+      if (parts.isEmpty) {
+        settingsController.markChecked(
+          at,
+          epoch: meta.serverEpoch,
+          cursor: meta.cursor,
+        );
+        state = const DriveBackupState(message: 'Nothing matches this backup.');
+        return;
+      }
+
       final store = await ref.read(driveOpenerProvider)(interactive: force);
       if (store == null) {
         state = force
@@ -103,20 +122,55 @@ class DriveBackupController extends Notifier<DriveBackupState> {
         return;
       }
 
+      final uploaded = <String>[];
       try {
-        // The default scope is the whole vault with every include on.
-        final built =
-            await ref.read(exportRepositoryProvider).build(const ExportScope());
-        await store.upload(built.fileName, built.bytes, automatic: true);
-        await _prune(store);
-        // Only now, so a failed upload is retried rather than recorded.
-        settingsController.markUploaded(
-          built.fileName,
-          at,
-          epoch: meta.serverEpoch,
-          cursor: meta.cursor,
+        final names = <String>[];
+        final runId = '${at.microsecondsSinceEpoch}';
+        for (final part in parts) {
+          final built = await exports.build(part.scope);
+          final name = driveObjectName(built.fileName, part.suffix);
+          uploaded.add(
+            await store.upload(
+              name,
+              built.bytes,
+              automatic: true,
+              runId: runId,
+              partKey: part.key,
+              partCount: parts.length,
+            ),
+          );
+          names.add(name);
+        }
+        await _prune(store, protectRunId: runId);
+        // A plan edited mid-run must not inherit this run's cursor.
+        if (ref.read(driveBackupSettingsProvider).plan.signature == signature) {
+          settingsController.markUploaded(
+            names,
+            at,
+            epoch: meta.serverEpoch,
+            cursor: meta.cursor,
+          );
+        }
+        state = DriveBackupState(
+          message: names.length == 1
+              ? 'Uploaded ${names.single}.'
+              : 'Uploaded ${names.length} files.',
         );
-        state = DriveBackupState(message: 'Uploaded ${built.fileName}.');
+      } catch (e) {
+        var rollbackFailed = false;
+        for (final id in uploaded) {
+          try {
+            await store.delete(id);
+          } catch (_) {
+            rollbackFailed = true;
+          }
+        }
+        final detail = _message(e);
+        state = DriveBackupState(
+          message: rollbackFailed
+              ? '$detail Some files may remain in Google Drive.'
+              : detail,
+        );
       } finally {
         store.close();
       }
@@ -125,10 +179,14 @@ class DriveBackupController extends Notifier<DriveBackupState> {
     }
   }
 
-  /// Keep the newest [kDriveKeepAutomatic] automatic uploads.
-  Future<void> _prune(DriveStore store) async {
+  /// Keep the newest [kDriveKeepAutomatic] complete runs.
+  Future<void> _prune(DriveStore store, {required String protectRunId}) async {
     try {
-      final stale = (await store.automaticBackupIds()).skip(kDriveKeepAutomatic);
+      final stale = staleDriveFileIds(
+        await store.automaticFiles(),
+        keep: kDriveKeepAutomatic,
+        protectRunId: protectRunId,
+      );
       for (final id in stale) {
         await store.delete(id);
       }
@@ -150,5 +208,5 @@ class DriveBackupController extends Notifier<DriveBackupState> {
 
 final driveBackupProvider =
     NotifierProvider<DriveBackupController, DriveBackupState>(
-  DriveBackupController.new,
-);
+      DriveBackupController.new,
+    );

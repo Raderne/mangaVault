@@ -38,7 +38,12 @@ class BackupsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Backups & Sources')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(AppDimens.gutter, 0, AppDimens.gutter, 96),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.gutter,
+          0,
+          AppDimens.gutter,
+          96,
+        ),
         children: [
           _ImportCtaCell(busy: busy),
           const SizedBox(height: AppDimens.gutter),
@@ -49,8 +54,9 @@ class BackupsScreen extends ConsumerWidget {
           if (state is ImportIdle &&
               !ref.watch(fileAccessProvider).isGranted) ...[
             FileAccessGate(
-              onUseSystemPicker:
-                  busy ? null : ref.read(importControllerProvider.notifier).pickAndStage,
+              onUseSystemPicker: busy
+                  ? null
+                  : ref.read(importControllerProvider.notifier).pickAndStage,
               systemPickerLabel: 'Pick a file the old way',
             ),
             const SizedBox(height: AppDimens.gutter),
@@ -90,7 +96,9 @@ class _ImportStateSection extends StatelessWidget {
         duration: still ? Duration.zero : const Duration(milliseconds: 260),
         // Out faster than in, so the arriving cell is never fighting the
         // departing one for the same space.
-        reverseDuration: still ? Duration.zero : const Duration(milliseconds: 160),
+        reverseDuration: still
+            ? Duration.zero
+            : const Duration(milliseconds: 160),
         switchInCurve: kEntranceCurve,
         switchOutCurve: Curves.easeIn,
         // The default layout centres children, which makes a tall cell leaving
@@ -123,7 +131,10 @@ class _ImportStateSection extends StatelessWidget {
     if (cell == null) return const SizedBox.shrink();
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: [cell, const SizedBox(height: AppDimens.gutter)],
+      children: [
+        cell,
+        const SizedBox(height: AppDimens.gutter),
+      ],
     );
   }
 }
@@ -171,14 +182,17 @@ class _ImportCtaCell extends ConsumerWidget {
           const SizedBox(height: AppDimens.unit),
           Text(
             'Import Backup',
-            style: theme.textTheme.headlineMedium!
-                .copyWith(color: VaultAccent.violet.color),
+            style: theme.textTheme.headlineMedium!.copyWith(
+              color: VaultAccent.violet.color,
+            ),
           ),
           const SizedBox(height: AppDimens.unit),
           Text(
             'Restore your library, reading progress, and collections from a '
             '.tachibk or legacy .json backup exported by Mihon or its forks.',
-            style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: AppDimens.unit * 2),
           PillButton(
@@ -232,18 +246,20 @@ class _AutoImportCell extends ConsumerWidget {
           const SizedBox(height: AppDimens.unit),
           Text(
             _headline(settings),
-            style: theme.textTheme.headlineMedium!
-                .copyWith(color: VaultAccent.cyan.color),
+            style: theme.textTheme.headlineMedium!.copyWith(
+              color: VaultAccent.cyan.color,
+            ),
           ),
           const SizedBox(height: AppDimens.unit),
           Text(
             auto.scanning
                 ? 'Checking for new backups…'
                 : auto.message ??
-                    'Watch a reading app folder and import each new backup on '
-                        'its own.',
-            style: theme.textTheme.bodyMedium!
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      'Watch a reading app folder and import each new backup on '
+                          'its own.',
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -285,16 +301,18 @@ class _ExportCtaCell extends StatelessWidget {
           const SizedBox(height: AppDimens.unit),
           Text(
             'Create Backup',
-            style: theme.textTheme.headlineMedium!
-                .copyWith(color: VaultAccent.emerald.color),
+            style: theme.textTheme.headlineMedium!.copyWith(
+              color: VaultAccent.emerald.color,
+            ),
           ),
           const SizedBox(height: AppDimens.unit),
           Text(
             'Write your library back out as a .tachibk file — everything, your '
             'favorites, or any slice by app, source or category. Restores into '
             'Mihon and its forks.',
-            style: theme.textTheme.bodyMedium!
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: AppDimens.unit * 2),
           PillButton(
@@ -325,14 +343,14 @@ class _DriveBackupCell extends ConsumerWidget {
     final headline = !account.connected
         ? 'Back Up to Drive'
         : settings.isAutomatic
-            ? 'Every ${settings.intervalHours}h to Drive'
-            : 'Manual Drive Uploads';
+        ? 'Every ${settings.intervalHours}h to Drive'
+        : 'Manual Drive Uploads';
     final body = drive.working
         ? 'Uploading to Google Drive…'
         : drive.message ??
-            (settings.lastFileName.isNotEmpty
-                ? 'Last: ${settings.lastFileName}'
-                : 'Keep copies of your backups in your own Google Drive.');
+              (settings.lastUploadLabel.isNotEmpty
+                  ? 'Last: ${settings.lastUploadLabel}'
+                  : 'Keep copies of your backups in your own Google Drive.');
 
     return BentoCell(
       accent: VaultAccent.violet,
@@ -352,14 +370,16 @@ class _DriveBackupCell extends ConsumerWidget {
           const SizedBox(height: AppDimens.unit),
           Text(
             headline,
-            style: theme.textTheme.headlineMedium!
-                .copyWith(color: VaultAccent.violet.color),
+            style: theme.textTheme.headlineMedium!.copyWith(
+              color: VaultAccent.violet.color,
+            ),
           ),
           const SizedBox(height: AppDimens.unit),
           Text(
             body,
-            style: theme.textTheme.bodyMedium!
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -386,7 +406,9 @@ class _BusyCell extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppDimens.gutter),
-          Expanded(child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
         ],
       ),
     );
@@ -466,15 +488,17 @@ class _NeedsAppCellState extends ConsumerState<_NeedsAppCell> {
           Text(
             "This filename doesn't say which app it came from. Pick one so the "
             'library can be filtered by it.',
-            style: theme.textTheme.bodyMedium!
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           if (remaining > 0) ...[
             const SizedBox(height: AppDimens.unit),
             Text(
               '$remaining more file(s) after this one.',
-              style: theme.textTheme.labelSmall!
-                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.labelSmall!.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
           const SizedBox(height: AppDimens.gutter),
@@ -537,7 +561,10 @@ class _ReviewCell extends ConsumerWidget {
               const SizedBox(width: AppDimens.unit),
               TextButton(
                 onPressed: controller.discardAll,
-                child: Text('Discard', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                child: Text(
+                  'Discard',
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                ),
               ),
             ],
           ),
@@ -560,9 +587,8 @@ class _StagedFileSectionState extends ConsumerState<_StagedFileSection> {
   /// everything. Tapping the active chip again clears it.
   String? _filter;
 
-  void _toggle(String action) => setState(
-        () => _filter = _filter == action ? null : action,
-      );
+  void _toggle(String action) =>
+      setState(() => _filter = _filter == action ? null : action);
 
   /// Re-open the picker for a file that is already in the review queue — the
   /// filename-derived app can be wrong, and this is the last chance to fix it
@@ -602,10 +628,7 @@ class _StagedFileSectionState extends ConsumerState<_StagedFileSection> {
           children: [
             // Which app this backup is credited to, and a way to change it —
             // the same tag the library's "from app" filter will read.
-            _SourceAppChip(
-              sourceApp: staged.fileMeta.sourceApp,
-              onTap: _retag,
-            ),
+            _SourceAppChip(sourceApp: staged.fileMeta.sourceApp, onTap: _retag),
             // The three outcome counts double as filters over the list below —
             // on a 2,000-title backup, "which 3 were skipped?" is otherwise a
             // long scroll. A zero count stays inert: nothing to show.
@@ -641,7 +664,9 @@ class _StagedFileSectionState extends ConsumerState<_StagedFileSection> {
           const SizedBox(height: AppDimens.unit),
           Text(
             '${s.warnings.length} warning(s): ${s.warnings.first}',
-            style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.error,
+            ),
           ),
         ],
         if (_filter != null) ...[
@@ -651,8 +676,9 @@ class _StagedFileSectionState extends ConsumerState<_StagedFileSection> {
               Expanded(
                 child: Text(
                   'Showing ${shown.length} of ${staged.preview.length}',
-                  style: theme.textTheme.labelSmall!
-                      .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall!.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               TextButton(
@@ -717,29 +743,57 @@ class _MergeRow extends StatelessWidget {
       accent: importActionAccent(result.action),
     );
     final title = Expanded(
-      child: Text(result.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
+      child: Text(
+        result.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodyMedium,
+      ),
     );
 
     if (result.conflicts.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(children: [title, const SizedBox(width: AppDimens.unit), badge]),
+        child: Row(
+          children: [
+            title,
+            const SizedBox(width: AppDimens.unit),
+            badge,
+          ],
+        ),
       );
     }
     return Theme(
       data: theme.copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(left: AppDimens.unit, bottom: AppDimens.unit),
-        title: Row(children: [title, const SizedBox(width: AppDimens.unit), badge]),
-        subtitle: Text('${result.conflicts.length} field conflict(s)',
-            style: theme.textTheme.labelSmall!.copyWith(color: theme.colorScheme.error)),
+        childrenPadding: const EdgeInsets.only(
+          left: AppDimens.unit,
+          bottom: AppDimens.unit,
+        ),
+        title: Row(
+          children: [
+            title,
+            const SizedBox(width: AppDimens.unit),
+            badge,
+          ],
+        ),
+        subtitle: Text(
+          '${result.conflicts.length} field conflict(s)',
+          style: theme.textTheme.labelSmall!.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
         children: [
           for (final c in result.conflicts)
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('${c.field}: kept "${c.kept}" over "${c.incoming}"',
-                  style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              child: Text(
+                '${c.field}: kept "${c.kept}" over "${c.incoming}"',
+                style: theme.textTheme.bodyMedium!.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
         ],
       ),
@@ -760,11 +814,18 @@ class _CommittingCell extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CellLabel(state.fileCount > 1
-              ? 'Importing (${state.fileIndex} of ${state.fileCount})'
-              : 'Importing'),
+          CellLabel(
+            state.fileCount > 1
+                ? 'Importing (${state.fileIndex} of ${state.fileCount})'
+                : 'Importing',
+          ),
           const SizedBox(height: AppDimens.unit),
-          Text(state.fileName, style: theme.textTheme.bodyLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(
+            state.fileName,
+            style: theme.textTheme.bodyLarge,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: AppDimens.unit * 2),
           // Shorter than the default: events land every few tens of ms, and a
           // 600ms glide would trail the counter beside it all the way through.
@@ -780,15 +841,22 @@ class _CommittingCell extends StatelessWidget {
               Expanded(
                 // One line, always: the phase label grows as titles are counted
                 // and a wrap here would resize the card mid-import.
-                child: Text(state.phaseLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                child: Text(
+                  state.phaseLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium!.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
               const SizedBox(width: AppDimens.unit),
-              Text('${state.processed} / ${state.total}',
-                  style: theme.textTheme.labelSmall!
-                      .copyWith(color: VaultAccent.cyan.color)),
+              Text(
+                '${state.processed} / ${state.total}',
+                style: theme.textTheme.labelSmall!.copyWith(
+                  color: VaultAccent.cyan.color,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppDimens.gutter),
@@ -809,9 +877,14 @@ class _DoneCell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final titlesNew = records.fold<int>(0, (n, r) => n + r.stats.titlesNew);
-    final titlesSkipped =
-        records.fold<int>(0, (n, r) => n + r.stats.titlesSkipped);
-    final titlesMerged = records.fold<int>(0, (n, r) => n + r.stats.titlesMerged);
+    final titlesSkipped = records.fold<int>(
+      0,
+      (n, r) => n + r.stats.titlesSkipped,
+    );
+    final titlesMerged = records.fold<int>(
+      0,
+      (n, r) => n + r.stats.titlesMerged,
+    );
     return BentoCell(
       accent: VaultAccent.emerald,
       child: Column(
@@ -832,16 +905,18 @@ class _DoneCell extends ConsumerWidget {
                     children: [
                       Text(
                         'Import complete',
-                        style: theme.textTheme.titleMedium!
-                            .copyWith(color: VaultAccent.emerald.color),
+                        style: theme.textTheme.titleMedium!.copyWith(
+                          color: VaultAccent.emerald.color,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '$titlesNew new · $titlesMerged merged'
                         '${titlesSkipped > 0 ? ' · $titlesSkipped skipped' : ''} '
                         'across ${records.length} file(s).',
-                        style: theme.textTheme.bodyMedium!
-                            .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.bodyMedium!.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -874,7 +949,8 @@ class _DoneCell extends ConsumerWidget {
             label: 'Import another',
             icon: Icons.add,
             accent: VaultAccent.emerald,
-            onPressed: () => ref.read(importControllerProvider.notifier).reset(),
+            onPressed: () =>
+                ref.read(importControllerProvider.notifier).reset(),
           ),
         ],
       ),
@@ -903,19 +979,26 @@ class _FailedCell extends ConsumerWidget {
               const SizedBox(width: AppDimens.unit * 1.5),
               Text(
                 'Import failed',
-                style: theme.textTheme.titleMedium!
-                    .copyWith(color: VaultAccent.rose.color),
+                style: theme.textTheme.titleMedium!.copyWith(
+                  color: VaultAccent.rose.color,
+                ),
               ),
             ],
           ),
           const SizedBox(height: AppDimens.unit),
-          Text(message, style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: AppDimens.gutter),
           PillButton(
             label: 'Try again',
             icon: Icons.refresh,
             accent: VaultAccent.rose,
-            onPressed: () => ref.read(importControllerProvider.notifier).reset(),
+            onPressed: () =>
+                ref.read(importControllerProvider.notifier).reset(),
           ),
         ],
       ),
@@ -952,11 +1035,19 @@ class _HistoryCell extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: AppDimens.unit),
               child: LinearProgressIndicator(color: VaultAccent.amber.color),
             ),
-            error: (e, _) => Text('Could not load history: $e',
-                style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error)),
+            error: (e, _) => Text(
+              'Could not load history: $e',
+              style: theme.textTheme.bodyMedium!.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
             data: (records) => records.isEmpty
-                ? Text('No imports yet.',
-                    style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant))
+                ? Text(
+                    'No imports yet.',
+                    style: theme.textTheme.bodyMedium!.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  )
                 : Column(
                     children: [
                       for (var i = 0; i < records.length; i++) ...[
@@ -994,14 +1085,21 @@ class _HistoryRow extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(record.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
+              Text(
+                record.fileName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
+              ),
               const SizedBox(height: 2),
               Text(
                 '${backupAppLabel(record.sourceApp, displayName: names[record.sourceApp])} · '
                 '${s.titlesNew} new · ${s.titlesMerged} merged'
                 '${s.titlesSkipped > 0 ? ' · ${s.titlesSkipped} skipped' : ''}'
                 ' · ${_relativeDate(record.importedAt)}',
-                style: theme.textTheme.labelSmall!.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.labelSmall!.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -1012,7 +1110,9 @@ class _HistoryRow extends ConsumerWidget {
 
   static String _relativeDate(int epochMillis) {
     if (epochMillis <= 0) return 'unknown';
-    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(epochMillis));
+    final diff = DateTime.now().difference(
+      DateTime.fromMillisecondsSinceEpoch(epochMillis),
+    );
     if (diff.inMinutes < 1) return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';

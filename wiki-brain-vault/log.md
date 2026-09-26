@@ -5,6 +5,14 @@ date, files touched, one-line summary.
 
 ---
 
+## [2026-09-26 17:53] session | Version 1.1.2 changelog
+Touched: google-drive-backup
+Scoped Drive uploads are 1.1.2+7.
+
+## [2026-09-26 16:40] session | Drive backups can be filtered or split
+Touched: google-drive-backup
+One saved plan drives manual and automatic uploads: one file, one file per reading app, or favorites split. Retention keeps five complete runs.
+
 ## [2026-09-13 13:03] session | Google Drive backup; cut v1.1.1
 Touched: google-drive-backup
 Client id set, version bumped to 1.1.1+6, CHANGELOG entry written.

@@ -6,7 +6,9 @@ import '../../../data/backup_apps/backup_apps_repository.dart';
 import '../../../theme/app_dimens.dart';
 import '../../../widgets/bento_cell.dart';
 import '../../../widgets/selectable_chip.dart';
+import '../drive/drive_backup_plan.dart';
 import 'export_controller.dart';
+import 'export_widgets.dart';
 
 /// Step 2 — **what travels with each title**, and which app the file is for.
 ///
@@ -62,8 +64,9 @@ class ExportOptionsStep extends ConsumerWidget {
                 value: includes.chapters && includes.readProgress,
                 // Progress cannot outlive the chapters it hangs off, so the
                 // switch goes inert rather than pretending to be available.
-                onChanged:
-                    includes.chapters ? controller.setIncludeReadProgress : null,
+                onChanged: includes.chapters
+                    ? controller.setIncludeReadProgress
+                    : null,
               ),
               _OptionSwitch(
                 icon: Icons.folder_outlined,
@@ -82,6 +85,13 @@ class ExportOptionsStep extends ConsumerWidget {
             ],
           ),
         ),
+        if (state.driveLayout != null) ...[
+          const SizedBox(height: AppDimens.gutter),
+          _DriveLayoutCell(
+            layout: state.driveLayout!,
+            onPick: controller.setDriveLayout,
+          ),
+        ],
         const SizedBox(height: AppDimens.gutter),
         const _CoverNote(),
         const SizedBox(height: AppDimens.gutter),
@@ -108,10 +118,9 @@ class _LosslessBadge extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           'COMPLETE',
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall!
-              .copyWith(color: scheme.secondary),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall!.copyWith(color: scheme.secondary),
         ),
       ],
     );
@@ -131,10 +140,9 @@ class _PartialBadge extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           'PARTIAL',
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall!
-              .copyWith(color: scheme.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall!.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
     );
@@ -189,6 +197,69 @@ class _OptionSwitch extends StatelessWidget {
   }
 }
 
+class _DriveLayoutCell extends StatelessWidget {
+  const _DriveLayoutCell({required this.layout, required this.onPick});
+
+  final DriveOutputLayout layout;
+  final ValueChanged<DriveOutputLayout> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return BentoCell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CellLabel('How to save it'),
+          const SizedBox(height: AppDimens.unit),
+          Text(
+            _help(layout),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppDimens.gutter),
+          ExportPresetTile(
+            icon: Icons.description_outlined,
+            title: 'One file',
+            subtitle: 'The whole selection in a single backup',
+            selected: layout == DriveOutputLayout.single,
+            onTap: () => onPick(DriveOutputLayout.single),
+          ),
+          const SizedBox(height: AppDimens.unit),
+          ExportPresetTile(
+            icon: Icons.smartphone_outlined,
+            title: 'By reading app',
+            subtitle: 'A separate file for each reading app',
+            selected: layout == DriveOutputLayout.splitByApp,
+            onTap: () => onPick(DriveOutputLayout.splitByApp),
+          ),
+          const SizedBox(height: AppDimens.unit),
+          ExportPresetTile(
+            icon: Icons.favorite_outline,
+            title: 'By favorite',
+            subtitle: 'Favorites and other titles in separate files',
+            selected: layout == DriveOutputLayout.splitByFavorite,
+            onTap: () => onPick(DriveOutputLayout.splitByFavorite),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _help(DriveOutputLayout layout) => switch (layout) {
+    DriveOutputLayout.single =>
+      'The selection above goes into one backup file.',
+    DriveOutputLayout.splitByApp =>
+      'Uses the reading apps selected on the previous step, or every app '
+          'when none are selected. A title from more than one app is '
+          'included in each of those files.',
+    DriveOutputLayout.splitByFavorite =>
+      'Favorites and other titles become two files. Choosing this clears '
+          'a favorite filter.',
+  };
+}
+
 /// States plainly what a `.tachibk` cannot carry, so a missing cover after a
 /// restore reads as the format's limit rather than as a failed backup.
 class _CoverNote extends StatelessWidget {
@@ -204,15 +275,19 @@ class _CoverNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.image_not_supported_outlined,
-              size: 18, color: scheme.onSurfaceVariant),
+          Icon(
+            Icons.image_not_supported_outlined,
+            size: 18,
+            color: scheme.onSurfaceVariant,
+          ),
           const SizedBox(width: AppDimens.unit * 1.5),
           Expanded(
             child: Text(
               'Cover images stay in the vault. The .tachibk format stores only '
               'the cover URL, which is what every reading app re-downloads from.',
-              style: theme.textTheme.bodyMedium!
-                  .copyWith(color: scheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium!.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -251,8 +326,9 @@ class _TargetAppCell extends ConsumerWidget {
           const SizedBox(height: AppDimens.unit),
           Text(
             'Name the backup for the app you plan to restore it into.',
-            style: theme.textTheme.bodyMedium!
-                .copyWith(color: scheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: AppDimens.gutter),
           Wrap(
@@ -279,8 +355,11 @@ class _TargetAppCell extends ConsumerWidget {
             NestedWell(
               child: Row(
                 children: [
-                  Icon(Icons.description_outlined,
-                      size: 16, color: scheme.onSurfaceVariant),
+                  Icon(
+                    Icons.description_outlined,
+                    size: 16,
+                    color: scheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: AppDimens.unit),
                   Expanded(
                     child: Text(
